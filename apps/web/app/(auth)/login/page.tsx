@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,6 @@ const supabase = createBrowserClient(
 type Mode = 'login' | 'register' | 'forgot';
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
@@ -47,8 +46,7 @@ function LoginForm() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.push('/dashboard');
-      router.refresh();
+      window.location.href = '/dashboard';
     } catch (err: any) {
       if (err.message?.includes('Invalid login credentials')) {
         setError('Email ou senha incorretos. Verifique seus dados.');
@@ -79,8 +77,7 @@ function LoginForm() {
 
       // Se o usuário já foi confirmado automaticamente (sem email de confirmação)
       if (data.session) {
-        router.push('/dashboard');
-        router.refresh();
+        window.location.href = '/dashboard';
         return;
       }
 

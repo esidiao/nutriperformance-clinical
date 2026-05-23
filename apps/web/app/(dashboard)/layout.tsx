@@ -1,9 +1,14 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
 import {
-  LayoutDashboard, Users, FlaskConical, Activity,
+  LayoutDashboard, Users, FlaskConical,
   Pill, GitMerge, Microscope, Target, FileText,
-  Coins, Settings, ShieldCheck, Dna,
+  Coins, Settings, ShieldCheck, Dna, LogOut,
 } from 'lucide-react';
+import { AuthGuard } from '@/components/AuthGuard';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,70 +32,90 @@ const NAV_ITEMS = [
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
+function Sidebar() {
+  const pathname = usePathname();
+
+  const handleLogout = async () => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
+  return (
+    <aside className="w-56 bg-white border-r flex flex-col">
+      <div className="p-4 border-b">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+            <span className="text-white text-xs font-bold">NP</span>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-900 leading-tight">NutriPerformance</p>
+            <p className="text-xs text-gray-400 leading-tight">Clinical</p>
+          </div>
+        </div>
+      </div>
+
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+        {NAV_ITEMS.map((item) =>
+          'children' in item ? (
+            <div key={item.label}>
+              <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mt-2">
+                <item.icon className="h-3.5 w-3.5" />
+                {item.label}
+              </div>
+              {item.children.map((child) => (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  className={`flex items-center gap-2 px-3 py-1.5 ml-3 text-sm rounded-md hover:bg-gray-100 hover:text-gray-900 ${pathname === child.href ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600'}`}
+                >
+                  {child.label}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <Link
+              key={item.href}
+              href={item.href!}
+              className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-gray-100 hover:text-gray-900 ${pathname === item.href ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600'}`}
+            >
+              <item.icon className="h-4 w-4 flex-shrink-0" />
+              {item.label}
+            </Link>
+          )
+        )}
+      </nav>
+
+      <div className="p-3 border-t space-y-2">
+        <div className="px-3 py-2 bg-amber-50 rounded-md border border-amber-200">
+          <p className="text-xs text-amber-800 leading-relaxed">
+            <strong>Ferramenta de apoio.</strong> Não substitui avaliação profissional.
+          </p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-500 rounded-md hover:bg-red-50 hover:text-red-600"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </button>
+      </div>
+    </aside>
+  );
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-56 bg-white border-r flex flex-col">
-        {/* Logo */}
-        <div className="p-4 border-b">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-              <span className="text-white text-xs font-bold">NP</span>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900 leading-tight">NutriPerformance</p>
-              <p className="text-xs text-gray-400 leading-tight">Clinical</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.map((item) =>
-            'children' in item ? (
-              <div key={item.label}>
-                <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mt-2">
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </div>
-                {item.children.map((child) => (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    className="flex items-center gap-2 px-3 py-1.5 ml-3 text-sm text-gray-600 rounded-md hover:bg-gray-100 hover:text-gray-900"
-                  >
-                    {child.label}
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <Link
-                key={item.href}
-                href={item.href!}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 rounded-md hover:bg-gray-100 hover:text-gray-900"
-              >
-                <item.icon className="h-4 w-4 flex-shrink-0" />
-                {item.label}
-              </Link>
-            )
-          )}
-        </nav>
-
-        {/* Footer */}
-        <div className="p-3 border-t">
-          <div className="px-3 py-2 bg-amber-50 rounded-md border border-amber-200">
-            <p className="text-xs text-amber-800 leading-relaxed">
-              <strong>Ferramenta de apoio.</strong> Não substitui avaliação profissional.
-            </p>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
+    <AuthGuard>
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+    </AuthGuard>
   );
 }
