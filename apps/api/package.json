@@ -15,7 +15,7 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.26.0",
+    "@google/generative-ai": "^0.24.1",
     "@nestjs/common": "^10.3.0",
     "@nestjs/config": "^3.2.0",
     "@nestjs/core": "^10.3.0",

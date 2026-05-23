@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -95,30 +95,31 @@ const DISCLAIMER =
 
 @Injectable()
 export class AIEngineService {
-  private readonly client: Anthropic;
+  private readonly model: GenerativeModel;
   private readonly logger = new Logger(AIEngineService.name);
-  private readonly model = 'claude-sonnet-4-6';
 
   constructor(private config: ConfigService) {
-    this.client = new Anthropic({
-      apiKey: this.config.get<string>('ANTHROPIC_API_KEY'),
+    const apiKey = this.config.get<string>('GEMINI_API_KEY') ?? '';
+    const genAI = new GoogleGenerativeAI(apiKey);
+    this.model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      systemInstruction: ANTI_HALLUCINATION_SYSTEM_PROMPT,
     });
+  }
+
+  private async generate(prompt: string, maxOutputTokens = 2048): Promise<string> {
+    const result = await this.model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens, temperature: 0.2 },
+    });
+    return result.response.text();
   }
 
   // ------------------------------------------------------------------
   // ANÁLISE DE INTERAÇÕES
   // ------------------------------------------------------------------
   async analyzeInteractions(input: InteractionAnalysisInput): Promise<AIAnalysisResult> {
-    const prompt = this.buildInteractionPrompt(input);
-
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 2048,
-      system: ANTI_HALLUCINATION_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const content = (response.content[0] as { type: string; text: string }).text;
+    const content = await this.generate(this.buildInteractionPrompt(input), 2048);
     return this.parseAndValidateResponse(content, 'scientific_literature_base');
   }
 
@@ -126,16 +127,7 @@ export class AIEngineService {
   // ANÁLISE DE SUPLEMENTAÇÃO
   // ------------------------------------------------------------------
   async analyzeSupplementation(input: SupplementationAnalysisInput): Promise<AIAnalysisResult> {
-    const prompt = this.buildSupplementationPrompt(input);
-
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 1500,
-      system: ANTI_HALLUCINATION_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const content = (response.content[0] as { type: string; text: string }).text;
+    const content = await this.generate(this.buildSupplementationPrompt(input), 1500);
     return this.parseAndValidateResponse(content, 'supplement_safety_base');
   }
 
@@ -143,23 +135,16 @@ export class AIEngineService {
   // ANÁLISE DE BIODISPONIBILIDADE
   // ------------------------------------------------------------------
   async analyzeBioavailability(input: BioavailabilityAnalysisInput): Promise<AIAnalysisResult> {
-    const prompt = this.buildBioavailabilityPrompt(input);
-
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 1500,
-      system: ANTI_HALLUCINATION_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const content = (response.content[0] as { type: string; text: string }).text;
+    const content = await this.generate(this.buildBioavailabilityPrompt(input), 1500);
     return this.parseAndValidateResponse(content, 'pharmacokinetics_base');
   }
 
   // ------------------------------------------------------------------
   // RESUMO NUTRICIONAL
   // ------------------------------------------------------------------
-  async summarizeNutritionalAssessment(assessmentData: Record<string, unknown>): Promise<AIAnalysisResult> {
+  async summarizeNutritionalAssessment(
+    assessmentData: Record<string, unknown>,
+  ): Promise<AIAnalysisResult> {
     const prompt = `
 Analise os seguintes dados de avaliação nutricional e produza um resumo clínico estruturado para o profissional nutricionista:
 
@@ -173,15 +158,7 @@ Inclua:
 
 IMPORTANTE: Não faça diagnóstico. Organize as informações para apoiar o julgamento clínico do nutricionista.
     `;
-
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 1200,
-      system: ANTI_HALLUCINATION_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const content = (response.content[0] as { type: string; text: string }).text;
+    const content = await this.generate(prompt, 1200);
     return this.parseAndValidateResponse(content, 'clinical_organization_tool');
   }
 
@@ -214,15 +191,7 @@ IMPORTANTE:
 - Foque no impacto nutricional e suplementar
 - Use "pode indicar" e "sugere investigação" em vez de afirmações absolutas
     `;
-
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 1500,
-      system: ANTI_HALLUCINATION_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const content = (response.content[0] as { type: string; text: string }).text;
+    const content = await this.generate(prompt, 1500);
     return this.parseAndValidateResponse(content, 'laboratory_nutritional_context');
   }
 
@@ -329,7 +298,6 @@ Se não houver dados suficientes para análise de algum item, declare explicitam
   }
 
   private parseAndValidateResponse(rawContent: string, source: string): AIAnalysisResult {
-    // Verificação de segurança: detectar possíveis alucinações flagradas
     const dangerousPatterns = [
       /prescr[eo]v[ao]/i,
       /diagnóstico definitivo/i,
@@ -348,7 +316,6 @@ Se não houver dados suficientes para análise de algum item, declare explicitam
       }
     }
 
-    // Inferir nível de confiança da resposta
     let confidenceLevel: AIAnalysisResult['confidenceLevel'] = 'moderate';
     if (/dados insuficientes/i.test(rawContent)) {
       confidenceLevel = 'insufficient_data';
