@@ -1,20 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
+import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
+import { createHmac } from 'crypto';
 import { TokenService } from '../tokens/token.service';
 
 @Injectable()
 export class BillingService {
-  private stripe: Stripe;
+  private mp: MercadoPagoConfig;
   private readonly logger = new Logger(BillingService.name);
 
   constructor(
     private config: ConfigService,
     private tokenService: TokenService,
   ) {
-    this.stripe = new Stripe(this.config.get<string>('STRIPE_SECRET_KEY')!, {
-      apiVersion: '2024-04-10',
-    });
+    const accessToken = this.config.get<string>('MP_ACCESS_TOKEN') ?? '';
+    this.mp = new MercadoPagoConfig({ accessToken });
   }
 
   async createCheckoutSession(params: {
@@ -26,102 +26,111 @@ export class BillingService {
     successUrl: string;
     cancelUrl: string;
   }) {
-    const session = await this.stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: params.isSubscription ? 'subscription' : 'payment',
-      line_items: [
-        {
-          price_data: {
-            currency: 'brl',
-            unit_amount: Math.round(params.priceBrl * 100), // centavos
-            product_data: {
-              name: `NutriPerformance Clinical — ${params.tokens} tokens`,
-              description: params.isSubscription
-                ? `Assinatura mensal — ${params.tokens} tokens/mês`
-                : `Pacote de ${params.tokens} tokens`,
-            },
-            ...(params.isSubscription
-              ? { recurring: { interval: 'month' } }
-              : {}),
+    const apiUrl =
+      this.config.get<string>('API_URL') ??
+      `https://${this.config.get<string>('RAILWAY_STATIC_URL') ?? 'localhost:3001'}`;
+
+    const preference = new Preference(this.mp);
+    const result = await preference.create({
+      body: {
+        items: [
+          {
+            id: params.packageId,
+            title: `NutriPerformance Clinical — ${params.tokens} tokens`,
+            description: params.isSubscription
+              ? `Assinatura mensal — ${params.tokens} tokens/mês`
+              : `Pacote de ${params.tokens} tokens`,
+            quantity: 1,
+            unit_price: params.priceBrl,
+            currency_id: 'BRL',
           },
-          quantity: 1,
+        ],
+        metadata: {
+          workspace_id: params.workspaceId,
+          package_id: params.packageId,
+          tokens: String(params.tokens),
+          is_subscription: params.isSubscription,
         },
-      ],
-      metadata: {
-        workspaceId: params.workspaceId,
-        packageId: params.packageId,
-        tokens: String(params.tokens),
+        back_urls: {
+          success: params.successUrl,
+          failure: params.cancelUrl,
+          pending: params.successUrl,
+        },
+        auto_return: 'approved',
+        notification_url: `${apiUrl}/billing/webhook`,
       },
-      success_url: params.successUrl,
-      cancel_url: params.cancelUrl,
     });
 
-    return { url: session.url, sessionId: session.id };
+    return { url: result.init_point, preferenceId: result.id };
   }
 
-  async handleStripeWebhook(rawBody: Buffer, signature: string) {
-    const webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET')!;
+  async handleWebhook(
+    body: any,
+    xSignature: string | undefined,
+    xRequestId: string | undefined,
+  ): Promise<void> {
+    // Validação de assinatura do Mercado Pago (opcional mas recomendado)
+    const webhookSecret = this.config.get<string>('MP_WEBHOOK_SECRET');
+    if (webhookSecret && xSignature && xRequestId) {
+      const tsMatch = xSignature.match(/ts=([^,]+)/);
+      const v1Match = xSignature.match(/v1=([^,]+)/);
+      const ts = tsMatch?.[1];
+      const v1 = v1Match?.[1];
+      const dataId = body?.data?.id ?? '';
 
-    let event: Stripe.Event;
-    try {
-      event = this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    } catch (err) {
-      this.logger.error(`Webhook inválido: ${err}`);
-      throw new Error('Webhook inválido');
-    }
+      if (ts && v1) {
+        const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+        const expected = createHmac('sha256', webhookSecret)
+          .update(manifest)
+          .digest('hex');
 
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        await this.processSuccessfulPayment(session);
-        break;
-      }
-      case 'invoice.payment_succeeded': {
-        // Renovação de assinatura → créditar tokens mensais
-        const invoice = event.data.object as Stripe.Invoice;
-        await this.processSubscriptionRenewal(invoice);
-        break;
-      }
-      case 'customer.subscription.deleted': {
-        // Cancelamento → não renovar tokens
-        this.logger.log(`Assinatura cancelada: ${event.data.object}`);
-        break;
+        if (v1 !== expected) {
+          this.logger.error('Assinatura do webhook Mercado Pago inválida');
+          throw new Error('Webhook inválido');
+        }
       }
     }
+
+    const { type, action, data } = body;
+    const eventType = type ?? action;
+
+    this.logger.log(`Webhook MP recebido: ${eventType} | id=${data?.id}`);
+
+    if (eventType === 'payment' || eventType === 'payment.updated') {
+      const paymentId = data?.id;
+      if (!paymentId) return;
+
+      const paymentClient = new Payment(this.mp);
+      const payment = await paymentClient.get({ id: String(paymentId) });
+
+      if (payment.status === 'approved') {
+        await this.processApprovedPayment(payment);
+      } else {
+        this.logger.log(`Pagamento ${paymentId} status: ${payment.status}`);
+      }
+    }
   }
 
-  private async processSuccessfulPayment(session: Stripe.Checkout.Session) {
-    const { workspaceId, tokens, packageId } = session.metadata!;
+  private async processApprovedPayment(payment: any): Promise<void> {
+    const meta = payment.metadata;
 
-    await this.tokenService.credit({
-      workspaceId,
-      operation: 'purchase',
-      amount: Number(tokens),
-      description: `Pagamento confirmado — ${tokens} tokens`,
-      paymentId: session.payment_intent as string,
-    });
-
-    this.logger.log(`Tokens creditados: ${tokens} para workspace ${workspaceId}`);
-  }
-
-  private async processSubscriptionRenewal(invoice: Stripe.Invoice) {
-    const subscription = await this.stripe.subscriptions.retrieve(
-      invoice.subscription as string,
-    );
-    const workspaceId = subscription.metadata?.workspaceId;
-    const tokens = subscription.metadata?.tokensPerPeriod;
-
-    if (!workspaceId || !tokens) {
-      this.logger.warn(`Metadados de assinatura ausentes: ${invoice.id}`);
+    if (!meta?.workspace_id || !meta?.tokens) {
+      this.logger.warn(
+        `Metadados ausentes no pagamento ${payment.id}. Meta: ${JSON.stringify(meta)}`,
+      );
       return;
     }
 
     await this.tokenService.credit({
-      workspaceId,
+      workspaceId: meta.workspace_id,
       operation: 'purchase',
-      amount: Number(tokens),
-      description: `Renovação mensal — ${tokens} tokens`,
-      paymentId: invoice.payment_intent as string,
+      amount: Number(meta.tokens),
+      description: `Pagamento Mercado Pago confirmado — ${meta.tokens} tokens`,
+      paymentId: String(payment.id),
     });
+
+    this.logger.log(
+      `✓ Tokens creditados: ${meta.tokens} para workspace ${meta.workspace_id} (MP #${payment.id})`,
+    );
   }
 }

@@ -1,8 +1,7 @@
 import {
-  Controller, Post, Body, Req, Headers, RawBodyRequest,
+  Controller, Post, Body, Req, Headers, HttpCode,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { Request } from 'express';
 import { BillingService } from './billing.service';
 
 @ApiTags('billing')
@@ -12,7 +11,7 @@ export class BillingController {
 
   @Post('checkout')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Criar sessão de checkout Stripe' })
+  @ApiOperation({ summary: 'Criar preferência de pagamento Mercado Pago' })
   async createCheckout(@Body() body: any, @Req() req: any) {
     return this.billingService.createCheckoutSession({
       workspaceId: req.user.workspaceId,
@@ -25,13 +24,15 @@ export class BillingController {
     });
   }
 
-  @Post('stripe/webhook')
-  @ApiOperation({ summary: 'Webhook Stripe — validado por assinatura' })
-  async stripeWebhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('stripe-signature') signature: string,
+  @Post('webhook')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Webhook Mercado Pago — notificações de pagamento' })
+  async mpWebhook(
+    @Body() body: any,
+    @Headers('x-signature') xSignature: string,
+    @Headers('x-request-id') xRequestId: string,
   ) {
-    await this.billingService.handleStripeWebhook(req.rawBody!, signature);
+    await this.billingService.handleWebhook(body, xSignature, xRequestId);
     return { received: true };
   }
 }
