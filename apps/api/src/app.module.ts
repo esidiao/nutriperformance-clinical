@@ -60,6 +60,10 @@ import { HealthController } from './health.controller';
         password: config.get<string>('DB_PASS'),
         database: config.get<string>('DB_NAME') ?? 'postgres',
         ssl: config.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
+        connectTimeoutMS: 30000,
+        extra: { connectionTimeoutMillis: 30000 },
+        retryAttempts: 3,
+        retryDelay: 3000,
         entities: [
           Workspace, User, Patient,
           TokenTransaction, TokenCost,

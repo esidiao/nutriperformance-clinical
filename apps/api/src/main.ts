@@ -5,6 +5,10 @@ import { AppModule } from './app.module';
 import * as Sentry from '@sentry/node';
 
 async function bootstrap() {
+  console.log('Starting NutriPerformance API...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+  console.log('DB_HOST:', process.env.DB_HOST);
   const app = await NestFactory.create(AppModule, {
     // Necessário para validação de assinatura de webhooks (Stripe)
     rawBody: true,
