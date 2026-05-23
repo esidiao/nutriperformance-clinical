@@ -1,18 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShieldCheck, Loader2 } from 'lucide-react';
-import { api } from '@/lib/api-client';
+import { createClient } from '@supabase/supabase-js';
 
-export default function LoginPage() {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
+
+type Mode = 'login' | 'register' | 'forgot';
+
+function LoginForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -20,18 +28,30 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  useEffect(() => {
+    const m = searchParams.get('mode');
+    if (m === 'register') setMode('register');
+    else if (m === 'forgot') setMode('forgot');
+  }, [searchParams]);
+
+  const switchMode = (m: Mode) => {
+    setMode(m);
+    setError('');
+    setSuccess('');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     try {
-      const { error } = await api.supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       router.push('/dashboard');
       router.refresh();
     } catch (err: any) {
       if (err.message?.includes('Invalid login credentials')) {
-        setError('Email ou senha incorretos.');
+        setError('Email ou senha incorretos. Verifique seus dados.');
       } else if (err.message?.includes('Email not confirmed')) {
         setError('Confirme seu email antes de entrar. Verifique sua caixa de entrada.');
       } else {
@@ -47,18 +67,29 @@ export default function LoginPage() {
     setIsLoading(true);
     setError('');
     try {
-      const { error } = await api.supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: name } },
+        options: {
+          data: { full_name: name },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
       });
       if (error) throw error;
-      setSuccess('Conta criada! Verifique seu email para confirmar o cadastro.');
-      setMode('login');
+
+      // Se o usuário já foi confirmado automaticamente (sem email de confirmação)
+      if (data.session) {
+        router.push('/dashboard');
+        router.refresh();
+        return;
+      }
+
+      setSuccess('Conta criada! Verifique seu email para confirmar o cadastro e depois faça login.');
+      switchMode('login');
     } catch (err: any) {
-      if (err.message?.includes('already registered')) {
+      if (err.message?.includes('already registered') || err.message?.includes('User already registered')) {
         setError('Este email já está cadastrado. Faça login.');
-      } else if (err.message?.includes('Password should be')) {
+      } else if (err.message?.includes('Password should be') || err.message?.includes('password')) {
         setError('A senha deve ter pelo menos 6 caracteres.');
       } else {
         setError(err.message ?? 'Erro ao criar conta. Tente novamente.');
@@ -73,7 +104,7 @@ export default function LoginPage() {
     setIsLoading(true);
     setError('');
     try {
-      const { error } = await api.supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`,
       });
       if (error) throw error;
@@ -129,7 +160,7 @@ export default function LoginPage() {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <Label htmlFor="password">Senha</Label>
-                    <button type="button" onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }}
+                    <button type="button" onClick={() => switchMode('forgot')}
                       className="text-xs text-blue-600 hover:underline">
                       Esqueci minha senha
                     </button>
@@ -144,7 +175,7 @@ export default function LoginPage() {
                 </Button>
                 <p className="text-center text-xs text-gray-500">
                   Não tem conta?{' '}
-                  <button type="button" onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
+                  <button type="button" onClick={() => switchMode('register')}
                     className="text-blue-600 hover:underline font-medium">
                     Criar conta
                   </button>
@@ -179,7 +210,7 @@ export default function LoginPage() {
                 </Button>
                 <p className="text-center text-xs text-gray-500">
                   Já tem conta?{' '}
-                  <button type="button" onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+                  <button type="button" onClick={() => switchMode('login')}
                     className="text-blue-600 hover:underline font-medium">
                     Entrar
                   </button>
@@ -201,7 +232,7 @@ export default function LoginPage() {
                   {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</> : 'Enviar link de recuperação'}
                 </Button>
                 <p className="text-center text-xs text-gray-500">
-                  <button type="button" onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+                  <button type="button" onClick={() => switchMode('login')}
                     className="text-blue-600 hover:underline font-medium">
                     ← Voltar ao login
                   </button>
@@ -225,5 +256,17 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

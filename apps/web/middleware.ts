@@ -2,6 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const DASHBOARD_PREFIXES = [
+  '/dashboard', '/patients', '/interactions', '/assessments',
+  '/supplementation', '/bioavailability', '/laboratory', '/goals',
+  '/reports', '/tokens', '/settings', '/admin', '/alerts',
+];
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -25,19 +31,13 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { session } } = await supabase.auth.getSession();
-
   const { pathname } = request.nextUrl;
 
-  // Protect dashboard routes
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/patients') ||
-      pathname.startsWith('/interactions') || pathname.startsWith('/assessments') ||
-      pathname.startsWith('/supplementation') || pathname.startsWith('/bioavailability') ||
-      pathname.startsWith('/laboratory') || pathname.startsWith('/goals') ||
-      pathname.startsWith('/reports') || pathname.startsWith('/tokens') ||
-      pathname.startsWith('/settings') || pathname.startsWith('/admin')) {
-    if (!session) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+  const isDashboardRoute = DASHBOARD_PREFIXES.some(p => pathname.startsWith(p));
+
+  // Protect dashboard routes — redirect to login if not authenticated
+  if (isDashboardRoute && !session) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // Redirect authenticated users away from login
