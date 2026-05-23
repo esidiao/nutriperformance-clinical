@@ -17,6 +17,5 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 RUN pnpm install --filter @nutri-performance/api --prod --frozen-lockfile
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
-WORKDIR /app/apps/api
 EXPOSE 3001
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "apps/api/dist/src/main.js"]
