@@ -1,5 +1,6 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 RUN npm install -g pnpm@9
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/
@@ -11,6 +12,10 @@ RUN pnpm build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV NODE_ENV=production
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 RUN npm install -g pnpm@9
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/
