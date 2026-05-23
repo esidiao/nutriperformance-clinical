@@ -1,0 +1,40 @@
+# Variáveis de ambiente — NUNCA commitar
+.env
+.env.local
+.env.*.local
+apps/api/.env
+apps/web/.env.local
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+.next/
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Puppeteer cache
+.cache/puppeteer/
+
+# Uploads/arquivos temporários
+apps/api/uploads/
+apps/api/temp/
+
+# Turbo cache
+.turbo/

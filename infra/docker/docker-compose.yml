@@ -1,0 +1,82 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nutriperformance_db
+    environment:
+      POSTGRES_DB: nutriperformance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev_password
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../docs/database-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../../docs/seed-data.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nutriperformance_redis
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  api:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile.dev
+    container_name: nutriperformance_api
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres_dev_password@postgres:5432/nutriperformance
+      REDIS_URL: redis://redis:6379
+      ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      # Preencher com suas chaves reais:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      JWT_SECRET: dev_jwt_secret_change_in_prod
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ../../apps/api/src:/app/src
+
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile.dev
+    container_name: nutriperformance_web
+    ports:
+      - '3000:3000'
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+    depends_on:
+      - api
+    volumes:
+      - ../../apps/web:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  postgres_data:
+  redis_data:
