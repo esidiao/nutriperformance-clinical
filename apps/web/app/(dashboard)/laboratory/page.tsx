@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShieldAlert, Plus, FlaskConical, Coins, Brain, Upload } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
 
 type LabStatus = 'normal' | 'low' | 'high' | 'critical_low' | 'critical_high' | 'not_evaluated';
 
@@ -85,24 +86,23 @@ export default function LaboratoryPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Exames Laboratoriais</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Contexto nutricional dos exames — não substituem interpretação médica
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="flex items-center gap-2 text-sm">
-            <Upload className="h-4 w-4" /> Upload PDF
-          </Button>
-          <Button onClick={() => setShowAddForm((v) => !v)} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Registrar exame
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col min-h-full">
+      <PageHeader
+        title="Exames Laboratoriais"
+        description="Contexto nutricional dos exames — não substitui interpretação médica"
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Exames' }]}
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex items-center gap-2 text-sm">
+              <Upload className="h-4 w-4" /> Upload PDF
+            </Button>
+            <Button size="sm" onClick={() => setShowAddForm((v) => !v)} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Registrar exame
+            </Button>
+          </div>
+        }
+      />
+    <div className="p-6 max-w-4xl mx-auto space-y-5 flex-1">
 
       <Alert className="border-blue-200 bg-blue-50">
         <ShieldAlert className="h-4 w-4 text-blue-600" />
@@ -235,6 +235,7 @@ export default function LaboratoryPage() {
           </CardContent>
         </Card>
       )}
+    </div>
     </div>
   );
 }

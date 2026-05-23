@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PageHeader } from '@/components/PageHeader';
 import {
   Plus, Pill, ShieldAlert, Coins, Search,
   AlertTriangle, ChevronDown, ChevronUp, Brain,
@@ -145,20 +146,19 @@ export default function SupplementationPage() {
   ).length;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-5">
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Suplementação</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {activeCount} suplementos ativos · {alertCount > 0 ? `${alertCount} com alerta de risco` : 'sem alertas de risco'}
-          </p>
-        </div>
-        <Button onClick={() => setShowForm((v) => !v)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          {showForm ? 'Cancelar' : 'Adicionar suplemento'}
-        </Button>
-      </div>
+    <div className="flex flex-col min-h-full">
+      <PageHeader
+        title="Suplementação"
+        description={`${activeCount} suplementos ativos · ${alertCount > 0 ? `${alertCount} com alerta de risco` : 'sem alertas de risco'}`}
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Suplementação' }]}
+        action={
+          <Button onClick={() => setShowForm((v) => !v)} size="sm" className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            {showForm ? 'Cancelar' : 'Adicionar suplemento'}
+          </Button>
+        }
+      />
+    <div className="p-6 max-w-4xl mx-auto space-y-5 flex-1">
 
       <Alert className="border-amber-300 bg-amber-50">
         <ShieldAlert className="h-4 w-4 text-amber-600" />
@@ -366,6 +366,7 @@ export default function SupplementationPage() {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }
