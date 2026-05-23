@@ -52,29 +52,39 @@ import { HealthController } from './health.controller';
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: parseInt(config.get<string>('DB_PORT') ?? '6543', 10),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASS'),
-        database: config.get<string>('DB_NAME') ?? 'postgres',
-        ssl: config.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
-        connectTimeoutMS: 15000,
-        extra: { connectionTimeoutMillis: 15000 },
-        retryAttempts: 20,
-        retryDelay: 5000,
-        entities: [
-          Workspace, User, Patient,
-          TokenTransaction, TokenCost,
-          InteractionAnalysis, BioavailabilityAnalysis,
-          ClinicalAlert, AuditLog,
-          NutritionalAssessment, PhysicalAssessment,
-          PatientSupplementation, LaboratoryExam, PatientGoal,
-        ],
-        synchronize: config.get('NODE_ENV') !== 'production' || config.get('DB_SYNC') === 'true',
-        logging: config.get('NODE_ENV') === 'development',
-      }),
+      useFactory: (config: ConfigService) => {
+        const databaseUrl = config.get<string>('DATABASE_URL');
+        const isProduction = config.get('NODE_ENV') === 'production';
+        const baseOptions = {
+          type: 'postgres' as const,
+          ssl: isProduction ? { rejectUnauthorized: false } : false,
+          connectTimeoutMS: 15000,
+          extra: { connectionTimeoutMillis: 15000 },
+          retryAttempts: 20,
+          retryDelay: 5000,
+          entities: [
+            Workspace, User, Patient,
+            TokenTransaction, TokenCost,
+            InteractionAnalysis, BioavailabilityAnalysis,
+            ClinicalAlert, AuditLog,
+            NutritionalAssessment, PhysicalAssessment,
+            PatientSupplementation, LaboratoryExam, PatientGoal,
+          ],
+          synchronize: !isProduction || config.get('DB_SYNC') === 'true',
+          logging: !isProduction,
+        };
+        if (databaseUrl) {
+          return { ...baseOptions, url: databaseUrl };
+        }
+        return {
+          ...baseOptions,
+          host: config.get<string>('DB_HOST'),
+          port: parseInt(config.get<string>('DB_PORT') ?? '5432', 10),
+          username: config.get<string>('DB_USER'),
+          password: config.get<string>('DB_PASS'),
+          database: config.get<string>('DB_NAME') ?? 'postgres',
+        };
+      },
     }),
 
     // Repositories needed by global guards (TokenBalanceGuard)
