@@ -72,7 +72,7 @@ import { HealthController } from './health.controller';
           NutritionalAssessment, PhysicalAssessment,
           PatientSupplementation, LaboratoryExam, PatientGoal,
         ],
-        synchronize: false,
+        synchronize: config.get('NODE_ENV') !== 'production' || config.get('DB_SYNC') === 'true',
         logging: config.get('NODE_ENV') === 'development',
       }),
     }),
