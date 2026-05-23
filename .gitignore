@@ -38,3 +38,7 @@ apps/api/temp/
 
 # Turbo cache
 .turbo/
+
+# Scripts Railway/Vercel com tokens
+railway-*.mjs
+vercel-deploy.mjs
