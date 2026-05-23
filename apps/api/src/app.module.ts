@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 // Entities — needed for TypeORM entity list at root level
@@ -45,11 +46,11 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 // Health check
 import { HealthController } from './health.controller';
-import { BootstrapController } from './bootstrap.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -71,7 +72,7 @@ import { BootstrapController } from './bootstrap.controller';
             NutritionalAssessment, PhysicalAssessment,
             PatientSupplementation, LaboratoryExam, PatientGoal,
           ],
-          synchronize: !isProduction || config.get('DB_SYNC') === 'true',
+          synchronize: !isProduction,
           logging: !isProduction,
         };
         if (databaseUrl) {
@@ -111,9 +112,10 @@ import { BootstrapController } from './bootstrap.controller';
     AdminModule,
   ],
 
-  controllers: [HealthController, BootstrapController],
+  controllers: [HealthController],
 
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: TokenBalanceGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },

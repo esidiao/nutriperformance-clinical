@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { Loader2 } from 'lucide-react';
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+export function AuthGuard({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
@@ -18,9 +18,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         router.replace('/login');
-      } else {
-        setChecking(false);
+        return;
       }
+
+      if (requiredRole) {
+        const user = session.user;
+        const role = user.user_metadata?.role ?? user.app_metadata?.role;
+        if (role !== requiredRole) {
+          router.replace('/dashboard');
+          return;
+        }
+      }
+
+      setChecking(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -30,7 +40,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [router, requiredRole]);
 
   if (checking) {
     return (

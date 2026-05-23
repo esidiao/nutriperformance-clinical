@@ -69,25 +69,27 @@ export class BillingService {
     xSignature: string | undefined,
     xRequestId: string | undefined,
   ): Promise<void> {
-    // Validação de assinatura do Mercado Pago (opcional mas recomendado)
     const webhookSecret = this.config.get<string>('MP_WEBHOOK_SECRET');
-    if (webhookSecret && xSignature && xRequestId) {
+
+    // Se o secret estiver configurado, a validação é obrigatória
+    if (webhookSecret) {
+      if (!xSignature || !xRequestId) {
+        this.logger.error('Webhook sem assinatura rejeitado');
+        throw new Error('Assinatura obrigatória');
+      }
       const tsMatch = xSignature.match(/ts=([^,]+)/);
       const v1Match = xSignature.match(/v1=([^,]+)/);
       const ts = tsMatch?.[1];
       const v1 = v1Match?.[1];
       const dataId = body?.data?.id ?? '';
-
-      if (ts && v1) {
-        const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
-        const expected = createHmac('sha256', webhookSecret)
-          .update(manifest)
-          .digest('hex');
-
-        if (v1 !== expected) {
-          this.logger.error('Assinatura do webhook Mercado Pago inválida');
-          throw new Error('Webhook inválido');
-        }
+      if (!ts || !v1) {
+        throw new Error('Assinatura malformada');
+      }
+      const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+      const expected = createHmac('sha256', webhookSecret).update(manifest).digest('hex');
+      if (v1 !== expected) {
+        this.logger.error('Assinatura do webhook Mercado Pago inválida');
+        throw new Error('Webhook inválido');
       }
     }
 

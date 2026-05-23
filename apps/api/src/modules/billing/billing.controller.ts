@@ -1,7 +1,9 @@
 import {
-  Controller, Post, Body, Req, Headers, HttpCode,
+  Controller, Post, Body, Req, Headers, HttpCode, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { ClinicalStaff } from '../../common/decorators';
 import { BillingService } from './billing.service';
 
 @ApiTags('billing')
@@ -10,6 +12,8 @@ export class BillingController {
   constructor(private billingService: BillingService) {}
 
   @Post('checkout')
+  @UseGuards(JwtAuthGuard)
+  @ClinicalStaff()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Criar preferência de pagamento Mercado Pago' })
   async createCheckout(@Body() body: any, @Req() req: any) {

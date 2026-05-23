@@ -24,9 +24,6 @@ function startFallbackServer(port: number | string): http.Server {
 async function bootstrap() {
   console.log('Starting NutriPerformance API...');
   console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('PORT:', process.env.PORT);
-  console.log('DB_HOST:', process.env.DB_HOST);
-  console.log('DB_PORT:', process.env.DB_PORT);
 
   const port = process.env.PORT ?? 3001;
 
@@ -59,7 +56,7 @@ async function bootstrap() {
       }),
     );
 
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV === 'development') {
       const config = new DocumentBuilder()
         .setTitle('NutriPerformance Clinical API')
         .setDescription('API do SaaS NutriPerformance Clinical')

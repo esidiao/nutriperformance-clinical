@@ -1,9 +1,11 @@
-import { Controller, Get, Query, Req } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TokenService } from './token.service';
 
 @ApiTags('tokens')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('tokens')
 export class TokenController {
   constructor(private tokenService: TokenService) {}
