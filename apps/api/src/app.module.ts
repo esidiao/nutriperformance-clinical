@@ -57,7 +57,7 @@ import { HealthController } from './health.controller';
         const isProduction = config.get('NODE_ENV') === 'production';
         const baseOptions = {
           type: 'postgres' as const,
-          ssl: isProduction ? { rejectUnauthorized: false } : false,
+          ssl: (isProduction && config.get('DB_SSL') !== 'false') ? { rejectUnauthorized: false } : false,
           connectTimeoutMS: 15000,
           extra: { connectionTimeoutMillis: 15000 },
           retryAttempts: 20,
