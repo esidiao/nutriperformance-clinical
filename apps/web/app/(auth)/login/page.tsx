@@ -28,6 +28,7 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const supabaseOrNull = getSupabase();
 
@@ -97,7 +98,14 @@ function LoginForm() {
         email,
         password,
         options: {
-          data: { full_name: name },
+          data: {
+            full_name: name,
+            terms_accepted: true,
+            terms_accepted_at: new Date().toISOString(),
+            terms_version: '1.0',
+            privacy_accepted: true,
+            privacy_accepted_at: new Date().toISOString(),
+          },
           emailRedirectTo: `${window.location.origin}/login`,
         },
       });
@@ -229,8 +237,26 @@ function LoginForm() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••" required minLength={6} />
                 </div>
+                {/* Consentimento LGPD — obrigatório */}
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded flex-shrink-0"
+                    required
+                  />
+                  <span className="text-xs text-gray-600 leading-relaxed">
+                    Li e aceito os{' '}
+                    <a href="/legal/terms" target="_blank" className="text-blue-600 hover:underline font-medium">Termos de Uso</a>
+                    {' '}e a{' '}
+                    <a href="/legal/privacy" target="_blank" className="text-blue-600 hover:underline font-medium">Política de Privacidade</a>,
+                    incluindo o tratamento de dados conforme a <strong>LGPD (Lei 13.709/2018)</strong>.
+                    Sou profissional habilitado pelo <strong>CFN ou CONFEF</strong>.
+                  </span>
+                </label>
                 {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || !termsAccepted}>
                   {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando conta...</> : 'Criar conta'}
                 </Button>
                 <p className="text-center text-xs text-gray-500">

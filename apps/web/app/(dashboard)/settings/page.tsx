@@ -170,10 +170,11 @@ export default function SettingsPage() {
           </Alert>
           <div className="space-y-2 text-sm">
             {[
-              { label: 'Política de Privacidade', href: '#' },
-              { label: 'Termos de Uso', href: '#' },
-              { label: 'Exportar meus dados (LGPD Art. 18)', href: '#' },
-              { label: 'Logs de auditoria da minha conta', href: '#' },
+              { label: 'Política de Privacidade', href: '/legal/privacy' },
+              { label: 'Termos de Uso', href: '/legal/terms' },
+              { label: 'Política de Cookies', href: '/legal/cookies' },
+              { label: 'Central de Direitos (LGPD Art. 18)', href: '/legal/dados' },
+              { label: 'Logs de auditoria', href: '/admin/audit' },
               { label: 'Contatar o DPO', href: 'mailto:dpo@nutriperformance.com.br' },
             ].map((item) => (
               <a key={item.label} href={item.href}
