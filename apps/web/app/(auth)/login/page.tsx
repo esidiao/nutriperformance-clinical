@@ -10,12 +10,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
-
 type Mode = 'login' | 'register' | 'forgot';
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createBrowserClient(url, key);
+}
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -26,6 +28,32 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const supabaseOrNull = getSupabase();
+
+  if (!supabaseOrNull) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <div className="w-full max-w-md text-center space-y-4">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <span className="text-white text-2xl font-bold">NP</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">NutriPerformance Clinical</h1>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-left">
+            <p className="text-red-800 font-semibold text-sm mb-2">⚠️ Configuração pendente</p>
+            <p className="text-red-700 text-xs leading-relaxed">
+              As variáveis de ambiente do Supabase não estão configuradas neste ambiente.
+              Configure <code className="bg-red-100 px-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code> e{' '}
+              <code className="bg-red-100 px-1 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> no painel do Vercel e faça um novo deploy.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Safe to use — guarded above
+  const supabase = supabaseOrNull;
 
   useEffect(() => {
     const m = searchParams.get('mode');

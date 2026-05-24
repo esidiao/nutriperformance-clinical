@@ -10,10 +10,14 @@ export function AuthGuard({ children, requiredRole }: { children: React.ReactNod
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      // Env vars not set — skip auth check in this environment
+      setChecking(false);
+      return;
+    }
+    const supabase = createBrowserClient(url, key);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
@@ -33,7 +37,7 @@ export function AuthGuard({ children, requiredRole }: { children: React.ReactNod
       setChecking(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase!.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
         router.replace('/login');
       }
