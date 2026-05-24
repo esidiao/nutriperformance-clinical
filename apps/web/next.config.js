@@ -7,8 +7,20 @@ const withPWA = require('next-pwa')({
 });
 
 const nextConfig = {
-  experimental: { serverActions: { allowedOrigins: ['localhost:3000'] } },
-  images: { domains: ['dgvrflipjxaclpmudtwt.supabase.co'] },
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        'localhost:3000',
+        'web-a1nk9hpuu-sidiao-collabs-projects.vercel.app',
+        '*.vercel.app',
+      ],
+    },
+  },
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'dgvrflipjxaclpmudtwt.supabase.co' },
+    ],
+  },
 };
 
 module.exports = withPWA(nextConfig);
