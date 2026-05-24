@@ -102,7 +102,7 @@ export default function LaboratoryPage() {
           </div>
         }
       />
-    <div className="p-6 max-w-4xl mx-auto space-y-5 flex-1">
+    <div className="px-4 py-5 sm:p-6 max-w-4xl mx-auto space-y-5 flex-1">
 
       <Alert className="border-blue-200 bg-blue-50">
         <ShieldAlert className="h-4 w-4 text-blue-600" />

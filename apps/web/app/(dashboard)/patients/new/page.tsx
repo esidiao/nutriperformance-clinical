@@ -155,7 +155,7 @@ export default function PatientNewPage() {
         ]}
       />
 
-      <div className="p-6 max-w-2xl mx-auto w-full flex-1">
+      <div className="px-4 py-5 sm:p-6 max-w-2xl mx-auto w-full flex-1">
         <StepIndicator current={step} />
 
         {/* ── STEP 1: Dados Pessoais ── */}

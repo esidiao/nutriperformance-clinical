@@ -213,7 +213,7 @@ export default function InteractionAnalysisNewPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="px-4 py-5 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Análise de Interações</h1>
@@ -242,7 +242,7 @@ export default function InteractionAnalysisNewPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {supplements.map((s, i) => (
-            <div key={i} className="grid grid-cols-3 gap-3 items-end">
+            <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
               <div>
                 {i === 0 && <Label>Nome do suplemento</Label>}
                 <AutocompleteInput
@@ -284,7 +284,7 @@ export default function InteractionAnalysisNewPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {medications.map((m, i) => (
-            <div key={i} className="grid grid-cols-3 gap-3 items-end">
+            <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
               <div>
                 {i === 0 && <Label>Nome do medicamento</Label>}
                 <Input value={m.name} onChange={(e) => updateMedication(i, 'name', e.target.value)}

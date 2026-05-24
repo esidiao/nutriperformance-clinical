@@ -255,7 +255,7 @@ export default function SupplementSuggestPage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Suplementação', href: '/supplementation' }, { label: 'Sugerir Protocolo' }]}
       />
 
-      <div className="p-6 max-w-5xl mx-auto w-full space-y-6">
+      <div className="px-4 py-5 sm:p-6 max-w-5xl mx-auto w-full space-y-6">
 
         <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
           <ShieldAlert className="h-4 w-4 text-amber-600" />

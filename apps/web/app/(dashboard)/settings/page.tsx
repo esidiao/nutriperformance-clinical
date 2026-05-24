@@ -38,7 +38,7 @@ export default function SettingsPage() {
         description="Perfil profissional, workspace e privacidade"
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Configurações' }]}
       />
-    <div className="p-6 max-w-3xl mx-auto space-y-6 flex-1">
+    <div className="px-4 py-5 sm:p-6 max-w-3xl mx-auto space-y-6 flex-1">
 
       {/* Perfil do profissional */}
       <Card>

@@ -140,7 +140,7 @@ export default function DashboardPage() {
     <div className="max-w-6xl mx-auto">
       <NotificationPermissionBanner />
       <OnboardingBanner />
-    <div className="p-6 space-y-6">
+    <div className="px-4 py-5 sm:p-6 space-y-5">
 
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -175,7 +175,7 @@ export default function DashboardPage() {
       </Alert>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />)
         ) : (

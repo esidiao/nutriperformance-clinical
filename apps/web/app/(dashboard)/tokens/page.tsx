@@ -142,7 +142,7 @@ export default function TokensPage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Tokens' }]}
       />
 
-      <div className="p-6 max-w-5xl mx-auto w-full space-y-6">
+      <div className="px-4 py-5 sm:p-6 max-w-5xl mx-auto w-full space-y-6">
 
         {/* Low balance alert */}
         {lowBalance && (
@@ -165,7 +165,7 @@ export default function TokensPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-black text-blue-600">{currentBalance.toLocaleString('pt-BR')}</span>
+                <span className="text-4xl sm:text-5xl font-black text-blue-600">{currentBalance.toLocaleString('pt-BR')}</span>
                 <span className="text-lg text-gray-400">tokens</span>
                 <span className="ml-auto text-sm text-gray-500 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
                   Plano Profissional

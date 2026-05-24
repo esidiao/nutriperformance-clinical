@@ -141,7 +141,7 @@ export default function PatientPage({ params }: { params: { id: string } }) {
         }
       />
 
-      <div className="p-6 max-w-5xl mx-auto w-full flex-1">
+      <div className="px-4 py-5 sm:p-6 max-w-5xl mx-auto w-full flex-1">
         {/* Patient card */}
         <div className="flex items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
           <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">

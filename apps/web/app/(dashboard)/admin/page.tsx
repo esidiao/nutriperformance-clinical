@@ -110,7 +110,7 @@ export default function AdminPage() {
         }
       />
 
-      <div className="p-6 max-w-6xl mx-auto w-full space-y-6 flex-1">
+      <div className="px-4 py-5 sm:p-6 max-w-6xl mx-auto w-full space-y-6 flex-1">
         {staleCategories.length > 0 && (
           <Alert className="border-red-200 bg-red-50 dark:bg-red-950">
             <AlertTriangle className="h-4 w-4 text-red-600" />

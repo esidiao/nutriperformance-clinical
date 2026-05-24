@@ -121,7 +121,7 @@ export default function NutritionalAssessmentNewPage() {
   const bmiInfo = bmi ? bmiClass(bmi) : null;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="px-4 py-5 sm:p-6 max-w-5xl mx-auto space-y-6">
 
       {/* ─── Header ───────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
@@ -136,7 +136,7 @@ export default function NutritionalAssessmentNewPage() {
 
       {/* ─── Real-time sticky panel ───────────────────────────────── */}
       {liveCalc && (
-        <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-blue-600 shadow-lg">
+        <div className="sticky top-14 lg:top-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-blue-600 shadow-lg">
           <div className="flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-1.5">
               <TrendingUp className="h-4 w-4 text-blue-200" />

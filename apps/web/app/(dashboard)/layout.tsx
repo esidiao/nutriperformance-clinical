@@ -113,7 +113,7 @@ function Sidebar({
       )}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-40
-        w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
+        w-64 max-w-[80vw] bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
         flex flex-col transform transition-transform duration-200 ease-in-out
         ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
@@ -168,7 +168,7 @@ function Sidebar({
                       href={item.href}
                       onClick={() => { if (window.innerWidth < 1024) onClose(); }}
                       className={`
-                        flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all
+                        flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-all min-h-[44px]
                         ${isActive
                           ? 'bg-blue-600 text-white shadow-sm'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'

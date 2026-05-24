@@ -87,7 +87,7 @@ export default function AuditLogPage() {
         ]}
       />
 
-      <div className="p-6 max-w-6xl mx-auto w-full space-y-5">
+      <div className="px-4 py-5 sm:p-6 max-w-6xl mx-auto w-full space-y-5">
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
