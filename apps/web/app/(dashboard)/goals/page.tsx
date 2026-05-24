@@ -10,6 +10,7 @@ import {
   Target, Plus, TrendingUp, CheckCircle,
   Clock, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 
 type GoalType =
   | 'weight_loss' | 'hypertrophy' | 'body_recomposition' | 'metabolic_improvement'
@@ -202,6 +203,15 @@ export default function GoalsPage() {
 
       {/* Lista de metas */}
       <div className="space-y-4">
+        {goals.length === 0 && (
+          <EmptyState
+            icon="🎯"
+            title="Nenhuma meta definida"
+            description="Defina metas para acompanhar a evolução dos seus pacientes ao longo do tempo."
+            actionLabel="Nova Meta"
+            onAction={() => setShowForm(true)}
+          />
+        )}
         {goals.map((goal) => {
           const isExpanded = expandedId === goal.id;
           const latest = goal.checkpoints.at(-1);

@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
 import { toast } from 'sonner';
 import { OnboardingBanner } from '@/components/OnboardingBanner';
+import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 function Skeleton({ className = '' }: { className?: string }) {
@@ -137,6 +138,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <NotificationPermissionBanner />
       <OnboardingBanner />
     <div className="p-6 space-y-6">
 

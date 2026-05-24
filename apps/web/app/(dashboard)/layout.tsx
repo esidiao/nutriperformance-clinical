@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Users, FlaskConical,
   Pill, GitMerge, Microscope, Target, FileText,
@@ -13,6 +13,7 @@ import {
 import { AuthGuard } from '@/components/AuthGuard';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ShortcutsPanel } from '@/components/ShortcutsPanel';
+import { CommandPalette } from '@/components/CommandPalette';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 // ─── Nav structure ──────────────────────────────────────────────────────────
@@ -238,8 +239,21 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
 
   useKeyboardShortcuts(() => setShortcutsOpen(true));
+
+  // Ctrl+K / Cmd+K opens command palette
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <AuthGuard>
@@ -256,6 +270,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </main>
         <ShortcutsPanel open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+        <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       </div>
     </AuthGuard>
   );

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Plus, Pill, ShieldAlert, Coins, Search,
   AlertTriangle, ChevronDown, ChevronUp, Brain,
@@ -360,10 +361,13 @@ export default function SupplementationPage() {
         })}
 
         {filtered.length === 0 && (
-          <div className="text-center py-10 text-gray-400">
-            <Pill className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Nenhum suplemento registrado.</p>
-          </div>
+          <EmptyState
+            icon="💊"
+            title="Nenhum suplemento registrado"
+            description="Registre os suplementos em uso pelo paciente para monitorar doses e identificar possíveis interações."
+            actionLabel="Adicionar Suplemento"
+            onAction={() => document.getElementById('add-supplement-btn')?.click()}
+          />
         )}
       </div>
     </div>

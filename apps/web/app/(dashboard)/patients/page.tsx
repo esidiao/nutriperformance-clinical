@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Plus, Search, AlertTriangle, ChevronRight,
   Calendar, Target, Pill, Users,
@@ -222,11 +223,23 @@ export default function PatientsPage() {
           })}
 
           {filtered.length === 0 && (
-            <div className="text-center py-16 text-gray-400">
-              <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
-              <p className="text-sm font-medium">Nenhum paciente encontrado</p>
-              <p className="text-xs mt-1">Tente ajustar os filtros ou a busca</p>
-            </div>
+            search || filter !== 'all' ? (
+              <EmptyState
+                icon="🔍"
+                title="Nenhum paciente encontrado"
+                description="Tente ajustar os filtros ou a busca para encontrar o que procura."
+                actionLabel="Limpar filtros"
+                onAction={() => { setSearch(''); setFilter('all'); }}
+              />
+            ) : (
+              <EmptyState
+                icon="👥"
+                title="Nenhum paciente cadastrado"
+                description="Cadastre o primeiro paciente do seu workspace para começar a acompanhá-lo."
+                actionLabel="Cadastrar Paciente"
+                actionHref="/patients/new"
+              />
+            )
           )}
         </div>
 

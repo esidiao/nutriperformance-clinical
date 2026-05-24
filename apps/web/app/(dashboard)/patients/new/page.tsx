@@ -2,292 +2,400 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
-import { ShieldCheck, ShieldAlert, UserPlus } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
+import { CheckCircle, ShieldCheck, ShieldAlert, UserPlus, ChevronRight, ChevronLeft, User, Heart, Target } from 'lucide-react';
+
+// ─── Wizard step config ───────────────────────────────────────────────────────
+const STEPS = [
+  { id: 1, label: 'Dados Pessoais',     icon: User,        description: 'Informações de identificação' },
+  { id: 2, label: 'Saúde & Histórico',  icon: Heart,       description: 'Histórico clínico e medicamentos' },
+  { id: 3, label: 'Objetivos & LGPD',   icon: Target,      description: 'Metas e consentimento' },
+];
 
 const DIETARY_RESTRICTIONS = [
   'Vegetariano', 'Vegano', 'Sem glúten', 'Sem lactose',
   'Sem frutos do mar', 'Halal', 'Kosher', 'Sem amendoim',
 ];
 
+const GOALS = [
+  { value: 'weight_loss',              label: 'Emagrecimento' },
+  { value: 'hypertrophy',              label: 'Hipertrofia' },
+  { value: 'body_recomposition',       label: 'Recomposição corporal' },
+  { value: 'metabolic_improvement',    label: 'Melhora metabólica' },
+  { value: 'performance_improvement',  label: 'Melhora de performance' },
+  { value: 'endurance_gain',           label: 'Ganho de resistência' },
+  { value: 'general_health',           label: 'Saúde geral' },
+  { value: 'clinical_recovery',        label: 'Recuperação clínica' },
+];
+
+// ─── Step indicator ───────────────────────────────────────────────────────────
+function StepIndicator({ current }: { current: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-8">
+      {STEPS.map((step, i) => {
+        const done = step.id < current;
+        const active = step.id === current;
+        return (
+          <div key={step.id} className="flex items-center gap-2 flex-1">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className={`
+                w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all
+                ${done    ? 'bg-green-500 text-white' :
+                  active  ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' :
+                            'bg-gray-100 dark:bg-gray-800 text-gray-400'}
+              `}>
+                {done ? <CheckCircle className="h-4 w-4" /> : step.id}
+              </div>
+              <div className="hidden sm:block">
+                <p className={`text-xs font-semibold leading-tight ${active ? 'text-blue-600' : done ? 'text-green-600' : 'text-gray-400'}`}>
+                  {step.label}
+                </p>
+                <p className="text-[10px] text-gray-400 leading-tight">{step.description}</p>
+              </div>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div className={`flex-1 h-0.5 mx-2 rounded-full transition-all ${done ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PatientNewPage() {
   const router = useRouter();
+  const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lgpdConsent, setLgpdConsent] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
-    name: '',
-    cpf: '',
-    birthDate: '',
-    gender: '',
-    email: '',
-    phone: '',
-    address: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-    mainObjective: '',
-    medicalHistory: '',
-    currentMedications: '',
-    allergies: '',
-    dietaryRestrictions: [] as string[],
+    // Step 1
+    name: '', cpf: '', birthDate: '', gender: '',
+    email: '', phone: '', address: '',
+    emergencyContactName: '', emergencyContactPhone: '',
+    // Step 2
+    medicalHistory: '', currentMedications: '',
+    allergies: '', dietaryRestrictions: [] as string[],
+    // Step 3
+    mainObjective: '', professionalNotes: '',
+    lgpdConsent: false,
   });
 
   const set = (field: string, value: unknown) =>
     setForm((p) => ({ ...p, [field]: value }));
 
-  const toggleRestriction = (r: string) => {
+  const toggleRestriction = (r: string) =>
     setForm((p) => ({
       ...p,
       dietaryRestrictions: p.dietaryRestrictions.includes(r)
         ? p.dietaryRestrictions.filter((x) => x !== r)
         : [...p.dietaryRestrictions, r],
     }));
+
+  // Validate before advancing step
+  const validateStep = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (step === 1) {
+      if (!form.name.trim())      newErrors.name = 'Nome é obrigatório';
+      if (!form.birthDate)        newErrors.birthDate = 'Data de nascimento é obrigatória';
+      if (!form.gender)           newErrors.gender = 'Sexo biológico é obrigatório';
+    }
+    if (step === 3) {
+      if (!form.mainObjective)    newErrors.mainObjective = 'Selecione o objetivo principal';
+      if (!form.lgpdConsent)      newErrors.lgpdConsent = 'O consentimento LGPD é obrigatório';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lgpdConsent) {
-      setError('O consentimento LGPD é obrigatório para cadastrar o paciente.');
-      return;
-    }
-    if (!form.name || !form.birthDate || !form.gender) {
-      setError('Nome, data de nascimento e sexo biológico são obrigatórios.');
-      return;
-    }
-    setError(null);
+  const handleNext = () => {
+    if (!validateStep()) return;
+    setStep((s) => Math.min(s + 1, 3));
+  };
+
+  const handleBack = () => {
+    setErrors({});
+    setStep((s) => Math.max(s - 1, 1));
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep()) return;
     setIsSaving(true);
-    try {
-      // In production: await api.patients.create({ ...form, lgpdConsent: true })
-      await new Promise((r) => setTimeout(r, 1200));
-      router.push('/patients');
-    } catch (err: any) {
-      setError(err.message ?? 'Erro ao cadastrar paciente');
-    } finally {
-      setIsSaving(false);
-    }
+    toast.promise(
+      new Promise<void>((resolve) => setTimeout(resolve, 1400)).then(() => {
+        router.push('/patients');
+      }),
+      {
+        loading: 'Cadastrando paciente...',
+        success: `Paciente ${form.name.split(' ')[0]} cadastrado com sucesso!`,
+        error: 'Erro ao cadastrar paciente',
+      },
+    );
+    setIsSaving(false);
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <UserPlus className="h-6 w-6 text-blue-600" />
-          Novo Paciente
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">Preencha os dados e colete o consentimento LGPD</p>
-      </div>
+    <div className="flex flex-col min-h-full">
+      <PageHeader
+        title="Novo Paciente"
+        description="Preencha os dados em 3 etapas simples"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Pacientes', href: '/patients' },
+          { label: 'Novo Paciente' },
+        ]}
+      />
 
-      {error && (
-        <Alert className="border-red-300 bg-red-50">
-          <ShieldAlert className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">{error}</AlertDescription>
-        </Alert>
-      )}
+      <div className="p-6 max-w-2xl mx-auto w-full flex-1">
+        <StepIndicator current={step} />
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-
-        {/* Dados pessoais */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Dados Pessoais</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <Label>Nome completo *</Label>
-              <Input value={form.name} onChange={(e) => set('name', e.target.value)}
-                placeholder="Nome completo do paciente" required />
-            </div>
-            <div>
-              <Label>CPF (opcional — armazenado de forma irreversível)</Label>
-              <Input value={form.cpf} onChange={(e) => set('cpf', e.target.value)}
-                placeholder="000.000.000-00" />
-              <p className="text-xs text-gray-400 mt-1">O CPF é convertido em hash SHA-256 e nunca armazenado em texto</p>
-            </div>
-            <div>
-              <Label>Data de nascimento *</Label>
-              <Input type="date" value={form.birthDate}
-                onChange={(e) => set('birthDate', e.target.value)} required />
-            </div>
-            <div>
-              <Label>Sexo biológico *</Label>
-              <select
-                value={form.gender}
-                onChange={(e) => set('gender', e.target.value)}
-                className="w-full h-10 rounded-md border px-3 text-sm"
-                required
-              >
-                <option value="">Selecionar</option>
-                <option value="male">Masculino</option>
-                <option value="female">Feminino</option>
-                <option value="other">Outro / Não informado</option>
-              </select>
-            </div>
-            <div>
-              <Label>E-mail</Label>
-              <Input type="email" value={form.email}
-                onChange={(e) => set('email', e.target.value)} placeholder="email@exemplo.com" />
-            </div>
-            <div>
-              <Label>Telefone</Label>
-              <Input value={form.phone}
-                onChange={(e) => set('phone', e.target.value)} placeholder="(11) 99999-0000" />
-            </div>
-            <div className="md:col-span-2">
-              <Label>Endereço</Label>
-              <Input value={form.address}
-                onChange={(e) => set('address', e.target.value)}
-                placeholder="Rua, número, bairro, cidade - UF" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Contato de emergência */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Contato de Emergência</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Nome</Label>
-              <Input value={form.emergencyContactName}
-                onChange={(e) => set('emergencyContactName', e.target.value)} />
-            </div>
-            <div>
-              <Label>Telefone</Label>
-              <Input value={form.emergencyContactPhone}
-                onChange={(e) => set('emergencyContactPhone', e.target.value)} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Objetivo e histórico */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Objetivo e Histórico Clínico</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Objetivo principal</Label>
-              <select
-                value={form.mainObjective}
-                onChange={(e) => set('mainObjective', e.target.value)}
-                className="w-full h-10 rounded-md border px-3 text-sm"
-              >
-                <option value="">Selecionar</option>
-                <option value="weight_loss">Emagrecimento</option>
-                <option value="hypertrophy">Hipertrofia</option>
-                <option value="body_recomposition">Recomposição corporal</option>
-                <option value="metabolic_improvement">Melhora metabólica</option>
-                <option value="performance_improvement">Melhora de performance</option>
-                <option value="endurance_gain">Ganho de resistência</option>
-                <option value="general_health">Saúde geral</option>
-                <option value="clinical_recovery">Recuperação clínica</option>
-              </select>
-            </div>
-            <div>
-              <Label>Histórico médico relevante</Label>
-              <Textarea value={form.medicalHistory}
-                onChange={(e) => set('medicalHistory', e.target.value)}
-                placeholder="Doenças pré-existentes, cirurgias, hospitalizações..."
-                rows={3} />
-            </div>
-            <div>
-              <Label>Medicamentos em uso</Label>
-              <Textarea value={form.currentMedications}
-                onChange={(e) => set('currentMedications', e.target.value)}
-                placeholder="Nome, dose e frequência de cada medicamento..."
-                rows={2} />
-            </div>
-            <div>
-              <Label>Alergias e intolerâncias</Label>
-              <Input value={form.allergies}
-                onChange={(e) => set('allergies', e.target.value)}
-                placeholder="Ex: amendoim, lactose, frutos do mar" />
-            </div>
-            <div>
-              <Label>Restrições alimentares</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {DIETARY_RESTRICTIONS.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => toggleRestriction(r)}
-                    className={`px-3 py-1 rounded-full text-xs border transition-all ${
-                      form.dietaryRestrictions.includes(r)
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
+        {/* ── STEP 1: Dados Pessoais ── */}
+        {step === 1 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4 text-blue-600" /> Dados Pessoais
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <Label>Nome completo *</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => set('name', e.target.value)}
+                  placeholder="Nome completo do paciente"
+                  className={errors.name ? 'border-red-400' : ''}
+                />
+                {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <div>
+                <Label>CPF <span className="text-gray-400 text-xs">(hash SHA-256 — nunca armazenado)</span></Label>
+                <Input value={form.cpf} onChange={(e) => set('cpf', e.target.value)} placeholder="000.000.000-00" />
+              </div>
+              <div>
+                <Label>Data de nascimento *</Label>
+                <Input
+                  type="date"
+                  value={form.birthDate}
+                  onChange={(e) => set('birthDate', e.target.value)}
+                  className={errors.birthDate ? 'border-red-400' : ''}
+                />
+                {errors.birthDate && <p className="text-xs text-red-500 mt-1">{errors.birthDate}</p>}
+              </div>
+              <div>
+                <Label>Sexo biológico *</Label>
+                <select
+                  value={form.gender}
+                  onChange={(e) => set('gender', e.target.value)}
+                  className={`w-full h-10 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 ${errors.gender ? 'border-red-400' : ''}`}
+                >
+                  <option value="">Selecionar</option>
+                  <option value="female">Feminino</option>
+                  <option value="male">Masculino</option>
+                  <option value="other">Outro / Não informado</option>
+                </select>
+                {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
+              </div>
+              <div>
+                <Label>E-mail</Label>
+                <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="email@exemplo.com" />
+              </div>
+              <div>
+                <Label>Telefone</Label>
+                <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="(11) 99999-0000" />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Endereço</Label>
+                <Input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Rua, número, bairro, cidade — UF" />
+              </div>
+              <div>
+                <Label>Contato de emergência</Label>
+                <Input value={form.emergencyContactName} onChange={(e) => set('emergencyContactName', e.target.value)} placeholder="Nome" />
+              </div>
+              <div>
+                <Label>Telefone de emergência</Label>
+                <Input value={form.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone', e.target.value)} placeholder="(11) 99999-0000" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Consentimento LGPD */}
-        <Card className="border-green-200 bg-green-50/40">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-green-600" />
-              Consentimento LGPD (Obrigatório)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert className="border-green-200 bg-white">
-              <ShieldCheck className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-900 text-xs leading-relaxed">
-                De acordo com a <strong>Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD)</strong>,
-                os dados pessoais e dados sensíveis de saúde do paciente serão tratados exclusivamente
-                para fins de acompanhamento nutricional e de saúde. Os dados serão armazenados com
-                criptografia AES-256, acessados apenas pelos profissionais autorizados deste workspace
-                e nunca compartilhados com terceiros sem consentimento explícito. O paciente tem
-                direito de solicitar acesso, correção e exclusão de seus dados a qualquer momento
-                (LGPD Art. 18). O profissional é responsável por obter este consentimento de forma
-                livre, informada e inequívoca.
-              </AlertDescription>
-            </Alert>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={lgpdConsent}
-                onChange={(e) => setLgpdConsent(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300"
-              />
-              <span className="text-sm text-gray-800 leading-relaxed">
-                Confirmo que o paciente foi informado sobre o tratamento de seus dados pessoais e
-                de saúde conforme a LGPD, e que forneceu consentimento livre, informado e
-                inequívoco para o tratamento descrito acima. Declaro ter ciência de que esta
-                operação será registrada em log de auditoria com data e hora.
-              </span>
-            </label>
-          </CardContent>
-        </Card>
+        {/* ── STEP 2: Saúde & Histórico ── */}
+        {step === 2 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Heart className="h-4 w-4 text-red-500" /> Saúde & Histórico Clínico
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Histórico médico relevante</Label>
+                <Textarea
+                  value={form.medicalHistory}
+                  onChange={(e) => set('medicalHistory', e.target.value)}
+                  placeholder="Doenças pré-existentes, cirurgias, hospitalizações, comorbidades..."
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label>Medicamentos em uso</Label>
+                <Textarea
+                  value={form.currentMedications}
+                  onChange={(e) => set('currentMedications', e.target.value)}
+                  placeholder="Nome do medicamento, dose e frequência..."
+                  rows={2}
+                />
+              </div>
+              <div>
+                <Label>Alergias e intolerâncias alimentares</Label>
+                <Input
+                  value={form.allergies}
+                  onChange={(e) => set('allergies', e.target.value)}
+                  placeholder="Ex: amendoim, frutos do mar, lactose"
+                />
+              </div>
+              <div>
+                <Label>Restrições alimentares</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {DIETARY_RESTRICTIONS.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => toggleRestriction(r)}
+                      className={`
+                        px-3 py-1.5 rounded-full text-xs font-medium border transition-all
+                        ${form.dietaryRestrictions.includes(r)
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 hover:border-blue-400'
+                        }
+                      `}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        <div className="flex justify-end gap-3 pb-6">
-          <Button type="button" variant="outline" onClick={() => router.back()}>
-            Cancelar
-          </Button>
+        {/* ── STEP 3: Objetivos & LGPD ── */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-4 w-4 text-green-600" /> Objetivo Principal
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {GOALS.map((g) => (
+                    <button
+                      key={g.value}
+                      type="button"
+                      onClick={() => { set('mainObjective', g.value); setErrors((e) => ({ ...e, mainObjective: '' })); }}
+                      className={`
+                        p-3 rounded-xl border-2 text-left text-sm font-medium transition-all
+                        ${form.mainObjective === g.value
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-700 dark:text-gray-300'
+                        }
+                      `}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+                {errors.mainObjective && <p className="text-xs text-red-500">{errors.mainObjective}</p>}
+                <div>
+                  <Label>Observações iniciais (opcional)</Label>
+                  <Textarea
+                    value={form.professionalNotes}
+                    onChange={(e) => set('professionalNotes', e.target.value)}
+                    placeholder="Observações clínicas relevantes para o início do acompanhamento..."
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-green-200 dark:border-green-900 bg-green-50/30 dark:bg-green-950/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-green-600" /> Consentimento LGPD *
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Alert className="border-green-200 bg-white dark:bg-gray-900">
+                  <ShieldCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  <AlertDescription className="text-xs text-green-900 dark:text-green-300 leading-relaxed">
+                    Conforme a <strong>LGPD (Lei 13.709/2018)</strong>, os dados de saúde do paciente
+                    serão tratados com criptografia AES-256, acessados apenas por profissionais autorizados
+                    deste workspace e nunca compartilhados sem consentimento. O paciente tem direito de
+                    acesso, correção e exclusão (Art. 18).
+                  </AlertDescription>
+                </Alert>
+                <label className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all ${form.lgpdConsent ? 'border-green-400 bg-green-50 dark:bg-green-950' : 'border-gray-200 dark:border-gray-700'} ${errors.lgpdConsent ? 'border-red-400' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={form.lgpdConsent}
+                    onChange={(e) => { set('lgpdConsent', e.target.checked); setErrors((er) => ({ ...er, lgpdConsent: '' })); }}
+                    className="mt-0.5 h-4 w-4 rounded"
+                  />
+                  <span className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                    Confirmo que o paciente foi informado e forneceu consentimento livre e inequívoco
+                    para o tratamento de seus dados de saúde conforme a LGPD. Esta operação será
+                    registrada em log de auditoria.
+                  </span>
+                </label>
+                {errors.lgpdConsent && <p className="text-xs text-red-500">{errors.lgpdConsent}</p>}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Navigation buttons */}
+        <div className="flex items-center justify-between mt-6 pt-4 border-t dark:border-gray-800">
           <Button
-            type="submit"
-            disabled={isSaving || !lgpdConsent}
+            type="button"
+            variant="outline"
+            onClick={step === 1 ? () => router.back() : handleBack}
             className="flex items-center gap-2"
           >
-            {isSaving ? (
-              <><span className="animate-spin">⟳</span> Cadastrando…</>
-            ) : (
-              <><UserPlus className="h-4 w-4" /> Cadastrar Paciente</>
-            )}
+            <ChevronLeft className="h-4 w-4" />
+            {step === 1 ? 'Cancelar' : 'Voltar'}
           </Button>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400">Etapa {step} de {STEPS.length}</span>
+            {step < 3 ? (
+              <Button onClick={handleNext} className="flex items-center gap-2">
+                Próxima etapa <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+              >
+                <UserPlus className="h-4 w-4" />
+                Cadastrar Paciente
+              </Button>
+            )}
+          </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
