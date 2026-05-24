@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { RiskScoreCard } from '@/components/RiskScoreCard';
+import type { RiskInput } from '@/lib/risk-score';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -397,6 +399,20 @@ export default function PhysicalAssessmentNewPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Risk Score — shows when enough data is available */}
+        {bmi && (
+          <RiskScoreCard
+            input={{
+              bmi,
+              waistCm: waistVal > 0 ? waistVal : undefined,
+              whr: whr ?? undefined,
+              gender: formGender as 'male' | 'female',
+              activityLevel: watch('activityLevel') as RiskInput['activityLevel'],
+              restingHeartRateBpm: Number(watch('restingHeartRate')) || undefined,
+            }}
+          />
+        )}
 
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline">Salvar rascunho</Button>

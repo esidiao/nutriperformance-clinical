@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useStreamingText } from '@/hooks/useStreamingText';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -67,7 +68,7 @@ function bmiClass(bmi: number) {
 export default function NutritionalAssessmentNewPage() {
   const [liveCalc, setLiveCalc] = useState<{ bmi: number; bmr: number; tee: number; protein: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const { text: streamedAnalysis, isStreaming, simulateStream } = useStreamingText();
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -100,13 +101,16 @@ export default function NutritionalAssessmentNewPage() {
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 1500));
-      setAiAnalysis(
-        'Resumo gerado pela IA: Paciente apresenta GET estimado de ' +
-        liveCalc?.tee + ' kcal/dia. Avalie ingestão hídrica e frequência alimentar declarada. ' +
-        'Dados insuficientes para análise completa — considere solicitar exames laboratoriais recentes. ' +
-        '\n\n⚠️ Esta síntese é ferramenta de apoio. Diagnóstico nutricional é responsabilidade exclusiva do nutricionista.'
-      );
+      await new Promise((r) => setTimeout(r, 400));
+      const aiText =
+        `Síntese nutricional de apoio (IA):\n\n` +
+        `GET estimado: ${liveCalc?.tee ?? '—'} kcal/dia · TMB: ${liveCalc?.bmr ?? '—'} kcal/dia · IMC: ${liveCalc?.bmi ?? '—'}\n\n` +
+        `Proteína estimada: ${liveCalc?.protein ?? '—'} g/dia (referência 1,8 g/kg).\n\n` +
+        `Avaliação da anamnese: verifique ingestão hídrica declarada e frequência de refeições para adequação ao protocolo.\n\n` +
+        `Recomendações gerais: considere solicitar exames laboratoriais recentes (hemograma, ferritina, vitamina D, B12) para complementar a avaliação nutricional.\n\n` +
+        `Nível de confiança: moderado. Qualidade da evidência: equações populacionais validadas (Mifflin-St Jeor).\n\n` +
+        `⚠️ Esta síntese é ferramenta de apoio. Diagnóstico nutricional e prescrição dietética são responsabilidade exclusiva do Nutricionista habilitado (CFN 599/2018).`;
+      simulateStream(aiText, 15);
       toast.success('Avaliação salva com sucesso!');
     } finally {
       setIsSubmitting(false);
@@ -340,19 +344,30 @@ export default function NutritionalAssessmentNewPage() {
           </CardContent>
         </Card>
 
-        {aiAnalysis && (
+        {(streamedAnalysis || isStreaming) && (
           <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300">
                 <Brain className="h-4 w-4" />
                 Síntese de Apoio (IA)
+                {isStreaming && (
+                  <span className="flex items-center gap-1 text-xs font-normal text-blue-500">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    gerando...
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <pre className="text-xs text-blue-900 dark:text-blue-200 whitespace-pre-wrap leading-relaxed">{aiAnalysis}</pre>
-              <p className="text-xs text-gray-400 italic mt-3 border-t pt-2">
-                Nível de confiança: Moderado · Requer validação profissional
-              </p>
+              <pre className="text-xs text-blue-900 dark:text-blue-200 whitespace-pre-wrap leading-relaxed">
+                {streamedAnalysis}
+                {isStreaming && <span className="inline-block w-0.5 h-3.5 bg-blue-600 animate-pulse ml-0.5 align-text-bottom" />}
+              </pre>
+              {!isStreaming && (
+                <p className="text-xs text-gray-400 italic mt-3 border-t pt-2">
+                  Nível de confiança: Moderado · Requer validação profissional
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

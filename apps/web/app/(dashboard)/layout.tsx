@@ -42,6 +42,7 @@ const NAV_GROUPS = [
     label: 'Análises',
     items: [
       { href: '/supplementation', label: 'Suplementação', icon: Pill },
+      { href: '/supplementation/suggest', label: 'Protocolo IA', icon: Dna },
       { href: '/interactions/new', label: 'Interações', icon: GitMerge },
       { href: '/bioavailability', label: 'Biodisponibilidade', icon: Dna },
       { href: '/laboratory', label: 'Exames', icon: Microscope },

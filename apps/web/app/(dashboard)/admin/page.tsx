@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
+import Link from 'next/link';
 import {
   Users, Coins, TrendingUp, Database, ShieldAlert,
   AlertTriangle, BookOpen, Activity, RefreshCw, Search,
   ChevronLeft, ChevronRight, MoreHorizontal, CheckCircle,
-  XCircle, Edit3,
+  XCircle, Edit3, Shield,
 } from 'lucide-react';
 
 const metrics = {
@@ -100,6 +101,13 @@ export default function AdminPage() {
         title="Painel Administrativo"
         description="NutriPerformance Clinical — Visão global do SaaS"
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Admin' }]}
+        action={
+          <Link href="/admin/audit">
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" /> Audit Log
+            </Button>
+          </Link>
+        }
       />
 
       <div className="p-6 max-w-6xl mx-auto w-full space-y-6 flex-1">

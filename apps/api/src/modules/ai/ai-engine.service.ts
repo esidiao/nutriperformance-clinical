@@ -115,6 +115,21 @@ export class AIEngineService {
     return result.response.text();
   }
 
+  /**
+   * Streaming generation — yields text chunks as AsyncIterable.
+   * Use with SSE / Server-Sent Events controller to stream tokens to frontend.
+   */
+  async *generateStream(prompt: string, maxOutputTokens = 2048): AsyncIterable<string> {
+    const result = await this.model.generateContentStream({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens, temperature: 0.2 },
+    });
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) yield text;
+    }
+  }
+
   // ------------------------------------------------------------------
   // ANÁLISE DE INTERAÇÕES
   // ------------------------------------------------------------------

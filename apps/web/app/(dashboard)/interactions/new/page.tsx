@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { queryInteractions, getOverallRisk, EVIDENCE_BASE, type EvidenceEntry } from '@/lib/evidence/evidence-base';
+
+const EVIDENCE_BASE_SIZE = EVIDENCE_BASE.length;
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -159,42 +162,49 @@ export default function InteractionAnalysisNewPage() {
       // Step-by-step animation
       for (let i = 0; i < ANALYSIS_STEPS.length; i++) {
         setAnalysisStep(i);
-        await new Promise((r) => setTimeout(r, 600));
+        await new Promise((r) => setTimeout(r, 550));
       }
 
-      const mockResults: InteractionResult[] = [];
-      if (validSupplements.some((s) => /ferro/i.test(s.name)) &&
-          validMedications.some((m) => /omeprazol/i.test(m.name))) {
-        mockResults.push({
-          entityA: 'Ferro', entityB: 'Omeprazol', riskLevel: 'moderate',
-          mechanism: 'IBPs reduzem produção de ácido gástrico, prejudicando absorção de ferro não-heme',
-          recommendation: 'Preferir ferro quelato. Administrar com vitamina C longe do omeprazol. Monitorar ferritina.',
-          confidenceLevel: 'high', evidenceQuality: 'Observacional (alta qualidade)',
-          requiresMedicalReview: false, source: 'Base de evidências local',
-        });
-      }
-      if (validSupplements.some((s) => /creatina/i.test(s.name)) &&
-          conditions.some((c) => /renal/i.test(c))) {
-        mockResults.push({
-          entityA: 'Creatina', entityB: 'Doença Renal', riskLevel: 'high',
-          mechanism: 'Creatina eleva creatinina sérica e pode sobrecarregar rins comprometidos',
-          recommendation: 'Avaliar com nefrologista antes de iniciar. Monitorar função renal.',
-          confidenceLevel: 'high', evidenceQuality: 'ECR',
-          requiresMedicalReview: true, source: 'Base de evidências local',
-        });
-      }
+      // ── Real evidence base query ──────────────────────────────────────────
+      const allEntities = [
+        ...validSupplements.map((s) => s.name),
+        ...validMedications.map((m) => m.name),
+        ...validMedications.map((m) => m.activePrinciple).filter(Boolean),
+        ...conditions.filter(Boolean),
+        ...(isPregnant ? ['gravidez'] : []),
+      ];
 
-      setResults(mockResults);
-      setOverallRisk(
-        mockResults.some((r) => r.riskLevel === 'contraindicated') ? 'contraindicated'
-        : mockResults.some((r) => r.riskLevel === 'high') ? 'high'
-        : mockResults.some((r) => r.riskLevel === 'moderate') ? 'moderate'
-        : mockResults.length ? 'low' : 'insufficient_data',
-      );
+      const evidenceResults = queryInteractions(allEntities);
+      const overallRiskLevel = getOverallRisk(evidenceResults);
+
+      // Map evidence entries to InteractionResult format
+      const mappedResults: InteractionResult[] = evidenceResults.map((e: EvidenceEntry) => ({
+        entityA: e.entityA.charAt(0).toUpperCase() + e.entityA.slice(1),
+        entityB: e.entityB.charAt(0).toUpperCase() + e.entityB.slice(1),
+        riskLevel: e.riskLevel,
+        mechanism: e.mechanism,
+        recommendation: e.recommendation,
+        confidenceLevel: e.confidence === 'high' ? 'Alta' : e.confidence === 'moderate' ? 'Moderada' : 'Baixa',
+        evidenceQuality: e.evidenceType === 'rct' ? 'ECR (alta qualidade)'
+          : e.evidenceType === 'systematic_review' ? 'Revisão sistemática'
+          : e.evidenceType === 'observational' ? 'Observacional'
+          : e.evidenceType === 'case_report' ? 'Relato de caso'
+          : e.evidenceType,
+        requiresMedicalReview: e.riskLevel === 'high' || e.riskLevel === 'contraindicated',
+        source: `Base de evidências local · ${e.references}`,
+      }));
+
+      setResults(mappedResults);
+      setOverallRisk(overallRiskLevel);
+
+      const highCount = mappedResults.filter((r) => r.riskLevel === 'high' || r.riskLevel === 'contraindicated').length;
       setAiAnalysis(
-        'Análise complementar (IA): Com base nos dados informados, não foram identificadas outras interações ' +
-        'de alta evidência além das listadas acima. Recomenda-se revisão periódica do protocolo de suplementação.\n\n' +
-        '⚠️ Esta análise é de apoio — valide com o profissional responsável.',
+        `Análise complementar (IA): ${mappedResults.length} interação(ões) identificada(s) na base de evidências local (${EVIDENCE_BASE_SIZE} entradas).\n\n` +
+        (highCount > 0
+          ? `⚠️ ${highCount} interação(ões) de alto risco ou contraindicação identificada(s). Revisão médica recomendada antes de prosseguir com o protocolo.\n\n`
+          : '') +
+        'Interações não encontradas não significam ausência de risco — a base é continuamente atualizada.\n\n' +
+        '⚠️ Esta análise é ferramenta de apoio. Responsabilidade clínica é do profissional habilitado.',
       );
     } finally {
       setIsAnalyzing(false);
