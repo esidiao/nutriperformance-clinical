@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ShieldCheck, User, Building, Bell, Shield, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
@@ -22,24 +24,21 @@ export default function SettingsPage() {
   });
 
   const handleSave = async () => {
-    await new Promise((r) => setTimeout(r, 800));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    toast.promise(new Promise((r) => setTimeout(r, 800)), {
+      loading: 'Salvando configurações...',
+      success: 'Configurações salvas com sucesso!',
+      error: 'Erro ao salvar configurações',
+    });
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
-        <p className="text-gray-500 text-sm mt-1">Perfil profissional, workspace e privacidade</p>
-      </div>
-
-      {saved && (
-        <Alert className="border-green-300 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">Configurações salvas com sucesso.</AlertDescription>
-        </Alert>
-      )}
+    <div className="flex flex-col min-h-full">
+      <PageHeader
+        title="Configurações"
+        description="Perfil profissional, workspace e privacidade"
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Configurações' }]}
+      />
+    <div className="p-6 max-w-3xl mx-auto space-y-6 flex-1">
 
       {/* Perfil do profissional */}
       <Card>
@@ -189,6 +188,7 @@ export default function SettingsPage() {
       <div className="flex justify-end">
         <Button onClick={handleSave} size="lg">Salvar configurações</Button>
       </div>
+    </div>
     </div>
   );
 }

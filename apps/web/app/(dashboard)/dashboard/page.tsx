@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
+import { toast } from 'sonner';
+import { OnboardingBanner } from '@/components/OnboardingBanner';
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 function Skeleton({ className = '' }: { className?: string }) {
@@ -109,6 +111,8 @@ export default function DashboardPage() {
         // const stats = await res.json();
 
         // Placeholder data (replace with real API call above)
+        // Example toast on load — remove in production
+        // toast.success('Dashboard carregado');
         setData({
           userName,
           workspace: { plan: 'Profissional', tokenBalance: 557, tokenLimit: 600 },
@@ -132,7 +136,9 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto">
+      <OnboardingBanner />
+    <div className="p-6 space-y-6">
 
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -339,6 +345,7 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+    </div>
     </div>
   );
 }
