@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, FlaskConical,
   Pill, GitMerge, Microscope, Target, FileText,
   Coins, Settings, ShieldCheck, Dna, LogOut,
-  TrendingUp, Menu, X, Keyboard,
+  TrendingUp, Menu, X, Keyboard, ClipboardList,
 } from 'lucide-react';
 import { AuthGuard } from '@/components/AuthGuard';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -51,6 +51,7 @@ const NAV_GROUPS = [
   {
     label: 'Gestão',
     items: [
+      { href: '/prescriptions/new', label: 'Prescrições', icon: ClipboardList },
       { href: '/reports/new', label: 'Relatórios', icon: FileText },
       { href: '/tokens', label: 'Tokens', icon: Coins },
     ],
