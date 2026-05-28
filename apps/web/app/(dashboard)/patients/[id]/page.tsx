@@ -95,7 +95,7 @@ function GoalBar({ baseline, current, target, unit }: { baseline: number; curren
   );
 }
 
-export default function PatientPage({ params }: { params: { id: string } }) {
+export default function PatientPage({ params: _params }: { params: Promise<{ id: string }> }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [checkpointVals, setCheckpointVals] = useState<Record<string, string>>({});
