@@ -13,8 +13,8 @@ export function AuthGuard({ children, requiredRole }: { children: React.ReactNod
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) {
-      // Env vars not set — skip auth check in this environment
-      setChecking(false);
+      // Env vars not configured — redirect to login; do NOT grant access
+      router.replace('/login');
       return;
     }
     const supabase = createBrowserClient(url, key);

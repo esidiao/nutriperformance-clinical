@@ -9,10 +9,12 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   experimental: {
     serverActions: {
+      // Only allow known, specific origins — never use wildcards for Server Actions.
+      // Add your production custom domain here when available.
       allowedOrigins: [
         'localhost:3000',
         'web-a1nk9hpuu-sidiao-collabs-projects.vercel.app',
-        '*.vercel.app',
+        'web-q114xajg3-sidiao-collabs-projects.vercel.app',
       ],
     },
   },
