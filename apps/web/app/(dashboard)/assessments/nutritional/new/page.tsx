@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, Coins, Calculator, Brain, TrendingUp, Activity } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/lib/api-client';
 
 const schema = z.object({
   patientId: z.string().optional(),
@@ -68,6 +69,7 @@ function bmiClass(bmi: number) {
 export default function NutritionalAssessmentNewPage() {
   const [liveCalc, setLiveCalc] = useState<{ bmi: number; bmr: number; tee: number; protein: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tokensConsumed, setTokensConsumed] = useState<number | null>(null);
   const { text: streamedAnalysis, isStreaming, simulateStream } = useStreamingText();
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
@@ -98,19 +100,50 @@ export default function NutritionalAssessmentNewPage() {
     setValue('caloricTarget', tee);
   }, [w, h, a, g, formula, activity]);
 
-  const onSubmit = async (data: FormData) => {
+  const FALLBACK_AI_TEXT =
+    `Síntese nutricional de apoio (IA):\n\n` +
+    `GET estimado: ${liveCalc?.tee ?? '—'} kcal/dia · TMB: ${liveCalc?.bmr ?? '—'} kcal/dia · IMC: ${liveCalc?.bmi ?? '—'}\n\n` +
+    `Proteína estimada: ${liveCalc?.protein ?? '—'} g/dia (referência 1,8 g/kg).\n\n` +
+    `Avaliação da anamnese: verifique ingestão hídrica declarada e frequência de refeições para adequação ao protocolo.\n\n` +
+    `Recomendações gerais: considere solicitar exames laboratoriais recentes (hemograma, ferritina, vitamina D, B12) para complementar a avaliação nutricional.\n\n` +
+    `Nível de confiança: moderado. Qualidade da evidência: equações populacionais validadas (Mifflin-St Jeor).\n\n` +
+    `⚠️ Esta síntese é ferramenta de apoio. Diagnóstico nutricional e prescrição dietética são responsabilidade exclusiva do Nutricionista habilitado (CFN 599/2018).`;
+
+  const onSubmit = async (values: FormData) => {
     setIsSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
-      const aiText =
-        `Síntese nutricional de apoio (IA):\n\n` +
-        `GET estimado: ${liveCalc?.tee ?? '—'} kcal/dia · TMB: ${liveCalc?.bmr ?? '—'} kcal/dia · IMC: ${liveCalc?.bmi ?? '—'}\n\n` +
-        `Proteína estimada: ${liveCalc?.protein ?? '—'} g/dia (referência 1,8 g/kg).\n\n` +
-        `Avaliação da anamnese: verifique ingestão hídrica declarada e frequência de refeições para adequação ao protocolo.\n\n` +
-        `Recomendações gerais: considere solicitar exames laboratoriais recentes (hemograma, ferritina, vitamina D, B12) para complementar a avaliação nutricional.\n\n` +
-        `Nível de confiança: moderado. Qualidade da evidência: equações populacionais validadas (Mifflin-St Jeor).\n\n` +
-        `⚠️ Esta síntese é ferramenta de apoio. Diagnóstico nutricional e prescrição dietética são responsabilidade exclusiva do Nutricionista habilitado (CFN 599/2018).`;
-      simulateStream(aiText, 15);
+      const dto = {
+        patientId: values.patientId || 'demo',
+        weight: values.weight,
+        heightCm: values.heightCm,
+        age: values.age,
+        gender: values.gender,
+        activityLevel: values.activityLevel,
+        bmrFormula: values.bmrFormula,
+        tmb: liveCalc?.bmr,
+        get: liveCalc?.tee,
+        caloricTarget: values.caloricTarget || liveCalc?.tee,
+        proteinTargetG: values.proteinTargetG || liveCalc?.protein,
+        nutritionalDiagnosis: values.nutritionalDiagnosis,
+        dietaryStrategy: values.dietaryStrategy,
+        professionalNotes: values.professionalNotes,
+      };
+
+      let aiText = FALLBACK_AI_TEXT;
+      let tokens: number | null = null;
+
+      try {
+        const created = await api.assessments.createNutritional(dto);
+        const assessmentId: string = created.id ?? created._id;
+        const summaryResult = await api.assessments.aiSummary(assessmentId);
+        aiText = summaryResult.summary.content;
+        tokens = summaryResult.tokensConsumed ?? null;
+      } catch {
+        // Backend unavailable — use local fallback text (already set above)
+      }
+
+      setTokensConsumed(tokens);
+      simulateStream(aiText, 12);
       toast.success('Avaliação salva com sucesso!');
     } finally {
       setIsSubmitting(false);
@@ -366,6 +399,11 @@ export default function NutritionalAssessmentNewPage() {
               {!isStreaming && (
                 <p className="text-xs text-gray-400 italic mt-3 border-t pt-2">
                   Nível de confiança: Moderado · Requer validação profissional
+                  {tokensConsumed !== null && (
+                    <span className="ml-2 flex items-center gap-0.5 inline-flex">
+                      · {tokensConsumed} <Coins className="h-2.5 w-2.5" /> tokens consumidos
+                    </span>
+                  )}
                 </p>
               )}
             </CardContent>

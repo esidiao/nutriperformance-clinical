@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { ShieldAlert, Coins, Dna, AlertTriangle, X, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ShieldAlert, Coins, Dna, AlertTriangle, X, ChevronDown, ChevronUp, Plus, Loader2 } from 'lucide-react';
+import { api } from '@/lib/api-client';
 
 interface BioRisk {
   factor: string; affectedInContext: string[];
@@ -159,15 +160,20 @@ export default function BioavailabilityPage() {
   const [results, setResults] = useState<BioRisk[] | null>(null);
   const [aiAssessment, setAiAssessment] = useState<string | null>(null);
   const [referralNeeded, setReferralNeeded] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiConfidence, setAiConfidence] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
     setResults(null);
-    await new Promise((r) => setTimeout(r, 2200));
+    setAiAssessment(null);
+    setAiConfidence(null);
+    setIsAiAnalyzing(false);
 
-    const mockResults: BioRisk[] = [];
+    // ── Local BioRisk cards (instant, rule-based) ─────────────────────────
+    const localResults: BioRisk[] = [];
     if (medications.some((m) => /omeprazol|IBP|lansoprazol|pantoprazol/i.test(m)) && nutrients.some((n) => /ferro/i.test(n))) {
-      mockResults.push({
+      localResults.push({
         factor: 'IBP (Omeprazol)',
         affectedInContext: ['Ferro'],
         mechanism: 'IBPs reduzem acidez gástrica, prejudicando absorção de ferro não-heme que depende de pH ácido',
@@ -176,7 +182,7 @@ export default function BioavailabilityPage() {
       });
     }
     if (nutrients.some((n) => /vitamina.d/i.test(n))) {
-      mockResults.push({
+      localResults.push({
         factor: 'Vitamina D — lipossolúvel',
         affectedInContext: ['Vitamina D3'],
         mechanism: 'Vitamina D3 é lipossolúvel; absorção depende da presença de gordura na refeição',
@@ -185,7 +191,7 @@ export default function BioavailabilityPage() {
       });
     }
     if (nutrients.some((n) => /zinco/i.test(n)) && dietaryFactors.some((d) => /fitato|cereal|leguminosa/i.test(d))) {
-      mockResults.push({
+      localResults.push({
         factor: 'Fitatos na dieta',
         affectedInContext: ['Zinco'],
         mechanism: 'Ácido fítico quelam zinco e outros minerais divalentes, reduzindo biodisponibilidade',
@@ -194,14 +200,34 @@ export default function BioavailabilityPage() {
       });
     }
 
-    setResults(mockResults);
-    setReferralNeeded(mockResults.some((r) => r.riskLevel === 'high'));
-    setAiAssessment(
-      'Com base nos dados informados, os principais fatores de comprometimento identificados são a combinação ferro+IBP e vitamina D lipossolúvel.\n\n' +
-      'Sugere-se:\n• Reavaliação de ferro e ferritina em 60-90 dias após ajuste\n• Monitoramento de 25-OH vitamina D em 90 dias\n\n' +
-      'Dados insuficientes para análise completa de zinco sem informações sobre ingestão dietética habitual.',
-    );
+    setResults(localResults);
+    setReferralNeeded(localResults.some((r) => r.riskLevel === 'high'));
     setIsAnalyzing(false);
+
+    // ── Real Gemini AI analysis (async, non-blocking) ─────────────────────
+    setIsAiAnalyzing(true);
+    const dto = {
+      nutrientsOrSupplements: nutrients,
+      giConditions: giConditions,
+      medications: medications,
+      surgicalHistory: surgicalHistory,
+      dietaryFactors: dietaryFactors,
+    };
+
+    api.bioavailability.analyze(dto)
+      .then((res: any) => {
+        setAiAssessment(res.aiAnalysis?.content ?? null);
+        setAiConfidence(res.aiAnalysis?.confidenceLevel ?? null);
+      })
+      .catch(() => {
+        // Backend unavailable — show a local fallback summary
+        setAiAssessment(
+          'Com base nos dados informados, os principais fatores de comprometimento identificados são a combinação ferro+IBP e vitamina D lipossolúvel.\n\n' +
+          'Sugere-se:\n• Reavaliação de ferro e ferritina em 60-90 dias após ajuste\n• Monitoramento de 25-OH vitamina D em 90 dias\n\n' +
+          'Dados insuficientes para análise completa de zinco sem informações sobre ingestão dietética habitual.',
+        );
+      })
+      .finally(() => setIsAiAnalyzing(false));
   };
 
   return (
@@ -274,7 +300,7 @@ export default function BioavailabilityPage() {
 
       <Button onClick={handleAnalyze} disabled={isAnalyzing} size="lg" className="w-full flex items-center gap-2">
         {isAnalyzing ? (
-          <><span className="animate-spin">⟳</span> Analisando biodisponibilidade…</>
+          <><Loader2 className="h-4 w-4 animate-spin" /> Analisando biodisponibilidade…</>
         ) : (
           <><Dna className="h-4 w-4" /> Analisar Biodisponibilidade (12 tokens)</>
         )}
@@ -302,10 +328,26 @@ export default function BioavailabilityPage() {
             results.map((risk, i) => <RiskCard key={i} risk={risk} />)
           )}
 
-          {aiAssessment && (
+          {isAiAnalyzing && (
+            <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+              <CardContent className="pt-4 pb-4 flex items-center gap-3">
+                <Loader2 className="h-4 w-4 text-blue-600 animate-spin flex-shrink-0" />
+                <span className="text-sm text-blue-700 dark:text-blue-300 animate-pulse">IA analisando... (pode levar alguns segundos)</span>
+              </CardContent>
+            </Card>
+          )}
+
+          {aiAssessment && !isAiAnalyzing && (
             <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-blue-800 dark:text-blue-300">Análise Complementar (IA)</CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-sm text-blue-800 dark:text-blue-300">Análise Complementar (IA)</CardTitle>
+                  {aiConfidence && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      Confiança: {aiConfidence}
+                    </span>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <pre className="text-xs text-blue-900 dark:text-blue-200 whitespace-pre-wrap leading-relaxed">{aiAssessment}</pre>

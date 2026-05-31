@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShieldAlert, Plus, FlaskConical, Coins, Brain, Upload } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
+import { api } from '@/lib/api-client';
 
 type LabStatus = 'normal' | 'low' | 'high' | 'critical_low' | 'critical_high' | 'not_evaluated';
 
@@ -63,26 +64,41 @@ export default function LaboratoryPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiContext, setAiContext] = useState<string | null>(null);
+  const [aiMeta, setAiMeta] = useState<{ confidence?: string; warnings?: string[]; isFallback?: boolean; tokensConsumed?: number } | null>(null);
   const [interpretation, setInterpretation] = useState('');
 
   const altered = exam.results.filter((r) => r.status !== 'normal' && r.status !== 'not_evaluated');
   const critical = exam.results.filter((r) => r.status === 'critical_low' || r.status === 'critical_high');
 
+  const FALLBACK_ANALYSIS =
+    'Contexto nutricional dos exames (ferramenta de apoio):\n\n' +
+    '• Hemoglobina baixa + ferritina baixa: padrão compatível com anemia ferropriva em investigação. ' +
+    'Suplementação de ferro em curso. Monitorar resposta ao tratamento em 30-60 dias.\n\n' +
+    '• Vitamina D insuficiente (18 ng/mL): suplementação de D3 iniciada. Reavaliar 25-OH VitD em 90 dias.\n\n' +
+    '• Zinco sérico baixo: avaliar ingestão de carnes, sementes e nozes. Fitatos na dieta podem reduzir absorção.\n\n' +
+    '• Creatinina normal: uso de creatina é compatível com função renal atual. Monitorar.\n\n' +
+    '• B12 e glicemia normais: sem necessidade de intervenção nutricional específica no momento.\n\n' +
+    '⚠️ IMPORTANTE: Interpretação diagnóstica dos exames é exclusividade médica. ' +
+    'Esta análise foca apenas no contexto nutricional e de suplementação.';
+
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
-    await new Promise((r) => setTimeout(r, 2500));
-    setAiContext(
-      'Contexto nutricional dos exames (ferramenta de apoio):\n\n' +
-      '• Hemoglobina baixa + ferritina baixa: padrão compatível com anemia ferropriva em investigação. ' +
-      'Suplementação de ferro em curso. Monitorar resposta ao tratamento em 30-60 dias.\n\n' +
-      '• Vitamina D insuficiente (18 ng/mL): suplementação de D3 iniciada. Reavaliar 25-OH VitD em 90 dias.\n\n' +
-      '• Zinco sérico baixo: avaliar ingestão de carnes, sementes e nozes. Fitatos na dieta podem reduzir absorção.\n\n' +
-      '• Creatinina normal: uso de creatina é compatível com função renal atual. Monitorar.\n\n' +
-      '• B12 e glicemia normais: sem necessidade de intervenção nutricional específica no momento.\n\n' +
-      '⚠️ IMPORTANTE: Interpretação diagnóstica dos exames é exclusividade médica. ' +
-      'Esta análise foca apenas no contexto nutricional e de suplementação.',
-    );
-    setIsAnalyzing(false);
+    try {
+      const activeSupplements: string[] = [];
+      const result = await api.laboratory.analyze(exam.id, activeSupplements);
+      setAiContext(result.analysis.content);
+      setAiMeta({
+        confidence: result.analysis.confidenceLevel,
+        warnings: result.analysis.warnings,
+        isFallback: false,
+        tokensConsumed: result.tokensConsumed,
+      });
+    } catch {
+      setAiContext(FALLBACK_ANALYSIS);
+      setAiMeta({ isFallback: true });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -219,13 +235,33 @@ export default function LaboratoryPage() {
             <CardTitle className="text-sm text-blue-800 flex items-center gap-2">
               <Brain className="h-4 w-4" />
               Contexto Nutricional — Análise de Apoio (IA)
+              {aiMeta?.isFallback && (
+                <span className="ml-auto text-xs font-normal text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                  Backend não disponível — análise local
+                </span>
+              )}
+              {!aiMeta?.isFallback && aiMeta?.tokensConsumed !== undefined && (
+                <span className="ml-auto text-xs font-normal text-gray-400 flex items-center gap-0.5">
+                  {aiMeta.tokensConsumed} <Coins className="h-2.5 w-2.5" />
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <pre className="text-xs text-blue-900 whitespace-pre-wrap leading-relaxed">{aiContext}</pre>
+            {!aiMeta?.isFallback && aiMeta?.warnings && aiMeta.warnings.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-blue-200">
+                <p className="text-xs font-semibold text-amber-700 mb-1">Avisos:</p>
+                <ul className="space-y-0.5">
+                  {aiMeta.warnings.map((w, i) => (
+                    <li key={i} className="text-xs text-amber-800">• {w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="mt-3 pt-3 border-t border-blue-200 space-y-1">
               <p className="text-xs text-gray-500 italic">
-                Confiança: Moderada · Fonte: análise contextual de apoio · Requer validação profissional
+                Confiança: {aiMeta?.isFallback ? 'Moderada' : (aiMeta?.confidence ?? 'Moderada')} · Fonte: análise contextual de apoio · Requer validação profissional
               </p>
               <p className="text-xs text-gray-400 italic">
                 Esta análise foca exclusivamente em implicações nutricionais.

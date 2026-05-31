@@ -50,40 +50,107 @@ export interface BioavailabilityAnalysisInput {
   dietaryFactors: string[];
 }
 
+export interface SupplementProtocolSuggestionInput {
+  goals: string[];
+  age: number;
+  gender: string;
+  conditions: string[];
+  labDeficiencies: string[];
+  proposedSupplements: Array<{
+    name: string;
+    dose: string;
+    timing: string;
+    rationale: string;
+    evidenceLevel: string;
+  }>;
+}
+
 // =============================================================
 // REGRAS ANTI-ALUCINAÇÃO — NÚCLEO DO SISTEMA
 // =============================================================
 const ANTI_HALLUCINATION_SYSTEM_PROMPT = `
-Você é um assistente clínico especializado de suporte para profissionais de saúde (nutricionistas e educadores físicos) no sistema NutriPerformance Clinical.
+Você é um assistente clínico especializado de suporte para NUTRICIONISTAS (CFN) e EDUCADORES FÍSICOS (CONFEF) no sistema NutriPerformance Clinical. Responda EXCLUSIVAMENTE em Português do Brasil.
 
-REGRAS ABSOLUTAS — NUNCA VIOLE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REGRAS ABSOLUTAS — NUNCA VIOLE SOB QUALQUER CIRCUNSTÂNCIA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1. NUNCA invente interações, contraindicações ou dados clínicos que não existam na literatura científica.
-2. NUNCA faça diagnósticos clínicos automáticos.
-3. NUNCA prescreva medicamentos ou terapias médicas.
-4. NUNCA prometa resultados estéticos ou de desempenho.
-5. NUNCA sugira anabolizantes, substâncias proibidas ou práticas perigosas.
-6. NUNCA afirme causalidade clínica sem evidência de qualidade adequada.
-7. NUNCA invente valores laboratoriais ou dados do paciente.
-8. NUNCA faça alegações terapêuticas não embasadas.
+1. NUNCA invente interações, contraindicações, estudos ou dados clínicos inexistentes na literatura científica.
+2. NUNCA emita diagnósticos clínicos, mesmo que o usuário solicite.
+3. NUNCA prescreva medicamentos, doses medicamentosas ou terapias de competência médica.
+4. NUNCA prometa ou sugira resultados estéticos, de desempenho ou terapêuticos garantidos.
+5. NUNCA mencione, sugira ou insinue anabolizantes, hormônios exógenos, substâncias dopantes ou práticas vedadas pelo CFN/CONFEF/WADA.
+6. NUNCA afirme causalidade clínica sem embasamento em evidência de qualidade adequada (mínimo Nível IIb).
+7. NUNCA invente, extrapole ou modifique valores laboratoriais, dados antropométricos ou informações do paciente.
+8. NUNCA faça alegações terapêuticas não respaldadas por evidência classificável.
+9. NUNCA omita limitações importantes da evidência disponível.
+10. NUNCA substitua o julgamento clínico individualizado do profissional responsável.
 
-QUANDO NÃO SOUBER OU A EVIDÊNCIA FOR INSUFICIENTE:
-- Responda explicitamente: "Dados insuficientes para conclusão segura."
-- Informe o nível de confiança: alto / moderado / baixo / dados insuficientes.
-- Indique a qualidade da evidência: meta-análise / ECR / observacional / relato de caso / opinião de especialista.
-- Sempre recomende validação profissional.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CLASSIFICAÇÃO OBRIGATÓRIA DE EVIDÊNCIA (Oxford CEBM adaptado):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-FORMATO DE RESPOSTA:
-- Seja objetivo e clinicamente preciso.
-- Use linguagem técnica adequada para profissionais de saúde.
-- Estruture em seções claras.
-- Inclua nível de confiança em cada afirmação relevante.
-- Termine sempre com aviso legal.
+Para CADA afirmação clínica relevante, classifique:
 
-O SISTEMA:
-- É ferramenta de APOIO, não de substituição profissional.
-- Não substitui consulta médica, nutricional ou avaliação individualizada.
-- Todas as análises devem ser validadas pelo profissional responsável.
+  Ia  = Meta-análise de ECRs (evidência mais forte)
+  Ib  = Ensaio Clínico Randomizado (ECR) individual
+  IIa = Estudo controlado sem randomização
+  IIb = Estudo de coorte ou caso-controle
+  III = Série de casos ou estudos observacionais descritivos
+  IV  = Opinião de especialista / consenso de sociedade científica
+
+Se não houver evidência classificável: marque como [DADOS INSUFICIENTES].
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESCORES DE CONFIANÇA OBRIGATÓRIOS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ao lado de cada afirmação relevante, indique entre colchetes:
+  [Confiança: XX% | Evidência: Nível Ia/Ib/IIa/IIb/III/IV]
+
+Exemplos:
+  "O cálcio compete com o ferro na absorção intestinal. [Confiança: 92% | Evidência: Ib]"
+  "Esta interação pode ocorrer em teoria, mas faltam estudos humanos. [Confiança: 35% | Evidência: IV — DADOS INSUFICIENTES]"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESTRUTURA OBRIGATÓRIA DE RESPOSTA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Toda resposta DEVE conter as seguintes seções rotuladas, nesta ordem:
+
+## RACIOCÍNIO CLÍNICO
+Descreva passo a passo o raciocínio utilizado: quais dados foram considerados, quais hipóteses foram levantadas, quais foram descartadas e por quê. Este é o chain-of-thought explícito obrigatório.
+
+## ANÁLISE PRINCIPAL
+Conteúdo da análise solicitada, com cada afirmação acompanhada de [Confiança: XX% | Evidência: Nível X].
+
+## ALERTAS E CONTRAINDICAÇÕES
+Liste todos os alertas identificados, classificados por gravidade:
+  🔴 CONTRAINDICADO — risco grave documentado
+  🟠 ALTO RISCO — cautela obrigatória com monitoramento
+  🟡 RISCO MODERADO — avaliar custo-benefício
+  🟢 BAIXO RISCO — contexto geral favorável
+
+Se não houver alertas em uma categoria, escreva "Nenhum identificado nesta categoria."
+
+## LACUNAS DE EVIDÊNCIA
+Liste explicitamente cada ponto em que a evidência é insuficiente, inexistente ou conflitante. Use o marcador: [DADOS INSUFICIENTES — motivo].
+
+## RECOMENDAÇÕES PARA O PROFISSIONAL
+Orientações práticas e acionáveis para o nutricionista ou educador físico, dentro do escopo de sua competência legal.
+
+## AVISO LEGAL
+Esta análise é uma ferramenta de apoio técnico para profissionais habilitados. Não constitui diagnóstico, prescrição ou tratamento. Deve ser interpretada e validada pelo profissional responsável, considerando o contexto clínico individualizado. Responsabilidade clínica exclusiva do profissional (CFN/CONFEF).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRINCÍPIOS GERAIS DE QUALIDADE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Use linguagem técnica adequada para profissionais de saúde com formação superior.
+- Prefira "pode indicar" / "sugere investigação" / "compatível com" a afirmações absolutas.
+- Quando a evidência for apenas Nível III ou IV, declare isso explicitamente antes de apresentar o conteúdo.
+- Cite mecanismos bioquímicos e fisiológicos quando relevante e embasado.
+- Esta ferramenta é de APOIO — nunca substitua o julgamento clínico individualizado.
 `;
 
 const DISCLAIMER =
@@ -102,7 +169,7 @@ export class AIEngineService {
     const apiKey = this.config.get<string>('GEMINI_API_KEY') ?? '';
     const genAI = new GoogleGenerativeAI(apiKey);
     this.model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: ANTI_HALLUCINATION_SYSTEM_PROMPT,
     });
   }
@@ -178,6 +245,51 @@ IMPORTANTE: Não faça diagnóstico. Organize as informações para apoiar o jul
   }
 
   // ------------------------------------------------------------------
+  // SUGESTÃO DE PROTOCOLO DE SUPLEMENTAÇÃO
+  // ------------------------------------------------------------------
+  async suggestProtocol(input: SupplementProtocolSuggestionInput): Promise<AIAnalysisResult> {
+    const supplementList = input.proposedSupplements
+      .map(
+        (s, i) =>
+          `${i + 1}. ${s.name} — Dose: ${s.dose} | Horário: ${s.timing} | Justificativa: ${s.rationale} | Nível de evidência declarado: ${s.evidenceLevel}`,
+      )
+      .join('\n');
+
+    const prompt = `
+Você está revisando um protocolo de suplementação proposto para um paciente. Avalie criticamente cada aspecto abaixo:
+
+PERFIL DO PACIENTE:
+- Idade: ${input.age} anos
+- Sexo: ${input.gender}
+- Objetivos: ${input.goals.join(', ') || 'não informados'}
+- Condições clínicas: ${input.conditions.join(', ') || 'nenhuma informada'}
+- Deficiências laboratoriais identificadas: ${input.labDeficiencies.join(', ') || 'nenhuma informada'}
+
+PROTOCOLO PROPOSTO:
+${supplementList || 'Nenhum suplemento informado.'}
+
+Revise o protocolo verificando obrigatoriamente os seguintes pontos:
+
+(1) INTERAÇÕES entre os suplementos propostos — identifique pares ou combinações problemáticas, mecanismo e risco.
+
+(2) SINERGIAS que potencializam mutuamente os efeitos — quais combinações são benéficas e por quê.
+
+(3) CONFLITOS DE HORÁRIO — ex.: cálcio bloqueia absorção de ferro; magnésio interfere com zinco; vitamina C potencia ferro. Indique quais itens NÃO devem ser tomados juntos e o intervalo mínimo recomendado.
+
+(4) CARGA DIÁRIA TOTAL — avalie se a soma dos suplementos representa sobrecarga metabólica, hepática ou renal, especialmente considerando a idade e condições clínicas.
+
+(5) INADEQUAÇÕES ESPECÍFICAS — algum suplemento é inapropriado para as condições clínicas, faixa etária ou sexo informados? Aponte contraindicações ou necessidade de cautela especial.
+
+(6) LACUNAS DO PROTOCOLO — considerando os objetivos declarados e as deficiências laboratoriais, há suplementos altamente indicados que estão ausentes? Liste com justificativa e nível de evidência.
+
+Para cada ponto, forneça confiança e nível de evidência conforme as instruções do sistema.
+    `;
+
+    const content = await this.generate(prompt, 2048);
+    return this.parseAndValidateResponse(content, 'protocol_review_engine');
+  }
+
+  // ------------------------------------------------------------------
   // ANÁLISE DE EXAMES LABORATORIAIS (apoio, não diagnóstico)
   // ------------------------------------------------------------------
   async analyzeLaboratoryContext(
@@ -185,28 +297,76 @@ IMPORTANTE: Não faça diagnóstico. Organize as informações para apoiar o jul
     supplements: string[],
     medications: string[],
   ): Promise<AIAnalysisResult> {
-    const prompt = `
-Como ferramenta de APOIO para nutricionistas, analise o contexto laboratorial abaixo em relação a suplementação e nutrição:
+    const labEntries = Object.entries(labResults)
+      .map(
+        ([marker, data]) =>
+          `- ${marker}: ${data.value} ${data.unit} (referência: ${data.reference} | status: ${data.status})`,
+      )
+      .join('\n');
 
-EXAMES:
-${JSON.stringify(labResults, null, 2)}
+    const prompt = `
+Como ferramenta de APOIO para nutricionistas, analise o contexto laboratorial completo abaixo em relação à nutrição e suplementação do paciente.
+
+EXAMES DISPONÍVEIS:
+${labEntries || 'Nenhum resultado laboratorial informado.'}
 
 SUPLEMENTOS EM USO: ${supplements.join(', ') || 'Nenhum informado'}
-MEDICAMENTOS: ${medications.join(', ') || 'Nenhum informado'}
+MEDICAMENTOS EM USO: ${medications.join(', ') || 'Nenhum informado'}
 
-Identifique:
-1. Nutrientes ou suplementos que possam influenciar ou ser influenciados por estes exames
-2. Sinalizações de deficiências nutricionais possíveis (sem diagnóstico definitivo)
-3. Suplementos que podem precisar de revisão com base nos resultados
-4. Necessidade de acompanhamento específico
+Para cada marcador presente, avalie sob perspectiva nutricional e de suplementação:
+
+1. MARCADORES HEMATOLÓGICOS (hemoglobina, hematócrito, VCM, CHCM, leucócitos, plaquetas)
+   - Padrões sugestivos de anemia ferropriva, megaloblástica ou inflamatória
+   - Impacto sobre suplementação de ferro, B12, folato e vitamina C
+
+2. METABOLISMO DO FERRO (ferritina, ferro sérico, TIBC, saturação de transferrina)
+   - Sinais de depleção de estoques, sobrecarga ou inflamação ativa
+   - Necessidade de revisão de doses de ferro suplementar
+
+3. VITAMINAS (vitamina D, B12, ácido fólico)
+   - Adequação dos níveis para as funções metabólicas relevantes
+   - Suplementos que podem estar insuficientes ou excessivos
+
+4. MINERAIS (zinco, magnésio, cálcio)
+   - Deficiências minerais com impacto nutricional
+   - Interações com outros suplementos ou medicamentos em uso
+
+5. GLICEMIA E METABOLISMO INSULÍNICO (glicose em jejum, HbA1c, insulina, HOMA-IR)
+   - Contexto para recomendações nutricionais sobre carboidratos e suplementos insulinossensibilizantes (cromo, berberina, inositol)
+   - Sinalizar se padrão sugere investigação adicional
+
+6. LIPIDOGRAMA (colesterol total, HDL, LDL, VLDL, triglicerídeos)
+   - Relevância para suplementos com efeito no perfil lipídico (ômega-3, berberina, niacina, fitoesteróis)
+   - Alertas para suplementos que possam impactar negativamente
+
+7. FUNÇÃO RENAL (creatinina, ureia, ácido úrico, TFGe)
+   - Contraindicações ou cautelas para suplementos com eliminação renal (creatina, proteína elevada, certos minerais)
+   - Sinalizar necessidade de revisão médica se valores alterados
+
+8. FUNÇÃO HEPÁTICA (ALT, AST, GGT, albumina)
+   - Impacto sobre metabolismo de suplementos lipossolúveis e fitoquímicos hepatotóxicos
+   - Alertas para suplementos que exijam cautela hepática
+
+9. HORMÔNIOS (TSH, T4 livre, testosterona, cortisol)
+   - Interações nutricionais e de suplementação relevantes (selênio e tireoide; magnésio e cortisol; zinco e testosterona)
+   - Contexto para prescrição nutricional individualizada
+
+10. INFLAMAÇÃO (PCR)
+    - Relevância para suplementos anti-inflamatórios (ômega-3, cúrcuma, vitamina D)
+    - Impacto da inflamação sobre biodisponibilidade de micronutrientes (ex.: ferritina elevada em inflamação)
+
+Para CADA marcador alterado (status diferente de 'normal'), forneça:
+- Implicação nutricional principal [Confiança: XX% | Evidência: Nível X]
+- Suplemento ou nutriente que pode precisar de revisão
+- Interação com medicamentos ou suplementos em uso, se aplicável
 
 IMPORTANTE:
-- Não interprete exames como diagnóstico médico
-- A interpretação diagnóstica é exclusiva do médico
-- Foque no impacto nutricional e suplementar
-- Use "pode indicar" e "sugere investigação" em vez de afirmações absolutas
+- Não interprete os exames como diagnóstico médico — a interpretação diagnóstica é exclusiva do médico
+- Use "pode indicar", "sugere investigação" e "compatível com" em vez de afirmações absolutas
+- Para marcadores dentro da referência, mencione apenas se houver relevância clínica nutricional clara
+- Se algum marcador não foi coletado mas seria relevante para os objetivos, indique como [DADOS INSUFICIENTES]
     `;
-    const content = await this.generate(prompt, 1500);
+    const content = await this.generate(prompt, 2048);
     return this.parseAndValidateResponse(content, 'laboratory_nutritional_context');
   }
 

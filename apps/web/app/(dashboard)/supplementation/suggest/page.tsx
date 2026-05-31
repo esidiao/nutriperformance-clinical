@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
 import { useStreamingText } from '@/hooks/useStreamingText';
+import { api } from '@/lib/api-client';
 import {
   Pill, Coins, ShieldAlert, Sparkles, CheckCircle,
   Loader2, AlertTriangle, Star, BookOpen,
@@ -217,6 +218,7 @@ export default function SupplementSuggestPage() {
   const [conditions, setConditions] = useState('');
   const [labDeficiencies, setLabDeficiencies] = useState('');
   const [suggestions, setSuggestions] = useState<SupplementSuggestion[] | null>(null);
+  const [protocolInteractions, setProtocolInteractions] = useState<any[] | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const { text: aiRationale, isStreaming, simulateStream } = useStreamingText();
 
@@ -228,6 +230,7 @@ export default function SupplementSuggestPage() {
     if (!goals.length) return;
     setIsGenerating(true);
     setSuggestions(null);
+    setProtocolInteractions(null);
     await new Promise((r) => setTimeout(r, 600));
 
     const condArr = conditions.split(',').map((s) => s.trim()).filter(Boolean);
@@ -235,14 +238,74 @@ export default function SupplementSuggestPage() {
     const suggs = generateSuggestions(goals, age, gender, condArr, labArr);
     setSuggestions(suggs);
 
-    const essentials = suggs.filter((s) => s.priority === 'essential').map((s) => s.name).join(', ');
-    const aiText =
-      `Protocolo gerado com base em: ${goals.map((g) => GOAL_OPTIONS.find((o) => o.key === g)?.label).join(', ')}.\n\n` +
-      `${suggs.length} suplemento(s) identificado(s). ${essentials ? `Essenciais: ${essentials}.` : ''}\n\n` +
+    // ── Call interactions API to check for inter-supplement interactions ────────
+    const interactionResult = await api.interactions.analyze({
+      supplements: suggs.map((s) => ({ name: s.name, dose: s.dose, frequency: 'conforme protocolo' })),
+      medications: [],
+      clinicalConditions: condArr.filter(Boolean),
+      patientContext: {
+        age: parseInt(String(age)) || 30,
+        gender: gender === 'male' ? 'masculino' : 'feminino',
+      },
+    }).catch(() => null);
+
+    const interactions: any[] = interactionResult?.interactions ?? [];
+    if (interactions.length > 0) {
+      setProtocolInteractions(interactions);
+    }
+
+    // ── Build a personalized AI analysis text from the real suggestions ─────────
+    const genderLabel = gender === 'male' ? 'masculino' : 'feminino';
+    const goalsLabel = goals.map((g) => GOAL_OPTIONS.find((o) => o.key === g)?.label).join(', ');
+    const condLabel = condArr.length > 0 ? condArr.join(', ') : 'nenhuma informada';
+    const labLabel = labArr.length > 0 ? labArr.join(', ') : 'nenhuma informada';
+
+    const essentials = suggs.filter((s) => s.priority === 'essential');
+    const beneficial = suggs.filter((s) => s.priority === 'beneficial');
+    const optional   = suggs.filter((s) => s.priority === 'optional');
+
+    const essentialsBlock = essentials.length > 0
+      ? `Essenciais (${essentials.length}): ${essentials.map((s) => `${s.name} ${s.dose}`).join(' · ')}`
+      : '';
+    const beneficialBlock = beneficial.length > 0
+      ? `Benéficos (${beneficial.length}): ${beneficial.map((s) => `${s.name} ${s.dose}`).join(' · ')}`
+      : '';
+    const optionalBlock = optional.length > 0
+      ? `Opcionais (${optional.length}): ${optional.map((s) => `${s.name} ${s.dose}`).join(' · ')}`
+      : '';
+
+    const interactionsNote = interactions.length > 0
+      ? `${interactions.length} interação(ões) identificada(s) entre suplementos do protocolo — veja a seção "Interações no Protocolo" acima.`
+      : 'Nenhuma interação identificada entre os suplementos deste protocolo.';
+
+    const aiText = [
+      `ANÁLISE CLÍNICA DO PROTOCOLO`,
+      ``,
+      `Perfil: ${age} anos, sexo ${genderLabel}`,
+      `Objetivos: ${goalsLabel}`,
+      `Condições / restrições: ${condLabel}`,
+      `Deficiências laboratoriais: ${labLabel}`,
+      ``,
+      `PROTOCOLO — ${suggs.length} suplemento(s) identificado(s)`,
+      essentialsBlock,
+      beneficialBlock,
+      optionalBlock,
+      ``,
+      `INTERAÇÕES: ${interactionsNote}`,
+      ``,
+      `FUNDAMENTAÇÃO`,
       `Todos os suplementos foram selecionados com base em evidências científicas categorizadas (A–D). ` +
-      `O protocolo deve ser individualizado pelo nutricionista ou profissional habilitado, considerando exames laboratoriais recentes, histórico clínico completo e interações medicamentosas.\n\n` +
-      `Antes de iniciar qualquer suplementação, recomenda-se análise de interações na aba Interações e validação do profissional responsável.\n\n` +
-      `⚠️ Este protocolo é ferramenta de apoio. Prescrição e indicação de suplementos são atribuições do Nutricionista (CFN 599/2018).`;
+      `Os itens de evidência A contam com suporte de meta-análises ou múltiplos ensaios clínicos randomizados; ` +
+      `os de evidência B possuem ao menos um ECR ou revisão sistemática; ` +
+      `os de evidência C baseiam-se em estudos observacionais ou consenso de especialistas.`,
+      ``,
+      `O protocolo deve ser individualizado pelo nutricionista ou profissional habilitado, ` +
+      `considerando exames laboratoriais recentes, histórico clínico completo e interações medicamentosas.`,
+      ``,
+      `⚠️ Este protocolo é ferramenta de apoio à decisão clínica. ` +
+      `Prescrição e indicação de suplementos são atribuições do Nutricionista (CFN 599/2018).`,
+    ].filter((line) => line !== undefined && line !== null).join('\n');
+
     simulateStream(aiText, 14);
     setIsGenerating(false);
   };
@@ -423,6 +486,52 @@ export default function SupplementSuggestPage() {
                 </Card>
               );
             })}
+
+            {/* Protocol interactions section */}
+            {protocolInteractions && protocolInteractions.length > 0 && (
+              <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    ⚠️ Interações no Protocolo
+                    <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 dark:text-amber-400">
+                      {protocolInteractions.length} encontrada(s)
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {protocolInteractions.map((interaction: any, idx: number) => (
+                    <div key={idx} className="border border-amber-200 dark:border-amber-800 rounded-lg p-3 bg-white dark:bg-amber-900/30">
+                      <div className="flex items-start gap-2 mb-1">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                          {interaction.supplements?.join(' + ') ?? interaction.name ?? `Interação ${idx + 1}`}
+                        </span>
+                        {interaction.severity && (
+                          <Badge variant="outline" className={`text-[10px] ml-auto border-amber-400 ${
+                            interaction.severity === 'high' ? 'text-red-700 dark:text-red-400 border-red-400' :
+                            interaction.severity === 'moderate' ? 'text-amber-700 dark:text-amber-400' :
+                            'text-gray-600 dark:text-gray-400 border-gray-300'
+                          }`}>
+                            {interaction.severity === 'high' ? 'Alta' : interaction.severity === 'moderate' ? 'Moderada' : 'Baixa'}
+                          </Badge>
+                        )}
+                      </div>
+                      {interaction.description && (
+                        <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed ml-5">
+                          {interaction.description}
+                        </p>
+                      )}
+                      {interaction.recommendation && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-5 italic">
+                          Recomendação: {interaction.recommendation}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {/* AI rationale with streaming */}
             {(aiRationale || isStreaming) && (

@@ -1,11 +1,13 @@
 import {
-  Controller, Post, Get, Patch, Param, Body, Req, UseGuards,
+  Controller, Post, Get, Patch, Param, Body, Req, Res,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, IsNumber, IsBoolean, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Response } from 'express';
 import { InteractionService } from './interaction.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { AIEngineService, InteractionAnalysisInput } from '../ai/ai-engine.service';
 import { ClinicalStaff, RequiresTokens } from '../../common/decorators';
 
 class SupplementItemDto {
@@ -41,6 +43,7 @@ export class InteractionController {
   constructor(
     private interactionService: InteractionService,
     private alertsService: AlertsService,
+    private aiEngine: AIEngineService,
   ) {}
 
   @Post('analyze')
@@ -69,6 +72,66 @@ export class InteractionController {
     }).catch(() => {/* silencioso — não bloquear resposta */});
 
     return result;
+  }
+
+  @Post('analyze/stream')
+  @ClinicalStaff()
+  @ApiOperation({ summary: 'Analisar interações com streaming SSE — consome 15 tokens' })
+  async analyzeStream(@Body() dto: AnalyzeInteractionsDto, @Req() req: any, @Res() res: Response) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const aiInput: InteractionAnalysisInput = {
+      supplements: dto.supplements,
+      medications: dto.medications,
+      clinicalConditions: dto.clinicalConditions,
+      labResults: dto.labResults as any,
+      patientContext: {
+        age: dto.patientAge,
+        gender: dto.patientGender,
+        isPregnant: dto.isPregnant,
+        isBreastfeeding: dto.isBreastfeeding,
+      },
+    };
+
+    // Build the prompt reusing the same structure as the standard analysis
+    const prompt = `
+Analise as possíveis interações entre os itens abaixo para o seguinte perfil de paciente:
+
+PERFIL: ${aiInput.patientContext.age} anos, ${aiInput.patientContext.gender}${aiInput.patientContext.isPregnant ? ', gestante' : ''}${aiInput.patientContext.isBreastfeeding ? ', lactante' : ''}
+
+SUPLEMENTOS EM USO:
+${aiInput.supplements.map((s) => `- ${s.name} ${s.dose ? `(${s.dose})` : ''} ${s.frequency ? `/ ${s.frequency}` : ''}`).join('\n')}
+
+MEDICAMENTOS EM USO:
+${aiInput.medications.map((m) => `- ${m.name}${m.activePrinciple ? ` [PA: ${m.activePrinciple}]` : ''} ${m.dose ? `(${m.dose})` : ''}`).join('\n')}
+
+CONDIÇÕES CLÍNICAS: ${aiInput.clinicalConditions.join(', ') || 'Não informado'}
+
+${aiInput.labResults ? `EXAMES RELEVANTES:\n${JSON.stringify(aiInput.labResults, null, 2)}` : ''}
+
+Para cada interação identificada, informe:
+1. Entidades envolvidas (A x B)
+2. Tipo: suplemento-medicamento / suplemento-suplemento / suplemento-condição / suplemento-exame
+3. Nível de risco: baixo / moderado / alto / contraindicado / dados insuficientes
+4. Mecanismo (se conhecido e embasado)
+5. Nível de confiança e qualidade da evidência
+6. Recomendação para o profissional
+7. Necessidade de revisão médica
+
+Se não houver evidência suficiente para afirmar uma interação, declare explicitamente.
+    `;
+
+    try {
+      for await (const chunk of this.aiEngine.generateStream(prompt, 2048)) {
+        res.write(`data: ${chunk}\n\n`);
+      }
+      res.write('data: [DONE]\n\n');
+    } finally {
+      res.end();
+    }
   }
 
   @Get(':patientId')

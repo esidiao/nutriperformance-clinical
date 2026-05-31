@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { queryInteractions, getOverallRisk, EVIDENCE_BASE, type EvidenceEntry } from '@/lib/evidence/evidence-base';
-
-const EVIDENCE_BASE_SIZE = EVIDENCE_BASE.length;
+import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,6 +13,8 @@ import {
   ShieldAlert, Coins, Plus, X, AlertTriangle,
   CheckCircle, Loader2, Search,
 } from 'lucide-react';
+
+const EVIDENCE_BASE_SIZE = EVIDENCE_BASE.length;
 
 interface SupplementEntry { name: string; dose: string; frequency: string; }
 interface MedicationEntry { name: string; activePrinciple: string; dose: string; }
@@ -129,6 +130,9 @@ export default function InteractionAnalysisNewPage() {
   const [results, setResults] = useState<InteractionResult[] | null>(null);
   const [overallRisk, setOverallRisk] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiConfidence, setAiConfidence] = useState<string | null>(null);
+  const [aiWarnings, setAiWarnings] = useState<string[]>([]);
 
   const updateSupplement = (i: number, field: keyof SupplementEntry, val: string) =>
     setSupplements((s) => s.map((e, idx) => idx === i ? { ...e, [field]: val } : e));
@@ -156,6 +160,9 @@ export default function InteractionAnalysisNewPage() {
     setIsAnalyzing(true);
     setResults(null);
     setAiAnalysis(null);
+    setAiConfidence(null);
+    setAiWarnings([]);
+    setIsAiAnalyzing(false);
     setAnalysisStep(0);
 
     try {
@@ -197,15 +204,38 @@ export default function InteractionAnalysisNewPage() {
       setResults(mappedResults);
       setOverallRisk(overallRiskLevel);
 
-      const highCount = mappedResults.filter((r) => r.riskLevel === 'high' || r.riskLevel === 'contraindicated').length;
-      setAiAnalysis(
-        `Análise complementar (IA): ${mappedResults.length} interação(ões) identificada(s) na base de evidências local (${EVIDENCE_BASE_SIZE} entradas).\n\n` +
-        (highCount > 0
-          ? `⚠️ ${highCount} interação(ões) de alto risco ou contraindicação identificada(s). Revisão médica recomendada antes de prosseguir com o protocolo.\n\n`
-          : '') +
-        'Interações não encontradas não significam ausência de risco — a base é continuamente atualizada.\n\n' +
-        '⚠️ Esta análise é ferramenta de apoio. Responsabilidade clínica é do profissional habilitado.',
-      );
+      // ── Kick off real Gemini AI analysis in the background ─────────────
+      setIsAiAnalyzing(true);
+      const aiDto = {
+        supplements: validSupplements.map((s) => ({ name: s.name, dose: s.dose, frequency: s.frequency })),
+        medications: validMedications.map((m) => ({ name: m.name, activePrinciple: m.activePrinciple, dose: m.dose })),
+        clinicalConditions: conditions.filter(Boolean),
+        patientContext: {
+          age: parseInt(patientAge) || 30,
+          gender: 'não informado',
+          isPregnant: isPregnant,
+        },
+      };
+
+      api.interactions.analyze(aiDto)
+        .then((res: any) => {
+          setAiAnalysis(res.aiAnalysis?.content ?? null);
+          setAiConfidence(res.aiAnalysis?.confidenceLevel ?? null);
+          setAiWarnings(res.aiAnalysis?.warnings ?? []);
+        })
+        .catch(() => {
+          // Backend unavailable — fall back to local summary
+          const highCount = mappedResults.filter((r) => r.riskLevel === 'high' || r.riskLevel === 'contraindicated').length;
+          setAiAnalysis(
+            `Análise complementar (IA): ${mappedResults.length} interação(ões) identificada(s) na base de evidências local (${EVIDENCE_BASE_SIZE} entradas).\n\n` +
+            (highCount > 0
+              ? `⚠️ ${highCount} interação(ões) de alto risco ou contraindicação identificada(s). Revisão médica recomendada antes de prosseguir com o protocolo.\n\n`
+              : '') +
+            'Interações não encontradas não significam ausência de risco — a base é continuamente atualizada.\n\n' +
+            '⚠️ Esta análise é ferramenta de apoio. Responsabilidade clínica é do profissional habilitado.',
+          );
+        })
+        .finally(() => setIsAiAnalyzing(false));
     } finally {
       setIsAnalyzing(false);
       setAnalysisStep(-1);
@@ -430,12 +460,38 @@ export default function InteractionAnalysisNewPage() {
             })
           )}
 
-          {aiAnalysis && (
+          {isAiAnalyzing && (
+            <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+              <CardContent className="pt-4 pb-4 flex items-center gap-3">
+                <Loader2 className="h-4 w-4 text-blue-600 animate-spin flex-shrink-0" />
+                <span className="text-sm text-blue-700 dark:text-blue-300 animate-pulse">IA analisando... (pode levar alguns segundos)</span>
+              </CardContent>
+            </Card>
+          )}
+
+          {aiAnalysis && !isAiAnalyzing && (
             <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-blue-800 dark:text-blue-300">Análise Complementar (IA)</CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-sm text-blue-800 dark:text-blue-300">Análise Complementar (IA)</CardTitle>
+                  {aiConfidence && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      Confiança: {aiConfidence}
+                    </span>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
+                {aiWarnings.length > 0 && (
+                  <div className="mb-3 space-y-1">
+                    {aiWarnings.map((w, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+                        <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                        {w}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <pre className="text-xs text-blue-900 dark:text-blue-200 whitespace-pre-wrap leading-relaxed">{aiAnalysis}</pre>
                 <p className="text-xs text-gray-400 italic mt-3 border-t pt-2">
                   Análise de apoio · Responsabilidade clínica é do profissional habilitado · CFN · CONFEF · LGPD
