@@ -39,11 +39,25 @@ async function bootstrap() {
       Sentry.init({ dsn: process.env.SENTRY_DSN });
     }
 
+    // CORS — permite localhost (dev), o domínio de produção e qualquer
+    // deployment da Vercel do projeto (as URLs mudam a cada deploy).
+    const staticOrigins = [
+      process.env.FRONTEND_URL ?? 'http://localhost:3000',
+      'http://localhost:3000',
+      'https://app.nutriperformance.com.br',
+    ];
     app.enableCors({
-      origin: [
-        process.env.FRONTEND_URL ?? 'http://localhost:3000',
-        'https://app.nutriperformance.com.br',
-      ],
+      origin: (origin, callback) => {
+        // Requests sem origin (curl, health checks, server-to-server) são permitidos
+        if (!origin) return callback(null, true);
+        const isAllowed =
+          staticOrigins.includes(origin) ||
+          // Deployments da Vercel do projeto: web-*.vercel.app
+          /^https:\/\/web-[a-z0-9-]+-sidiao-collabs-projects\.vercel\.app$/.test(origin) ||
+          // Domínio de produção e subdomínios nutriperformance.com.br
+          /^https:\/\/([a-z0-9-]+\.)?nutriperformance\.com\.br$/.test(origin);
+        callback(null, isAllowed);
+      },
       credentials: true,
     });
 
