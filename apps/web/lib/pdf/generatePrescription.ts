@@ -1,5 +1,16 @@
 'use client';
 
+// ─── PDF injection / XSS sanitisation ────────────────────────────────────────
+// Strips null bytes and ASCII control characters (except \n and \t which jsPDF
+// handles gracefully). Enforces a maximum length to prevent DoS via huge PDFs.
+function sanitize(value: string | undefined | null, maxLen = 200): string {
+  if (!value) return '';
+  // Remove null bytes and non-printable control chars except \n and \t
+  // eslint-disable-next-line no-control-regex
+  const clean = value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  return clean.slice(0, maxLen);
+}
+
 // Dynamic import para evitar SSR error
 export async function generatePrescriptionPDF(data: PrescriptionData): Promise<void> {
   const { jsPDF } = await import('jspdf');
@@ -63,12 +74,12 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
   doc.setTextColor(...DARK);
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(data.professional.name, M + 4, y + 6);
+  doc.text(sanitize(data.professional.name, 100), M + 4, y + 6);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(...GRAY);
-  doc.text(`${data.professional.council} ${data.professional.councilNumber} · ${data.professional.specialty}`, M + 4, y + 11);
-  doc.text(data.professional.clinic, M + 4, y + 16);
+  doc.text(`${sanitize(data.professional.council, 20)} ${sanitize(data.professional.councilNumber, 30)} · ${sanitize(data.professional.specialty, 80)}`, M + 4, y + 11);
+  doc.text(sanitize(data.professional.clinic, 100), M + 4, y + 16);
 
   // Date on right
   doc.setTextColor(...DARK);
@@ -91,10 +102,10 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   const patCols = [
-    `Código: ${data.patient.code}`,
+    `Código: ${sanitize(data.patient.code, 40)}`,
     `Idade: ${data.patient.age} anos`,
-    `Sexo: ${data.patient.gender}`,
-    `Objetivo: ${data.patient.goal}`,
+    `Sexo: ${sanitize(data.patient.gender, 20)}`,
+    `Objetivo: ${sanitize(data.patient.goal, 60)}`,
   ];
   const colW = CW / patCols.length;
   patCols.forEach((t, i) => {
@@ -125,8 +136,8 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
       ],
       body: data.items.map((item) =>
         data.type === 'supplementation'
-          ? [item.name, item.dose, item.frequency, item.timing ?? '—', item.notes ?? '—']
-          : [item.name, item.dose, item.frequency, item.notes ?? '—']
+          ? [sanitize(item.name, 100), sanitize(item.dose, 50), sanitize(item.frequency, 60), sanitize(item.timing, 60) || '—', sanitize(item.notes, 200) || '—']
+          : [sanitize(item.name, 100), sanitize(item.dose, 50), sanitize(item.frequency, 60), sanitize(item.notes, 200) || '—']
       ),
       styles: { fontSize: 8, cellPadding: 3, textColor: DARK },
       headStyles: { fillColor: LGRAY, textColor: DARK, fontStyle: 'bold', fontSize: 7.5 },
@@ -159,11 +170,11 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
       doc.setTextColor(...DARK);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text(inter.pair, M + 6, y + 2.5);
+      doc.text(sanitize(inter.pair, 100), M + 6, y + 2.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...GRAY);
       doc.setFontSize(7.5);
-      const lines = doc.splitTextToSize(inter.recommendation, CW - 10);
+      const lines = doc.splitTextToSize(sanitize(inter.recommendation, 300), CW - 10);
       doc.text(lines, M + 6, y + 7);
       y += 6 + lines.length * 4;
     });
@@ -182,7 +193,7 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...DARK);
-    const noteLines = doc.splitTextToSize(data.professionalNotes, CW);
+    const noteLines = doc.splitTextToSize(sanitize(data.professionalNotes, 500), CW);
     doc.text(noteLines, M, y);
     y += noteLines.length * 5 + 6;
   }
@@ -206,11 +217,11 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...DARK);
   doc.setFontSize(7.5);
-  doc.text(data.professional.name, W - M, signY + 4, { align: 'right' });
+  doc.text(sanitize(data.professional.name, 100), W - M, signY + 4, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...GRAY);
   doc.setFontSize(7);
-  doc.text(`${data.professional.council} ${data.professional.councilNumber}`, W - M, signY + 8, { align: 'right' });
+  doc.text(`${sanitize(data.professional.council, 20)} ${sanitize(data.professional.councilNumber, 30)}`, W - M, signY + 8, { align: 'right' });
 
   // ─── Footer ────────────────────────────────────────────────────────────────
   const footerY = 282;
@@ -234,7 +245,8 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
   doc.text(`Página 1 de 1  ·  Gerado em ${data.date}`, W - M, footerY + 10, { align: 'right' });
 
   // ─── Save ──────────────────────────────────────────────────────────────────
-  const filename = `prescricao-${data.patient.code.toLowerCase().replace(/\s+/g, '-')}-${data.date.replace(/\//g, '-')}.pdf`;
+  const safeCode = sanitize(data.patient.code, 40).toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const filename = `prescricao-${safeCode}-${data.date.replace(/\//g, '-')}.pdf`;
   doc.save(filename);
 }
 

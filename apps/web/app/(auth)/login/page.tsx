@@ -29,6 +29,12 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+
+  // Derived: is the login form currently locked out?
+  const isLocked = lockedUntil !== null && Date.now() < lockedUntil;
+  const lockSecondsLeft = isLocked ? Math.ceil((lockedUntil! - Date.now()) / 1000) : 0;
 
   const supabaseOrNull = getSupabase();
 
@@ -70,15 +76,29 @@ function LoginForm() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Client-side brute-force guard: lock for 30 s after 5 failed attempts
+    if (isLocked) {
+      setError(`Muitas tentativas. Aguarde ${lockSecondsLeft} segundo(s) para tentar novamente.`);
+      return;
+    }
+
     setIsLoading(true);
     setError('');
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      setFailedAttempts(0);
+      setLockedUntil(null);
       window.location.href = '/dashboard';
     } catch (err: any) {
-      if (err.message?.includes('Invalid login credentials')) {
-        setError('Email ou senha incorretos. Verifique seus dados.');
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        setLockedUntil(Date.now() + 30_000);
+        setError('Muitas tentativas incorretas. Aguarde 30 segundos antes de tentar novamente.');
+      } else if (err.message?.includes('Invalid login credentials')) {
+        setError(`Email ou senha incorretos. Verifique seus dados. (${newAttempts}/5 tentativas)`);
       } else if (err.message?.includes('Email not confirmed')) {
         setError('Confirme seu email antes de entrar. Verifique sua caixa de entrada.');
       } else {
@@ -203,8 +223,8 @@ function LoginForm() {
                     placeholder="••••••••" required autoComplete="current-password" />
                 </div>
                 {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Entrando...</> : 'Entrar'}
+                <Button type="submit" className="w-full" disabled={isLoading || isLocked}>
+                  {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Entrando...</> : isLocked ? `Aguarde ${lockSecondsLeft}s...` : 'Entrar'}
                 </Button>
                 <p className="text-center text-xs text-gray-500">
                   Não tem conta?{' '}

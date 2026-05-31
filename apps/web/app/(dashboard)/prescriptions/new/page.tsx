@@ -280,6 +280,7 @@ export default function PrescriptionNewPage() {
                       onChange={(e) => updateItem(i, 'name', e.target.value)}
                       placeholder={docType === 'supplementation' ? 'Ex: Creatina monoidratada' : 'Ex: Arroz integral cozido'}
                       list={`suggestions-${i}`}
+                      maxLength={100}
                       className="mt-1"
                     />
                     <datalist id={`suggestions-${i}`}>
@@ -292,27 +293,27 @@ export default function PrescriptionNewPage() {
                   <div>
                     <Label className="text-xs">Dose / Quantidade *</Label>
                     <Input value={item.dose} onChange={(e) => updateItem(i, 'dose', e.target.value)}
-                      placeholder={docType === 'supplementation' ? 'Ex: 5g' : 'Ex: 200g'} className="mt-1" />
+                      placeholder={docType === 'supplementation' ? 'Ex: 5g' : 'Ex: 200g'} maxLength={50} className="mt-1" />
                   </div>
 
                   <div>
                     <Label className="text-xs">Frequência *</Label>
                     <Input value={item.frequency} onChange={(e) => updateItem(i, 'frequency', e.target.value)}
-                      placeholder="Ex: 1x ao dia" className="mt-1" />
+                      placeholder="Ex: 1x ao dia" maxLength={60} className="mt-1" />
                   </div>
 
                   {docType === 'supplementation' && (
                     <div>
                       <Label className="text-xs">Horário / Timing</Label>
                       <Input value={item.timing ?? ''} onChange={(e) => updateItem(i, 'timing', e.target.value)}
-                        placeholder="Ex: Pré-treino" className="mt-1" />
+                        placeholder="Ex: Pré-treino" maxLength={60} className="mt-1" />
                     </div>
                   )}
 
                   <div className={docType === 'supplementation' ? '' : 'sm:col-span-2'}>
                     <Label className="text-xs">Observações</Label>
                     <Input value={item.notes ?? ''} onChange={(e) => updateItem(i, 'notes', e.target.value)}
-                      placeholder="Ex: Tomar com suco de laranja" className="mt-1" />
+                      placeholder="Ex: Tomar com suco de laranja" maxLength={200} className="mt-1" />
                   </div>
                 </div>
               </div>
@@ -345,7 +346,7 @@ export default function PrescriptionNewPage() {
                     <div className="sm:col-span-2">
                       <Label className="text-xs">Par de interação</Label>
                       <Input value={inter.pair} onChange={(e) => updateInter(i, 'pair', e.target.value)}
-                        placeholder="Ex: Ferro × Omeprazol" className="mt-1" />
+                        placeholder="Ex: Ferro × Omeprazol" maxLength={100} className="mt-1" />
                     </div>
                     <div>
                       <Label className="text-xs">Risco</Label>
@@ -360,7 +361,7 @@ export default function PrescriptionNewPage() {
                     <div className="sm:col-span-3">
                       <Label className="text-xs">Recomendação</Label>
                       <Input value={inter.recommendation} onChange={(e) => updateInter(i, 'recommendation', e.target.value)}
-                        placeholder="Ex: Separar horário de uso em 2 horas" className="mt-1" />
+                        placeholder="Ex: Separar horário de uso em 2 horas" maxLength={300} className="mt-1" />
                     </div>
                   </div>
                 </div>
@@ -395,6 +396,7 @@ export default function PrescriptionNewPage() {
             <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold text-gray-600">Observações do Profissional</CardTitle></CardHeader>
             <CardContent>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+                maxLength={500}
                 placeholder="Orientações gerais, contraindicações, próxima consulta..." />
             </CardContent>
           </Card>

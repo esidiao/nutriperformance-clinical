@@ -63,17 +63,41 @@ const COLOR_MAP: Record<string, string> = {
   purple: 'bg-purple-50 border-purple-200 text-purple-700',
 };
 
+const DPO_EMAIL = 'dpo@nutriperformance.com.br';
+
+/** Generate a human-readable protocol number: LGPD-YYYYMMDD-XXXXXXXX */
+function generateProtocol(): string {
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const rand = Math.random().toString(36).slice(2, 10).toUpperCase();
+  return `LGPD-${date}-${rand}`;
+}
+
 export default function DadosPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [details, setDetails] = useState('');
+  const [protocol, setProtocol] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const right = RIGHTS.find((r) => r.id === selected);
+    const proto = generateProtocol();
+    setProtocol(proto);
+
+    // Open a pre-filled mailto so the request is actually delivered to the DPO.
+    // This is the LGPD-compliant fallback when no backend endpoint is available.
+    const subject = encodeURIComponent(`LGPD — ${right?.title ?? selected} [${proto}]`);
+    const body = encodeURIComponent(
+      `Protocolo: ${proto}\nDireito exercido: ${right?.title ?? selected} (${right?.article ?? ''})\n\nDetalhes adicionais:\n${details || '(nenhum)'}\n\nEnviado em: ${new Date().toLocaleString('pt-BR')}`,
+    );
+    window.location.href = `mailto:${DPO_EMAIL}?subject=${subject}&body=${body}`;
+
     setSubmitted(true);
   };
 
   const right = RIGHTS.find((r) => r.id === selected);
+  const submittedRight = right; // capture at submit time
 
   return (
     <div>
@@ -94,11 +118,15 @@ export default function DadosPage() {
           <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
           <h2 className="text-lg font-bold text-green-900 mb-2">Solicitação enviada!</h2>
           <p className="text-sm text-green-700 mb-4">
-            Recebemos sua solicitação de <strong>{right?.title}</strong>.
-            Responderemos no e-mail cadastrado em até 15 dias úteis.
+            Sua solicitação de <strong>{submittedRight?.title}</strong> foi registrada.
+            Um e-mail para <strong>{DPO_EMAIL}</strong> deve ter sido aberto no seu cliente de e-mail — envie-o para concluir.
+            Responderemos em até 15 dias úteis (LGPD Art. 19).
           </p>
-          <p className="text-xs text-green-600">
-            Protocolo gerado em: {new Date().toLocaleString('pt-BR')}
+          <p className="text-xs text-green-600 font-mono bg-green-100 rounded px-3 py-1 inline-block">
+            Protocolo: <strong>{protocol}</strong>
+          </p>
+          <p className="text-xs text-green-600 mt-2">
+            Registrado em: {new Date().toLocaleString('pt-BR')}
           </p>
           <button
             onClick={() => { setSubmitted(false); setSelected(null); setDetails(''); }}
@@ -166,6 +194,7 @@ export default function DadosPage() {
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
                   rows={3}
+                  maxLength={1000}
                   placeholder="Descreva sua solicitação com mais detalhes se necessário..."
                   className="w-full rounded-lg border border-gray-200 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />

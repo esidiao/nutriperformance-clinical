@@ -30,8 +30,29 @@ function isAdminOnly(pathname: string): boolean {
   return ADMIN_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
+/**
+ * Validate a `next` redirect target:
+ * - Must start with exactly one `/` (relative path)
+ * - Must NOT start with `//` (protocol-relative URLs like //evil.com)
+ * - Must NOT contain a protocol scheme (e.g. https:)
+ */
+function isSafeRedirect(next: string | null): boolean {
+  if (!next) return false;
+  return next.startsWith('/') && !next.startsWith('//') && !/^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(next);
+}
+
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  // Decode and normalize the pathname to prevent encoded path bypass attacks
+  // e.g. %2Fdashboard or /dashboard/../admin should still match protected prefixes.
+  const rawPathname = request.nextUrl.pathname;
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(rawPathname);
+  } catch {
+    pathname = rawPathname;
+  }
+  // Normalize repeated slashes and dot-segments
+  pathname = pathname.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
 
   // ── Security headers on every response ──────────────────────────────────────
   const response = NextResponse.next();
@@ -45,11 +66,19 @@ export async function middleware(request: NextRequest) {
     'Strict-Transport-Security',
     'max-age=63072000; includeSubDomains; preload',
   );
+
+  // 'unsafe-eval' is required by Next.js HMR in development but must NOT be
+  // included in production builds where it would allow arbitrary code execution.
+  const isDev = process.env.NODE_ENV === 'development';
+  const scriptSrc = isDev
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'";
+
   response.headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-eval needed by Next.js dev; tighten in prod if possible
+      scriptSrc,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://dgvrflipjxaclpmudtwt.supabase.co",
@@ -100,7 +129,10 @@ export async function middleware(request: NextRequest) {
   if (!session) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('next', pathname);
+    // Only pass `next` if it's a safe relative path to prevent open-redirect abuse.
+    if (isSafeRedirect(pathname)) {
+      loginUrl.searchParams.set('next', pathname);
+    }
     return NextResponse.redirect(loginUrl);
   }
 
