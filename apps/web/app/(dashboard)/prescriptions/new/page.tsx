@@ -10,10 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
-import type { PrescriptionData, PrescriptionItem, PrescriptionInteraction } from '@/lib/pdf/generatePrescription';
+import type { PrescriptionData, PrescriptionItem, PrescriptionInteraction, PrescriptionMeal } from '@/lib/pdf/generatePrescription';
 import {
   FileText, Download, Plus, Trash2, Coins, ShieldAlert,
-  User, ChevronDown, CheckCircle, Pill, Leaf, AlertTriangle,
+  User, ChevronDown, CheckCircle, Pill, Leaf, AlertTriangle, Clock, UtensilsCrossed,
 } from 'lucide-react';
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -47,10 +47,25 @@ const COMMON_FOODS = [
   'Batata-doce cozida', 'Aveia em flocos', 'Banana-prata', 'Maçã',
   'Brócolis cozido', 'Espinafre cru', 'Azeite extravirgem', 'Amendoim',
   'Iogurte grego', 'Queijo cottage', 'Salmão grelhado', 'Atum em água',
-  'Feijão cozido', 'Lentilha cozida', 'Quinoa cozida',
+  'Feijão cozido', 'Lentilha cozida', 'Quinoa cozida', 'Pão integral',
+  'Tapioca', 'Café sem açúcar', 'Leite desnatado', 'Castanha-do-pará',
 ];
 
 type DocType = 'supplementation' | 'prescription';
+
+// ─── Meal model (prescrição nutricional) ───────────────────────────────────────
+type MealFood = { name: string; dose: string; notes: string };
+type Meal = { name: string; time: string; foods: MealFood[] };
+
+const emptyMealFood = (): MealFood => ({ name: '', dose: '', notes: '' });
+const makeDefaultMeals = (): Meal[] =>
+  [
+    { name: 'Café da manhã',   time: '07:00' },
+    { name: 'Lanche da manhã', time: '10:00' },
+    { name: 'Almoço',          time: '12:30' },
+    { name: 'Lanche da tarde', time: '16:00' },
+    { name: 'Jantar',          time: '19:30' },
+  ].map((m) => ({ ...m, foods: [emptyMealFood()] }));
 
 function generatePrescNum() {
   const d = new Date();
@@ -69,7 +84,6 @@ function validityDate(days = 90) {
 
 // ─── Empty item factories ─────────────────────────────────────────────────────
 const emptySupp = (): PrescriptionItem => ({ name: '', dose: '', frequency: '', timing: '', notes: '' });
-const emptyFood = (): PrescriptionItem => ({ name: '', dose: '', frequency: '', notes: '' });
 const emptyInter = (): PrescriptionInteraction => ({ pair: '', risk: 'moderate', recommendation: '' });
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -78,16 +92,31 @@ export default function PrescriptionNewPage() {
   const [patientOpen, setPatientOpen]   = useState(false);
   const [patient, setPatient]           = useState(PATIENTS[0]);
   const [items, setItems]               = useState<PrescriptionItem[]>([emptySupp()]);
+  const [meals, setMeals]               = useState<Meal[]>(makeDefaultMeals());
   const [interactions, setInteractions] = useState<PrescriptionInteraction[]>([]);
   const [notes, setNotes]               = useState('');
   const [validity, setValidity]         = useState('90');
   const [generating, setGenerating]     = useState(false);
 
-  // ─── Item CRUD ─────────────────────────────────────────────────────────────
+  // ─── Supplement item CRUD ──────────────────────────────────────────────────
   const updateItem = (i: number, field: keyof PrescriptionItem, val: string) =>
     setItems((prev) => prev.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
-  const addItem = () => setItems((p) => [...p, docType === 'supplementation' ? emptySupp() : emptyFood()]);
+  const addItem = () => setItems((p) => [...p, emptySupp()]);
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i));
+
+  // ─── Meal CRUD (prescrição nutricional) ────────────────────────────────────
+  const updateMeal = (mi: number, field: 'name' | 'time', val: string) =>
+    setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, [field]: val } : m));
+  const addMeal = () => setMeals((p) => [...p, { name: 'Nova refeição', time: '', foods: [emptyMealFood()] }]);
+  const removeMeal = (mi: number) => setMeals((p) => p.filter((_, idx) => idx !== mi));
+  const updateFood = (mi: number, fi: number, field: keyof MealFood, val: string) =>
+    setMeals((prev) => prev.map((m, idx) => idx === mi
+      ? { ...m, foods: m.foods.map((f, j) => j === fi ? { ...f, [field]: val } : f) }
+      : m));
+  const addFood = (mi: number) =>
+    setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, foods: [...m.foods, emptyMealFood()] } : m));
+  const removeFood = (mi: number, fi: number) =>
+    setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, foods: m.foods.filter((_, j) => j !== fi) } : m));
 
   // ─── Interaction CRUD ──────────────────────────────────────────────────────
   const updateInter = (i: number, field: keyof PrescriptionInteraction, val: string) =>
@@ -95,29 +124,46 @@ export default function PrescriptionNewPage() {
   const addInter = () => setInteractions((p) => [...p, emptyInter()]);
   const removeInter = (i: number) => setInteractions((p) => p.filter((_, idx) => idx !== i));
 
+  // ─── Derived: prescrição por refeição → estrutura para o PDF ────────────────
+  const buildMeals = (): PrescriptionMeal[] =>
+    meals
+      .map((m) => ({
+        name: m.name.trim() || 'Refeição',
+        time: m.time.trim() || undefined,
+        items: m.foods
+          .filter((f) => f.name.trim())
+          .map<PrescriptionItem>((f) => ({ name: f.name, dose: f.dose, frequency: '', notes: f.notes })),
+      }))
+      .filter((m) => m.items.length > 0);
+
+  const suppCount = items.filter((i) => i.name.trim()).length;
+  const mealFoodCount = meals.reduce((acc, m) => acc + m.foods.filter((f) => f.name.trim()).length, 0);
+  const mealCount = meals.filter((m) => m.foods.some((f) => f.name.trim())).length;
+  const hasContent = docType === 'supplementation' ? suppCount > 0 : mealFoodCount > 0;
+
   // ─── Generate PDF ──────────────────────────────────────────────────────────
   const handleGenerate = async () => {
-    const validItems = items.filter((it) => it.name.trim());
-    if (validItems.length === 0) {
-      toast.error('Adicione ao menos um item antes de gerar o PDF.');
+    if (!hasContent) {
+      toast.error(docType === 'supplementation'
+        ? 'Adicione ao menos um suplemento antes de gerar o PDF.'
+        : 'Adicione ao menos um alimento em alguma refeição.');
       return;
     }
 
     setGenerating(true);
     try {
+      const presMeals = docType === 'prescription' ? buildMeals() : undefined;
       const data: PrescriptionData = {
         type: docType,
         prescriptionNumber: generatePrescNum(),
         date: todayBR(),
         validity: validityDate(Number(validity) || 90),
         professional: PROFESSIONAL,
-        patient: {
-          code: patient.code,
-          age: patient.age,
-          gender: patient.gender,
-          goal: patient.goal,
-        },
-        items: validItems,
+        patient: { code: patient.code, age: patient.age, gender: patient.gender, goal: patient.goal },
+        items: docType === 'supplementation'
+          ? items.filter((it) => it.name.trim())
+          : (presMeals ?? []).flatMap((m) => m.items),
+        meals: presMeals,
         interactions: interactions.filter((i) => i.pair.trim()),
         professionalNotes: notes || undefined,
       };
@@ -139,7 +185,7 @@ export default function PrescriptionNewPage() {
     supplementation: { label: 'Protocolo de Suplementação', icon: Pill, color: 'blue',
       desc: 'Lista de suplementos com dose, frequência e horário de uso' },
     prescription:    { label: 'Prescrição Nutricional', icon: Leaf, color: 'green',
-      desc: 'Orientações alimentares, macros, alimentos e condutas nutricionais' },
+      desc: 'Plano alimentar organizado por refeição (café, almoço, lanches, jantar...)' },
   };
 
   const cfg = docTypeConfig[docType];
@@ -184,7 +230,7 @@ export default function PrescriptionNewPage() {
               return (
                 <button
                   key={key}
-                  onClick={() => { setDocType(key); setItems([key === 'supplementation' ? emptySupp() : emptyFood()]); }}
+                  onClick={() => { setDocType(key); if (key === 'supplementation') setItems([emptySupp()]); }}
                   className={`text-left p-4 rounded-xl border-2 transition-all ${
                     active
                       ? key === 'supplementation'
@@ -246,80 +292,143 @@ export default function PrescriptionNewPage() {
           </CardContent>
         </Card>
 
-        {/* Items */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <cfg.icon className="h-4 w-4 text-gray-500" />
-              {cfg.label}
-            </CardTitle>
-            <Button type="button" variant="outline" size="sm" onClick={addItem} className="flex items-center gap-1.5 text-xs">
-              <Plus className="h-3.5 w-3.5" /> Adicionar
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {items.map((item, i) => (
-              <div key={i} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3 relative">
-                {/* Item number badge */}
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-500">Item {i + 1}</span>
-                  {items.length > 1 && (
-                    <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 p-1 rounded">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">
-                      {docType === 'supplementation' ? 'Nome do suplemento *' : 'Alimento / Nutriente / Orientação *'}
-                    </Label>
-                    <Input
-                      value={item.name}
-                      onChange={(e) => updateItem(i, 'name', e.target.value)}
-                      placeholder={docType === 'supplementation' ? 'Ex: Creatina monoidratada' : 'Ex: Arroz integral cozido'}
-                      list={`suggestions-${i}`}
-                      maxLength={100}
-                      className="mt-1"
-                    />
-                    <datalist id={`suggestions-${i}`}>
-                      {(docType === 'supplementation' ? COMMON_SUPPLEMENTS : COMMON_FOODS).map((s) => (
-                        <option key={s} value={s} />
-                      ))}
-                    </datalist>
+        {/* ─── SUPLEMENTAÇÃO: lista simples ─────────────────────────────────── */}
+        {docType === 'supplementation' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Pill className="h-4 w-4 text-gray-500" />
+                {cfg.label}
+              </CardTitle>
+              <Button type="button" variant="outline" size="sm" onClick={addItem} className="flex items-center gap-1.5 text-xs">
+                <Plus className="h-3.5 w-3.5" /> Adicionar
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {items.map((item, i) => (
+                <div key={i} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3 relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-gray-500">Item {i + 1}</span>
+                    {items.length > 1 && (
+                      <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 p-1 rounded">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
-
-                  <div>
-                    <Label className="text-xs">Dose / Quantidade *</Label>
-                    <Input value={item.dose} onChange={(e) => updateItem(i, 'dose', e.target.value)}
-                      placeholder={docType === 'supplementation' ? 'Ex: 5g' : 'Ex: 200g'} maxLength={50} className="mt-1" />
-                  </div>
-
-                  <div>
-                    <Label className="text-xs">Frequência *</Label>
-                    <Input value={item.frequency} onChange={(e) => updateItem(i, 'frequency', e.target.value)}
-                      placeholder="Ex: 1x ao dia" maxLength={60} className="mt-1" />
-                  </div>
-
-                  {docType === 'supplementation' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs">Nome do suplemento *</Label>
+                      <Input value={item.name} onChange={(e) => updateItem(i, 'name', e.target.value)}
+                        placeholder="Ex: Creatina monoidratada" list={`supp-${i}`} maxLength={100} className="mt-1" />
+                      <datalist id={`supp-${i}`}>
+                        {COMMON_SUPPLEMENTS.map((s) => <option key={s} value={s} />)}
+                      </datalist>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Dose / Quantidade *</Label>
+                      <Input value={item.dose} onChange={(e) => updateItem(i, 'dose', e.target.value)} placeholder="Ex: 5g" maxLength={50} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Frequência *</Label>
+                      <Input value={item.frequency} onChange={(e) => updateItem(i, 'frequency', e.target.value)} placeholder="Ex: 1x ao dia" maxLength={60} className="mt-1" />
+                    </div>
                     <div>
                       <Label className="text-xs">Horário / Timing</Label>
-                      <Input value={item.timing ?? ''} onChange={(e) => updateItem(i, 'timing', e.target.value)}
-                        placeholder="Ex: Pré-treino" maxLength={60} className="mt-1" />
+                      <Input value={item.timing ?? ''} onChange={(e) => updateItem(i, 'timing', e.target.value)} placeholder="Ex: Pré-treino" maxLength={60} className="mt-1" />
                     </div>
-                  )}
-
-                  <div className={docType === 'supplementation' ? '' : 'sm:col-span-2'}>
-                    <Label className="text-xs">Observações</Label>
-                    <Input value={item.notes ?? ''} onChange={(e) => updateItem(i, 'notes', e.target.value)}
-                      placeholder="Ex: Tomar com suco de laranja" maxLength={200} className="mt-1" />
+                    <div>
+                      <Label className="text-xs">Observações</Label>
+                      <Input value={item.notes ?? ''} onChange={(e) => updateItem(i, 'notes', e.target.value)} placeholder="Ex: Tomar com suco de laranja" maxLength={200} className="mt-1" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ─── PRESCRIÇÃO NUTRICIONAL: por refeição ─────────────────────────── */}
+        {docType === 'prescription' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <UtensilsCrossed className="h-4 w-4 text-green-600" />
+                Plano Alimentar por Refeição
+              </CardTitle>
+              <Button type="button" variant="outline" size="sm" onClick={addMeal} className="flex items-center gap-1.5 text-xs">
+                <Plus className="h-3.5 w-3.5" /> Adicionar refeição
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {meals.map((meal, mi) => (
+                <div key={mi} className="rounded-xl border border-green-200 dark:border-green-900 overflow-hidden">
+                  {/* Cabeçalho da refeição */}
+                  <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950 px-3 py-2 border-b border-green-100 dark:border-green-900">
+                    <Leaf className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <Input
+                      value={meal.name}
+                      onChange={(e) => updateMeal(mi, 'name', e.target.value)}
+                      placeholder="Nome da refeição"
+                      maxLength={40}
+                      className="h-8 text-sm font-semibold bg-white dark:bg-gray-900 flex-1"
+                    />
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Clock className="h-3.5 w-3.5 text-gray-400" />
+                      <Input
+                        value={meal.time}
+                        onChange={(e) => updateMeal(mi, 'time', e.target.value)}
+                        placeholder="hh:mm"
+                        maxLength={12}
+                        className="h-8 text-xs w-20 bg-white dark:bg-gray-900"
+                      />
+                    </div>
+                    {meals.length > 1 && (
+                      <button onClick={() => removeMeal(mi)} className="text-red-400 hover:text-red-600 p-1 rounded flex-shrink-0" title="Remover refeição">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {/* Alimentos da refeição */}
+                  <div className="p-3 space-y-2">
+                    {meal.foods.map((food, fi) => (
+                      <div key={fi} className="grid grid-cols-12 gap-2 items-start">
+                        <div className="col-span-12 sm:col-span-5">
+                          {fi === 0 && <Label className="text-[10px] text-gray-400">Alimento / Preparação</Label>}
+                          <Input value={food.name} onChange={(e) => updateFood(mi, fi, 'name', e.target.value)}
+                            placeholder="Ex: Ovos mexidos" list={`food-${mi}-${fi}`} maxLength={100} className="h-9 text-sm" />
+                          <datalist id={`food-${mi}-${fi}`}>
+                            {COMMON_FOODS.map((s) => <option key={s} value={s} />)}
+                          </datalist>
+                        </div>
+                        <div className="col-span-5 sm:col-span-3">
+                          {fi === 0 && <Label className="text-[10px] text-gray-400">Quantidade</Label>}
+                          <Input value={food.dose} onChange={(e) => updateFood(mi, fi, 'dose', e.target.value)}
+                            placeholder="Ex: 2 unid. / 100g" maxLength={60} className="h-9 text-sm" />
+                        </div>
+                        <div className="col-span-6 sm:col-span-3">
+                          {fi === 0 && <Label className="text-[10px] text-gray-400">Obs. / Substituição</Label>}
+                          <Input value={food.notes} onChange={(e) => updateFood(mi, fi, 'notes', e.target.value)}
+                            placeholder="Ex: ou 1 scoop whey" maxLength={200} className="h-9 text-sm" />
+                        </div>
+                        <div className={`col-span-1 ${fi === 0 ? 'sm:pt-5' : ''} flex justify-end`}>
+                          {meal.foods.length > 1 && (
+                            <button onClick={() => removeFood(mi, fi)} className="text-red-400 hover:text-red-600 p-1.5 rounded" title="Remover alimento">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <Button type="button" variant="ghost" size="sm" onClick={() => addFood(mi)}
+                      className="text-xs text-green-700 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-950 mt-1">
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar alimento
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Interações */}
         <Card>
@@ -332,7 +441,7 @@ export default function PrescriptionNewPage() {
               <Plus className="h-3.5 w-3.5" /> Adicionar
             </Button>
           </CardHeader>
-          {interactions.length > 0 && (
+          {interactions.length > 0 ? (
             <CardContent className="space-y-3">
               {interactions.map((inter, i) => (
                 <div key={i} className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-xl space-y-2">
@@ -367,8 +476,7 @@ export default function PrescriptionNewPage() {
                 </div>
               ))}
             </CardContent>
-          )}
-          {interactions.length === 0 && (
+          ) : (
             <CardContent>
               <p className="text-xs text-gray-400 text-center py-2">
                 Nenhuma interação adicionada. Clique em "Adicionar" para incluir alertas no documento.
@@ -397,7 +505,7 @@ export default function PrescriptionNewPage() {
             <CardContent>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
                 maxLength={500}
-                placeholder="Orientações gerais, contraindicações, próxima consulta..." />
+                placeholder="Orientações gerais, hidratação, contraindicações, próxima consulta..." />
             </CardContent>
           </Card>
         </div>
@@ -410,7 +518,9 @@ export default function PrescriptionNewPage() {
               {[
                 `Cabeçalho — ${PROFESSIONAL.name} · ${PROFESSIONAL.council} ${PROFESSIONAL.councilNumber}`,
                 `Paciente — ${patient.code} · ${patient.age}a · ${patient.goal}`,
-                `${items.filter(i => i.name).length} ${docType === 'supplementation' ? 'suplemento(s)' : 'item(s) alimentar(es)'}`,
+                docType === 'supplementation'
+                  ? `${suppCount} suplemento(s)`
+                  : `${mealCount} refeição(ões) · ${mealFoodCount} alimento(s)`,
                 `${interactions.filter(i => i.pair).length} alerta(s) de interação`,
                 'Área de assinatura (profissional + paciente)',
                 'Aviso legal LGPD e disclaimer clínico',
@@ -427,7 +537,7 @@ export default function PrescriptionNewPage() {
         <div className="flex justify-end pt-2 border-t dark:border-gray-800">
           <Button
             onClick={handleGenerate}
-            disabled={generating || items.filter(i => i.name.trim()).length === 0}
+            disabled={generating || !hasContent}
             size="lg"
             className="flex items-center gap-2 min-w-[200px]"
           >

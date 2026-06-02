@@ -126,7 +126,47 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
   doc.text(sectionTitle, M + 3, y + 4.8);
   y += 8;
 
-  if (data.items.length > 0) {
+  // Prescrição nutricional organizada por refeição (quando `meals` é fornecido)
+  if (data.type === 'prescription' && data.meals && data.meals.length > 0) {
+    const nonEmptyMeals = data.meals.filter((m) => m.items.some((it) => it.name && it.name.trim()));
+    if (nonEmptyMeals.length > 0) {
+      nonEmptyMeals.forEach((meal) => {
+        const mealItems = meal.items.filter((it) => it.name && it.name.trim());
+        // Quebra de página se não houver espaço para o cabeçalho da refeição
+        if (y > 255) { doc.addPage(); y = 20; }
+        // Sub-cabeçalho da refeição
+        doc.setFillColor(...LGRAY);
+        doc.roundedRect(M, y, CW, 6.5, 1, 1, 'F');
+        doc.setTextColor(...BLUE);
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        const mealTitle = sanitize(meal.name, 40) + (meal.time ? `   ·   ${sanitize(meal.time, 20)}` : '');
+        doc.text(mealTitle, M + 3, y + 4.4);
+        y += 8.5;
+
+        autoTable(doc, {
+          startY: y,
+          margin: { left: M, right: M },
+          head: [['Alimento / Preparação', 'Quantidade / Medida', 'Observações / Substituições']],
+          body: mealItems.map((it) => [
+            sanitize(it.name, 100),
+            sanitize(it.dose, 60) || '—',
+            sanitize(it.notes, 200) || '—',
+          ]),
+          styles: { fontSize: 8, cellPadding: 2.5, textColor: DARK },
+          headStyles: { fillColor: LGRAY, textColor: DARK, fontStyle: 'bold', fontSize: 7.5 },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          columnStyles: { 0: { fontStyle: 'bold' } },
+        });
+        y = (doc as any).lastAutoTable.finalY + 6;
+      });
+    } else {
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(8);
+      doc.text('Nenhum item prescrito.', M, y + 5);
+      y += 12;
+    }
+  } else if (data.items.length > 0) {
     autoTable(doc, {
       startY: y,
       margin: { left: M, right: M },
@@ -265,6 +305,13 @@ export interface PrescriptionInteraction {
   recommendation: string;
 }
 
+// Refeição da prescrição nutricional (café da manhã, almoço, jantar, etc.)
+export interface PrescriptionMeal {
+  name: string;
+  time?: string;
+  items: PrescriptionItem[];
+}
+
 export interface PrescriptionData {
   type: 'prescription' | 'supplementation';
   prescriptionNumber: string;
@@ -284,6 +331,8 @@ export interface PrescriptionData {
     goal: string;
   };
   items: PrescriptionItem[];
+  /** Quando presente (type='prescription'), o PDF é renderizado agrupado por refeição. */
+  meals?: PrescriptionMeal[];
   interactions?: PrescriptionInteraction[];
   professionalNotes?: string;
 }
