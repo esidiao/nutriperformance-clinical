@@ -192,6 +192,42 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
     y += 12;
   }
 
+  // ─── Resumo nutricional (calorias + macros) ────────────────────────────────
+  const ns = data.nutritionSummary;
+  if (ns && (ns.kcal || ns.protein || ns.carb || ns.fat)) {
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFillColor(...BLUE);
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.roundedRect(M, y, CW, 7, 1, 1, 'F');
+    doc.text('RESUMO NUTRICIONAL', M + 3, y + 4.8);
+    y += 10;
+
+    const kcal = Math.round(ns.kcal || 0);
+    const p = Math.round(ns.protein || 0);
+    const c = Math.round(ns.carb || 0);
+    const f = Math.round(ns.fat || 0);
+    const macroKcal = p * 4 + c * 4 + f * 9;
+    const pct = (v: number) => (macroKcal > 0 ? Math.round((v / macroKcal) * 100) : 0);
+    const cells = [
+      `Calorias: ${kcal} kcal`,
+      `Proteínas: ${p} g (${pct(p * 4)}%)`,
+      `Carboidratos: ${c} g (${pct(c * 4)}%)`,
+      `Gorduras: ${f} g (${pct(f * 9)}%)`,
+    ];
+    const cw2 = CW / cells.length;
+    doc.setTextColor(...DARK);
+    doc.setFontSize(8);
+    cells.forEach((t, i) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.split(':')[0] + ':', M + cw2 * i, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(t.split(':')[1].trim(), M + cw2 * i, y + 4.5);
+    });
+    y += 12;
+  }
+
   // ─── Interactions warnings ─────────────────────────────────────────────────
   if (data.interactions && data.interactions.length > 0) {
     doc.setFillColor(254, 243, 199);
@@ -333,6 +369,8 @@ export interface PrescriptionData {
   items: PrescriptionItem[];
   /** Quando presente (type='prescription'), o PDF é renderizado agrupado por refeição. */
   meals?: PrescriptionMeal[];
+  /** Resumo nutricional total (calorias e macronutrientes) exibido no PDF. */
+  nutritionSummary?: { kcal?: number; protein?: number; carb?: number; fat?: number };
   interactions?: PrescriptionInteraction[];
   professionalNotes?: string;
 }

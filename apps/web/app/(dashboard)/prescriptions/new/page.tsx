@@ -13,7 +13,7 @@ import { PageHeader } from '@/components/PageHeader';
 import type { PrescriptionData, PrescriptionItem, PrescriptionInteraction, PrescriptionMeal } from '@/lib/pdf/generatePrescription';
 import {
   FileText, Download, Plus, Trash2, Coins, ShieldAlert,
-  User, ChevronDown, CheckCircle, Pill, Leaf, AlertTriangle, Clock, UtensilsCrossed,
+  User, ChevronDown, CheckCircle, Pill, Leaf, AlertTriangle, Clock, UtensilsCrossed, Flame,
 } from 'lucide-react';
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -54,18 +54,31 @@ const COMMON_FOODS = [
 type DocType = 'supplementation' | 'prescription';
 
 // ─── Meal model (prescrição nutricional) ───────────────────────────────────────
-type MealFood = { name: string; dose: string; notes: string };
+type MealFood = { name: string; dose: string; notes: string; kcal: string; prot: string; carb: string; fat: string };
 type Meal = { name: string; time: string; foods: MealFood[] };
 
-const emptyMealFood = (): MealFood => ({ name: '', dose: '', notes: '' });
+const emptyMealFood = (): MealFood => ({ name: '', dose: '', notes: '', kcal: '', prot: '', carb: '', fat: '' });
+
+// Refeições disponíveis para adição rápida
+const MEAL_PRESETS = [
+  'Desjejum', 'Colação', 'Almoço', 'Lanche da tarde I', 'Lanche da tarde II',
+  'Lanche da tarde III', 'Jantar', 'Ceia', 'Pré-treino', 'Pós-treino',
+];
+
 const makeDefaultMeals = (): Meal[] =>
   [
-    { name: 'Café da manhã',   time: '07:00' },
-    { name: 'Lanche da manhã', time: '10:00' },
-    { name: 'Almoço',          time: '12:30' },
-    { name: 'Lanche da tarde', time: '16:00' },
-    { name: 'Jantar',          time: '19:30' },
+    { name: 'Desjejum',          time: '07:00' },
+    { name: 'Colação',           time: '10:00' },
+    { name: 'Almoço',            time: '12:30' },
+    { name: 'Lanche da tarde I', time: '16:00' },
+    { name: 'Jantar',            time: '19:30' },
   ].map((m) => ({ ...m, foods: [emptyMealFood()] }));
+
+// Converte string "12,5" / "12.5" em número seguro (0 se inválido)
+const toNum = (s: string) => {
+  const n = parseFloat((s || '').replace(',', '.'));
+  return isFinite(n) ? Math.max(0, n) : 0;
+};
 
 function generatePrescNum() {
   const d = new Date();
@@ -107,7 +120,7 @@ export default function PrescriptionNewPage() {
   // ─── Meal CRUD (prescrição nutricional) ────────────────────────────────────
   const updateMeal = (mi: number, field: 'name' | 'time', val: string) =>
     setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, [field]: val } : m));
-  const addMeal = () => setMeals((p) => [...p, { name: 'Nova refeição', time: '', foods: [emptyMealFood()] }]);
+  const addMeal = (name = 'Nova refeição') => setMeals((p) => [...p, { name, time: '', foods: [emptyMealFood()] }]);
   const removeMeal = (mi: number) => setMeals((p) => p.filter((_, idx) => idx !== mi));
   const updateFood = (mi: number, fi: number, field: keyof MealFood, val: string) =>
     setMeals((prev) => prev.map((m, idx) => idx === mi
@@ -141,6 +154,20 @@ export default function PrescriptionNewPage() {
   const mealCount = meals.filter((m) => m.foods.some((f) => f.name.trim())).length;
   const hasContent = docType === 'supplementation' ? suppCount > 0 : mealFoodCount > 0;
 
+  // ─── Totais nutricionais (calorias + macros) ────────────────────────────────
+  const mealTotal = (m: Meal) =>
+    m.foods.reduce((acc, f) => f.name.trim() ? {
+      kcal: acc.kcal + toNum(f.kcal), prot: acc.prot + toNum(f.prot),
+      carb: acc.carb + toNum(f.carb), fat: acc.fat + toNum(f.fat),
+    } : acc, { kcal: 0, prot: 0, carb: 0, fat: 0 });
+  const totals = meals.reduce((acc, m) => {
+    const t = mealTotal(m);
+    return { kcal: acc.kcal + t.kcal, prot: acc.prot + t.prot, carb: acc.carb + t.carb, fat: acc.fat + t.fat };
+  }, { kcal: 0, prot: 0, carb: 0, fat: 0 });
+  const macroKcal = totals.prot * 4 + totals.carb * 4 + totals.fat * 9;
+  const macroPct = (v: number) => (macroKcal > 0 ? Math.round((v / macroKcal) * 100) : 0);
+  const hasNutrition = totals.kcal > 0 || macroKcal > 0;
+
   // ─── Generate PDF ──────────────────────────────────────────────────────────
   const handleGenerate = async () => {
     if (!hasContent) {
@@ -164,6 +191,9 @@ export default function PrescriptionNewPage() {
           ? items.filter((it) => it.name.trim())
           : (presMeals ?? []).flatMap((m) => m.items),
         meals: presMeals,
+        nutritionSummary: docType === 'prescription' && hasNutrition
+          ? { kcal: totals.kcal, protein: totals.prot, carb: totals.carb, fat: totals.fat }
+          : undefined,
         interactions: interactions.filter((i) => i.pair.trim()),
         professionalNotes: notes || undefined,
       };
@@ -350,14 +380,25 @@ export default function PrescriptionNewPage() {
         {/* ─── PRESCRIÇÃO NUTRICIONAL: por refeição ─────────────────────────── */}
         {docType === 'prescription' && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <UtensilsCrossed className="h-4 w-4 text-green-600" />
                 Plano Alimentar por Refeição
               </CardTitle>
-              <Button type="button" variant="outline" size="sm" onClick={addMeal} className="flex items-center gap-1.5 text-xs">
-                <Plus className="h-3.5 w-3.5" /> Adicionar refeição
-              </Button>
+              <div className="flex items-center gap-2">
+                <select
+                  value=""
+                  onChange={(e) => { if (e.target.value) { addMeal(e.target.value); e.target.value = ''; } }}
+                  className="h-8 rounded-md border px-2 text-xs dark:bg-gray-800 dark:border-gray-700"
+                  title="Adicionar refeição pré-definida"
+                >
+                  <option value="">+ Refeição pré-definida…</option>
+                  {MEAL_PRESETS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <Button type="button" variant="outline" size="sm" onClick={() => addMeal()} className="flex items-center gap-1.5 text-xs">
+                  <Plus className="h-3.5 w-3.5" /> Personalizada
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {meals.map((meal, mi) => (
@@ -391,41 +432,114 @@ export default function PrescriptionNewPage() {
                   {/* Alimentos da refeição */}
                   <div className="p-3 space-y-2">
                     {meal.foods.map((food, fi) => (
-                      <div key={fi} className="grid grid-cols-12 gap-2 items-start">
-                        <div className="col-span-12 sm:col-span-5">
-                          {fi === 0 && <Label className="text-[10px] text-gray-400">Alimento / Preparação</Label>}
-                          <Input value={food.name} onChange={(e) => updateFood(mi, fi, 'name', e.target.value)}
-                            placeholder="Ex: Ovos mexidos" list={`food-${mi}-${fi}`} maxLength={100} className="h-9 text-sm" />
-                          <datalist id={`food-${mi}-${fi}`}>
-                            {COMMON_FOODS.map((s) => <option key={s} value={s} />)}
-                          </datalist>
+                      <div key={fi} className="rounded-lg border border-gray-100 dark:border-gray-800 p-2 space-y-2">
+                        <div className="grid grid-cols-12 gap-2 items-start">
+                          <div className="col-span-12 sm:col-span-5">
+                            <Label className="text-[10px] text-gray-400">Alimento / Preparação</Label>
+                            <Input value={food.name} onChange={(e) => updateFood(mi, fi, 'name', e.target.value)}
+                              placeholder="Ex: Ovos mexidos" list={`food-${mi}-${fi}`} maxLength={100} className="h-9 text-sm" />
+                            <datalist id={`food-${mi}-${fi}`}>
+                              {COMMON_FOODS.map((s) => <option key={s} value={s} />)}
+                            </datalist>
+                          </div>
+                          <div className="col-span-6 sm:col-span-4">
+                            <Label className="text-[10px] text-gray-400">Quantidade / Medida</Label>
+                            <Input value={food.dose} onChange={(e) => updateFood(mi, fi, 'dose', e.target.value)}
+                              placeholder="Ex: 2 unid. / 100g" maxLength={60} className="h-9 text-sm" />
+                          </div>
+                          <div className="col-span-6 sm:col-span-3">
+                            <Label className="text-[10px] text-gray-400">Obs. / Substituição</Label>
+                            <Input value={food.notes} onChange={(e) => updateFood(mi, fi, 'notes', e.target.value)}
+                              placeholder="Ex: ou 1 scoop whey" maxLength={200} className="h-9 text-sm" />
+                          </div>
                         </div>
-                        <div className="col-span-5 sm:col-span-3">
-                          {fi === 0 && <Label className="text-[10px] text-gray-400">Quantidade</Label>}
-                          <Input value={food.dose} onChange={(e) => updateFood(mi, fi, 'dose', e.target.value)}
-                            placeholder="Ex: 2 unid. / 100g" maxLength={60} className="h-9 text-sm" />
-                        </div>
-                        <div className="col-span-6 sm:col-span-3">
-                          {fi === 0 && <Label className="text-[10px] text-gray-400">Obs. / Substituição</Label>}
-                          <Input value={food.notes} onChange={(e) => updateFood(mi, fi, 'notes', e.target.value)}
-                            placeholder="Ex: ou 1 scoop whey" maxLength={200} className="h-9 text-sm" />
-                        </div>
-                        <div className={`col-span-1 ${fi === 0 ? 'sm:pt-5' : ''} flex justify-end`}>
+                        {/* Linha de valores nutricionais (opcional) */}
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Label className="text-[10px] text-gray-400">Kcal</Label>
+                            <Input type="number" min={0} value={food.kcal} onChange={(e) => updateFood(mi, fi, 'kcal', e.target.value)} placeholder="0" className="h-8 text-xs" />
+                          </div>
+                          <div className="flex-1">
+                            <Label className="text-[10px] text-gray-400">Proteína (g)</Label>
+                            <Input type="number" min={0} step="0.1" value={food.prot} onChange={(e) => updateFood(mi, fi, 'prot', e.target.value)} placeholder="0" className="h-8 text-xs" />
+                          </div>
+                          <div className="flex-1">
+                            <Label className="text-[10px] text-gray-400">Carbo (g)</Label>
+                            <Input type="number" min={0} step="0.1" value={food.carb} onChange={(e) => updateFood(mi, fi, 'carb', e.target.value)} placeholder="0" className="h-8 text-xs" />
+                          </div>
+                          <div className="flex-1">
+                            <Label className="text-[10px] text-gray-400">Gordura (g)</Label>
+                            <Input type="number" min={0} step="0.1" value={food.fat} onChange={(e) => updateFood(mi, fi, 'fat', e.target.value)} placeholder="0" className="h-8 text-xs" />
+                          </div>
                           {meal.foods.length > 1 && (
-                            <button onClick={() => removeFood(mi, fi)} className="text-red-400 hover:text-red-600 p-1.5 rounded" title="Remover alimento">
-                              <Trash2 className="h-3.5 w-3.5" />
+                            <button onClick={() => removeFood(mi, fi)} className="text-red-400 hover:text-red-600 p-1.5 rounded mb-0.5" title="Remover alimento">
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           )}
                         </div>
                       </div>
                     ))}
-                    <Button type="button" variant="ghost" size="sm" onClick={() => addFood(mi)}
-                      className="text-xs text-green-700 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-950 mt-1">
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar alimento
-                    </Button>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => addFood(mi)}
+                        className="text-xs text-green-700 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-950 mt-1">
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar alimento
+                      </Button>
+                      {(() => {
+                        const t = mealTotal(meal);
+                        return (t.kcal > 0 || t.prot > 0 || t.carb > 0 || t.fat > 0) ? (
+                          <span className="text-[11px] text-gray-500">
+                            Subtotal: <strong>{Math.round(t.kcal)}</strong> kcal · P {Math.round(t.prot)}g · C {Math.round(t.carb)}g · G {Math.round(t.fat)}g
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Dashboard nutricional (calorias + macros) — prescrição nutricional */}
+        {docType === 'prescription' && (
+          <Card className="border-green-200 bg-green-50/40 dark:bg-green-950/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Flame className="h-4 w-4 text-orange-500" /> Resumo Nutricional do Dia
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {hasNutrition ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: 'Calorias', value: `${Math.round(totals.kcal)}`, unit: 'kcal', color: 'text-orange-600' },
+                      { label: 'Proteínas', value: `${Math.round(totals.prot)}`, unit: `g · ${macroPct(totals.prot * 4)}%`, color: 'text-blue-600' },
+                      { label: 'Carboidratos', value: `${Math.round(totals.carb)}`, unit: `g · ${macroPct(totals.carb * 4)}%`, color: 'text-amber-600' },
+                      { label: 'Gorduras', value: `${Math.round(totals.fat)}`, unit: `g · ${macroPct(totals.fat * 9)}%`, color: 'text-rose-600' },
+                    ].map((k) => (
+                      <div key={k.label} className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-3 py-2 text-center">
+                        <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                        <p className="text-[11px] text-gray-500">{k.label} · {k.unit}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Barra de distribuição de macronutrientes */}
+                  <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div className="bg-blue-500" style={{ width: `${macroPct(totals.prot * 4)}%` }} />
+                    <div className="bg-amber-500" style={{ width: `${macroPct(totals.carb * 4)}%` }} />
+                    <div className="bg-rose-500" style={{ width: `${macroPct(totals.fat * 9)}%` }} />
+                  </div>
+                  <p className="mt-2 text-[11px] text-gray-400 leading-relaxed">
+                    Cálculo automático a partir dos valores informados por alimento. <strong>Micronutrientes</strong> exigem
+                    integração com base de composição de alimentos (ex.: TACO) — planejado como próximo passo.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-gray-400 text-center py-2">
+                  Informe <strong>Kcal</strong> e <strong>macros</strong> nos alimentos para visualizar o total de calorias e a distribuição de macronutrientes.
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
