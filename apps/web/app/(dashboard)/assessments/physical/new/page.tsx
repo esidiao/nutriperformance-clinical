@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 
 const schema = z.object({
   patientId: z.string().optional(),
+  age: z.coerce.number().min(1).max(120).optional(),
   weightKg: z.coerce.number().min(20).max(300),
   heightCm: z.coerce.number().min(100).max(250),
   bodyFatPct: z.coerce.number().min(2).max(70).optional(),
@@ -93,15 +94,49 @@ function ClassBadge({ label, cls }: { label: string; cls: Classification }) {
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CLS_BADGE[cls]}`}>{label}</span>;
 }
 
+// Conversão segura de string em número (aceita vírgula)
+const toNum = (s: unknown) => {
+  const n = parseFloat(String(s ?? '').replace(',', '.'));
+  return isFinite(n) ? Math.max(0, n) : 0;
+};
+
+// Densidade corporal por Jackson & Pollock (3 dobras) → % gordura por Siri.
+function bodyFatFrom3Skinfolds(sum: number, age: number, gender: string): number | null {
+  if (sum <= 0 || age <= 0) return null;
+  const bd = gender === 'male'
+    ? 1.10938 - 0.0008267 * sum + 0.0000016 * sum * sum - 0.0002574 * age
+    : 1.0994921 - 0.0009929 * sum + 0.0000023 * sum * sum - 0.0001392 * age;
+  const fat = 495 / bd - 450;
+  if (!isFinite(fat) || fat <= 0 || fat > 70) return null;
+  return Math.round(fat * 10) / 10;
+}
+
+// Classificação de % de gordura (referência ACSM, simplificada por sexo).
+function classifyFat(fat: number, gender: string): { label: string; cls: Classification } {
+  if (gender === 'male') {
+    if (fat < 6)  return { label: 'Muito baixo', cls: 'elevated' };
+    if (fat <= 17) return { label: 'Atleta / Fitness', cls: 'normal' };
+    if (fat <= 24) return { label: 'Aceitável', cls: 'normal' };
+    return { label: 'Acima do ideal', cls: 'critical' };
+  }
+  if (fat < 14) return { label: 'Muito baixo', cls: 'elevated' };
+  if (fat <= 24) return { label: 'Atleta / Fitness', cls: 'normal' };
+  if (fat <= 31) return { label: 'Aceitável', cls: 'normal' };
+  return { label: 'Acima do ideal', cls: 'critical' };
+}
+
 export default function PhysicalAssessmentNewPage() {
   const [bmi, setBmi] = useState<number | null>(null);
   const [whr, setWhr] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, handleSubmit, watch } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { activityLevel: 'moderately_active', primaryGoal: 'general_health' },
   });
+
+  // Estado local das dobras cutâneas (calculadora de % de gordura)
+  const [sf, setSf] = useState({ s1: '', s2: '', s3: '' });
 
   const wW = watch('weightKg');
   const wH = watch('heightCm');
@@ -131,6 +166,17 @@ export default function PhysicalAssessmentNewPage() {
   const watchedGender = watch('activityLevel'); // workaround — read gender from form
   const formGender = (watch as any)('gender') ?? 'female'; // or default
   const formAge = Number((watch as any)('age') ?? 30);
+
+  // ─── Calculadora de % de gordura por dobras cutâneas ───────────────────────
+  const sfSum = toNum(sf.s1) + toNum(sf.s2) + toNum(sf.s3);
+  const sfFat = bodyFatFrom3Skinfolds(sfSum, formAge, formGender);
+  const sfFatCls = sfFat ? classifyFat(sfFat, formGender) : null;
+  const weightNum = Number(wW) || 0;
+  const sfFatMass = sfFat && weightNum ? Math.round((weightNum * sfFat / 100) * 10) / 10 : null;
+  const sfLeanMass = sfFat && weightNum ? Math.round((weightNum * (1 - sfFat / 100)) * 10) / 10 : null;
+  const sfLabels = formGender === 'male'
+    ? ['Peitoral (mm)', 'Abdominal (mm)', 'Coxa (mm)']
+    : ['Tríceps (mm)', 'Supra-ilíaca (mm)', 'Coxa (mm)'];
 
   // Circumference table rows
   const waistVal = Number(wWaist);
@@ -173,6 +219,10 @@ export default function PhysicalAssessmentNewPage() {
               <div>
                 <Label>Altura (cm) *</Label>
                 <Input {...register('heightCm')} type="number" step="0.1" placeholder="170" />
+              </div>
+              <div>
+                <Label>Idade (anos)</Label>
+                <Input {...register('age')} type="number" min={1} max={120} placeholder="30" />
               </div>
               <div>
                 <Label>Sexo</Label>
@@ -220,6 +270,70 @@ export default function PhysicalAssessmentNewPage() {
                 <span className="text-sm text-gray-600 dark:text-gray-300">IMC:</span>
                 <span className="text-lg font-bold text-blue-700 dark:text-blue-400">{bmi}</span>
                 <ClassBadge label={bmiCls.label} cls={bmiCls.cls} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* CALCULADORA DE % DE GORDURA (DOBRAS CUTÂNEAS) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+              Calculadora de % de Gordura — Dobras Cutâneas
+            </CardTitle>
+            <p className="text-xs text-gray-500 mt-1">
+              Protocolo Jackson &amp; Pollock (3 dobras) · equação de Siri. Sexo: {formGender === 'male' ? 'Masculino' : 'Feminino'} · Idade: {formAge} anos.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[sf.s1, sf.s2, sf.s3].map((val, i) => (
+                <div key={i}>
+                  <Label>{sfLabels[i]}</Label>
+                  <Input
+                    type="number" step="0.1" min={0} placeholder="0"
+                    value={val}
+                    onChange={(e) => setSf((p) => ({ ...p, [`s${i + 1}`]: e.target.value }))}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {sfFat && sfFatCls ? (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-900 px-3 py-2 text-center">
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{sfFat}%</p>
+                  <p className="text-[11px] text-gray-500">Gordura corporal</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2 text-center flex flex-col justify-center">
+                  <ClassBadge label={sfFatCls.label} cls={sfFatCls.cls} />
+                  <p className="text-[11px] text-gray-500 mt-1">Classificação (ACSM)</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2 text-center">
+                  <p className="text-xl font-bold text-rose-600">{sfFatMass ?? '—'}{sfFatMass ? ' kg' : ''}</p>
+                  <p className="text-[11px] text-gray-500">Massa gorda</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2 text-center">
+                  <p className="text-xl font-bold text-green-600">{sfLeanMass ?? '—'}{sfLeanMass ? ' kg' : ''}</p>
+                  <p className="text-[11px] text-gray-500">Massa magra</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">
+                Preencha as três dobras (mm) e a idade para calcular o percentual de gordura. Somatório atual: {sfSum > 0 ? `${sfSum} mm` : '—'}.
+              </p>
+            )}
+
+            {sfFat && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-gray-400 italic">
+                  Estimativa de apoio — validar pelo Profissional de Educação Física (CREF/CONFEF).
+                </p>
+                <Button type="button" variant="outline" size="sm" className="text-xs"
+                  onClick={() => { setValue('bodyFatPct', sfFat as any); toast.success(`% de gordura preenchido: ${sfFat}%`); }}>
+                  Usar como % de gordura ↑
+                </Button>
               </div>
             )}
           </CardContent>
