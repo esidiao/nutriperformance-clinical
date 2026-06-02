@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Patch, Param, Body, Req, Ip,
+  Controller, Post, Get, Patch, Param, Body, Req, Ip, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import {
@@ -7,6 +7,7 @@ import {
 } from 'class-validator';
 import { PatientsService } from './patients.service';
 import { ClinicalStaff } from '../../common/decorators';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 class CreatePatientDto {
   @IsString() name: string;
@@ -23,6 +24,7 @@ class CreatePatientDto {
 
 @ApiTags('patients')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('patients')
 export class PatientsController {
   constructor(private patientsService: PatientsService) {}
