@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {
   Activity, ShieldCheck, FlaskConical, FileText, Target, ClipboardList,
   Microscope, Dumbbell, Sparkles, ArrowRight, CheckCircle2, Lock, Brain, LineChart,
+  Quote, Star, User, Users, Building2, Mail,
 } from 'lucide-react';
 
 // A landing é pública e indexável (o restante do app permanece noindex via layout).
@@ -21,6 +22,8 @@ export const metadata: Metadata = {
   },
 };
 
+const SALES_EMAIL = 'contato@nutriperformance.com.br';
+
 const features = [
   { icon: Activity, title: 'Avaliação Nutricional', desc: 'TMB (Harris-Benedict), GET, IMC, diagnóstico e estratégia com geração de relatório.' },
   { icon: Dumbbell, title: 'Avaliação Física', desc: 'Composição corporal, percentual de gordura, massa magra, força e tabela de medidas.' },
@@ -38,6 +41,33 @@ const steps = [
   { n: '3', icon: LineChart, title: 'Prescreva e acompanhe', desc: 'Emita prescrições em PDF, defina metas e acompanhe a evolução ao longo do tempo.' },
 ];
 
+// ⚠️ DEPOIMENTOS ILUSTRATIVOS — substituir por depoimentos reais e autorizados
+// pelos profissionais antes de divulgar (ver nota de conformidade no chat).
+const testimonials = [
+  { name: 'Dra. Marina Costa', role: 'Nutricionista • CRN-3', text: 'Reduzi pela metade o tempo de montagem de protocolos. A análise de interações me dá muito mais segurança nas condutas.' },
+  { name: 'Prof. Rafael Lima', role: 'Educador Físico • CREF', text: 'A avaliação física e o acompanhamento de metas em um só lugar mudaram a forma como apresento resultados aos meus alunos.' },
+  { name: 'Dra. Beatriz Andrade', role: 'Nutricionista Clínica', text: 'As prescrições em PDF com identidade da clínica deram um nível de profissionalismo que meus pacientes percebem.' },
+];
+
+const plans = [
+  {
+    icon: User, name: 'Starter', tagline: 'Para começar', highlight: false,
+    features: ['1 profissional', 'Cadastro de pacientes', 'Avaliação nutricional e física', 'Relatórios em PDF'],
+  },
+  {
+    icon: Sparkles, name: 'Pro', tagline: 'Profissional autônomo', highlight: true,
+    features: ['Tudo do Starter', 'Suplementação com IA', 'Análise de interações e biodisponibilidade', 'Exames laboratoriais', 'Prescrições com identidade própria'],
+  },
+  {
+    icon: Users, name: 'Clínica', tagline: 'Equipes', highlight: false,
+    features: ['Múltiplos profissionais', 'Gestão de workspace', 'Trilha de auditoria', 'Suporte prioritário'],
+  },
+  {
+    icon: Building2, name: 'Institucional', tagline: 'Grande escala', highlight: false,
+    features: ['Profissionais ilimitados', 'Onboarding dedicado', 'SLA e integrações', 'Gestão centralizada'],
+  },
+];
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -53,6 +83,8 @@ export default function LandingPage() {
           <nav className="hidden items-center gap-7 text-sm font-medium text-gray-600 md:flex">
             <a href="#recursos" className="hover:text-blue-600">Recursos</a>
             <a href="#como-funciona" className="hover:text-blue-600">Como funciona</a>
+            <a href="#depoimentos" className="hover:text-blue-600">Depoimentos</a>
+            <a href="#planos" className="hover:text-blue-600">Planos</a>
             <a href="#seguranca" className="hover:text-blue-600">Segurança</a>
           </nav>
           <div className="flex items-center gap-2">
@@ -96,6 +128,56 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* PREVIEW DO PRODUTO (mockup ilustrativo em CSS) */}
+      <section className="mx-auto -mt-10 max-w-5xl px-4">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+          {/* barra da janela */}
+          <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3">
+            <span className="h-3 w-3 rounded-full bg-red-400" />
+            <span className="h-3 w-3 rounded-full bg-yellow-400" />
+            <span className="h-3 w-3 rounded-full bg-green-400" />
+            <span className="ml-3 rounded bg-white px-3 py-1 text-xs text-gray-400">nutriperformance-clinical.vercel.app/dashboard</span>
+          </div>
+          <div className="flex">
+            {/* sidebar fake */}
+            <aside className="hidden w-48 flex-shrink-0 border-r border-gray-100 bg-gray-50 p-4 sm:block">
+              <div className="mb-4 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-[10px] font-bold text-white">NP</div>
+                <span className="text-xs font-semibold text-gray-700">Clinical</span>
+              </div>
+              {['Dashboard', 'Pacientes', 'Avaliações', 'Suplementação', 'Prescrições', 'Relatórios'].map((it, i) => (
+                <div key={it} className={`mb-1 rounded-md px-3 py-2 text-xs ${i === 0 ? 'bg-blue-100 font-semibold text-blue-700' : 'text-gray-500'}`}>{it}</div>
+              ))}
+            </aside>
+            {/* conteúdo fake */}
+            <div className="flex-1 p-5">
+              <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {[
+                  { l: 'Pacientes', v: '128', c: 'text-blue-600' },
+                  { l: 'Avaliações', v: '342', c: 'text-emerald-600' },
+                  { l: 'Alertas', v: '7', c: 'text-amber-600' },
+                  { l: 'Tokens', v: '∞', c: 'text-indigo-600' },
+                ].map((k) => (
+                  <div key={k.l} className="rounded-xl border border-gray-100 bg-white p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400">{k.l}</p>
+                    <p className={`text-xl font-bold ${k.c}`}>{k.v}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-white p-4">
+                <p className="mb-3 text-xs font-semibold text-gray-600">Evolução de composição corporal</p>
+                <div className="flex h-28 items-end gap-2">
+                  {[40, 55, 48, 62, 70, 65, 80, 76, 88].map((h, i) => (
+                    <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-blue-500 to-indigo-400" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-center text-xs text-gray-400">Imagem ilustrativa da interface.</p>
+      </section>
+
       {/* RECURSOS */}
       <section id="recursos" className="mx-auto max-w-6xl px-4 py-20">
         <div className="mx-auto max-w-2xl text-center">
@@ -132,6 +214,79 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* DEPOIMENTOS */}
+      <section id="depoimentos" className="mx-auto max-w-6xl px-4 py-20">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight">Quem usa, recomenda</h2>
+          <p className="mt-3 text-gray-600">Profissionais que ganharam tempo e segurança clínica com a plataforma.</p>
+        </div>
+        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {testimonials.map((t) => (
+            <figure key={t.name} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+              <Quote className="h-7 w-7 text-blue-200" />
+              <div className="mt-2 flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-gray-700">“{t.text}”</blockquote>
+              <figcaption className="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                  {t.name.split(' ').slice(-1)[0][0]}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{t.name}</p>
+                  <p className="text-xs text-gray-500">{t.role}</p>
+                </div>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      {/* PLANOS */}
+      <section id="planos" className="bg-gray-50 py-20">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight">Planos para cada fase</h2>
+            <p className="mt-3 text-gray-600">Do profissional autônomo à instituição. Valores sob consulta — fale com nosso time.</p>
+          </div>
+          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {plans.map((p) => (
+              <div key={p.name} className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${p.highlight ? 'border-blue-600 ring-2 ring-blue-600' : 'border-gray-100'}`}>
+                {p.highlight && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white">Mais popular</span>
+                )}
+                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
+                  <p.icon className="h-5 w-5 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-bold">{p.name}</h3>
+                <p className="text-xs text-gray-500">{p.tagline}</p>
+                <p className="mt-4 text-2xl font-extrabold text-gray-900">Sob consulta</p>
+                <ul className="mt-5 flex-1 space-y-2.5 text-sm">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                      <span className="text-gray-600">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href={`mailto:${SALES_EMAIL}?subject=${encodeURIComponent('Interesse no plano ' + p.name + ' — NutriPerformance Clinical')}`}
+                  className={`mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${p.highlight ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                >
+                  <Mail className="h-4 w-4" /> Falar com vendas
+                </a>
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-sm text-gray-500">
+            Prefere experimentar primeiro?{' '}
+            <Link href="/login?mode=register" className="font-semibold text-blue-600 hover:underline">Crie sua conta</Link> e comece agora.
+          </p>
         </div>
       </section>
 
@@ -218,6 +373,7 @@ export default function LandingPage() {
                 <Link href="/login" className="text-gray-600 hover:text-blue-600">Entrar</Link>
                 <Link href="/login?mode=register" className="text-gray-600 hover:text-blue-600">Criar conta</Link>
                 <a href="#recursos" className="text-gray-600 hover:text-blue-600">Recursos</a>
+                <a href="#planos" className="text-gray-600 hover:text-blue-600">Planos</a>
               </div>
               <div className="flex flex-col gap-2">
                 <span className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Legal</span>
