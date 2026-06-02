@@ -13,7 +13,7 @@ import { PageHeader } from '@/components/PageHeader';
 import {
   AlertTriangle, Activity, Pill, FlaskConical, Target, FileText,
   ShieldAlert, User, Calendar, GitMerge, Plus, ArrowRight,
-  Coins, Clock, Brain,
+  Coins, Clock, Brain, Dumbbell, ChevronDown, TrendingUp,
 } from 'lucide-react';
 
 function EthicsDisclaimer() {
@@ -99,6 +99,25 @@ export default function PatientPage({ params: _params }: { params: Promise<{ id:
   const [activeTab, setActiveTab] = useState('overview');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [checkpointVals, setCheckpointVals] = useState<Record<string, string>>({});
+  const [assessMenu, setAssessMenu] = useState(false);
+  const [quickPhys, setQuickPhys] = useState({ weightKg: '', heightCm: '', bodyFatPct: '', waistCm: '' });
+
+  const quickBmi = (() => {
+    const w = parseFloat(quickPhys.weightKg.replace(',', '.'));
+    const h = parseFloat(quickPhys.heightCm.replace(',', '.'));
+    return w > 0 && h > 0 ? Math.round((w / ((h / 100) ** 2)) * 10) / 10 : null;
+  })();
+
+  const handleSaveQuickPhysical = () => {
+    if (!quickPhys.weightKg || !quickPhys.heightCm) {
+      toast.error('Informe ao menos peso e altura.');
+      return;
+    }
+    toast.success('Avaliação física registrada', {
+      description: `Peso ${quickPhys.weightKg}kg · Altura ${quickPhys.heightCm}cm${quickBmi ? ` · IMC ${quickBmi}` : ''}`,
+    });
+    setQuickPhys({ weightKg: '', heightCm: '', bodyFatPct: '', waistCm: '' });
+  };
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
@@ -132,11 +151,34 @@ export default function PatientPage({ params: _params }: { params: Promise<{ id:
             <Button variant="outline" size="sm" onClick={handleReport} className="flex items-center gap-2">
               <FileText className="h-4 w-4" /> Relatório
             </Button>
-            <Link href="/assessments/nutritional/new">
-              <Button size="sm" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" /> Nova Avaliação
+            <div className="relative">
+              <Button size="sm" onClick={() => setAssessMenu((v) => !v)} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" /> Nova Avaliação <ChevronDown className={`h-3.5 w-3.5 transition-transform ${assessMenu ? 'rotate-180' : ''}`} />
               </Button>
-            </Link>
+              {assessMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setAssessMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden">
+                    <Link href={`/assessments/nutritional/new?patient=${MOCK.internalCode}`} onClick={() => setAssessMenu(false)}
+                      className="flex items-center gap-2.5 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 text-left">
+                      <FlaskConical className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Avaliação Nutricional</p>
+                        <p className="text-[11px] text-gray-500">TMB, GET, IMC, diagnóstico</p>
+                      </div>
+                    </Link>
+                    <Link href={`/assessments/physical/new?patient=${MOCK.internalCode}`} onClick={() => setAssessMenu(false)}
+                      className="flex items-center gap-2.5 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 text-left border-t dark:border-gray-700">
+                      <Dumbbell className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Avaliação Física</p>
+                        <p className="text-[11px] text-gray-500">Composição, dobras, % gordura</p>
+                      </div>
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         }
       />
@@ -242,11 +284,55 @@ export default function PatientPage({ params: _params }: { params: Promise<{ id:
           {/* ASSESSMENTS */}
           <TabsContent value="assessments" className="space-y-4">
             <EthicsDisclaimer />
-            <div className="flex justify-end">
-              <Link href="/assessments/nutritional/new">
-                <Button size="sm" className="flex items-center gap-2"><Plus className="h-4 w-4" /> Nova Avaliação</Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Link href={`/assessments/nutritional/new?patient=${MOCK.internalCode}`}>
+                <Button size="sm" variant="outline" className="flex items-center gap-2"><FlaskConical className="h-4 w-4 text-green-600" /> Nutricional</Button>
+              </Link>
+              <Link href={`/assessments/physical/new?patient=${MOCK.internalCode}`}>
+                <Button size="sm" className="flex items-center gap-2"><Dumbbell className="h-4 w-4" /> Física</Button>
               </Link>
             </div>
+
+            {/* Avaliação Física rápida — cadastro direto no perfil */}
+            <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-blue-600" /> Avaliação Física Rápida
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-[11px] text-gray-500">Peso (kg)</label>
+                    <Input type="number" step="0.1" value={quickPhys.weightKg} onChange={(e) => setQuickPhys((p) => ({ ...p, weightKg: e.target.value }))} placeholder="70.0" className="h-9 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500">Altura (cm)</label>
+                    <Input type="number" step="0.1" value={quickPhys.heightCm} onChange={(e) => setQuickPhys((p) => ({ ...p, heightCm: e.target.value }))} placeholder="170" className="h-9 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500">% Gordura</label>
+                    <Input type="number" step="0.1" value={quickPhys.bodyFatPct} onChange={(e) => setQuickPhys((p) => ({ ...p, bodyFatPct: e.target.value }))} placeholder="22.0" className="h-9 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500">Cintura (cm)</label>
+                    <Input type="number" step="0.1" value={quickPhys.waistCm} onChange={(e) => setQuickPhys((p) => ({ ...p, waistCm: e.target.value }))} placeholder="78" className="h-9 text-sm" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  {quickBmi ? (
+                    <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                      <TrendingUp className="h-3.5 w-3.5 text-blue-600" /> IMC: <strong className="text-blue-700 dark:text-blue-400">{quickBmi}</strong>
+                    </span>
+                  ) : <span className="text-[11px] text-gray-400">Informe peso e altura para o IMC.</span>}
+                  <Button size="sm" className="h-8 text-xs flex items-center gap-1.5" onClick={handleSaveQuickPhysical}>
+                    <Plus className="h-3.5 w-3.5" /> Registrar avaliação física
+                  </Button>
+                </div>
+                <p className="text-[11px] text-gray-400">Para avaliação completa (dobras, circunferências, calculadoras), use o botão "Física" acima.</p>
+              </CardContent>
+            </Card>
+
             {MOCK.assessments.map((a, i) => (
               <Card key={i} className="overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-3 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">

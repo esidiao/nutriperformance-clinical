@@ -10,14 +10,17 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { PageHeader } from '@/components/PageHeader';
-import { CheckCircle, ShieldCheck, ShieldAlert, UserPlus, ChevronRight, ChevronLeft, User, Heart, Target } from 'lucide-react';
+import { CheckCircle, ShieldCheck, ShieldAlert, UserPlus, ChevronRight, ChevronLeft, User, Heart, Target, Activity, TrendingUp } from 'lucide-react';
 
 // ─── Wizard step config ───────────────────────────────────────────────────────
 const STEPS = [
   { id: 1, label: 'Dados Pessoais',     icon: User,        description: 'Informações de identificação' },
   { id: 2, label: 'Saúde & Histórico',  icon: Heart,       description: 'Histórico clínico e medicamentos' },
-  { id: 3, label: 'Objetivos & LGPD',   icon: Target,      description: 'Metas e consentimento' },
+  { id: 3, label: 'Avaliação Física',   icon: Activity,    description: 'Medidas iniciais (opcional)' },
+  { id: 4, label: 'Objetivos & LGPD',   icon: Target,      description: 'Metas e consentimento' },
 ];
+
+const TOTAL_STEPS = STEPS.length;
 
 const DIETARY_RESTRICTIONS = [
   'Vegetariano', 'Vegano', 'Sem glúten', 'Sem lactose',
@@ -85,10 +88,21 @@ export default function PatientNewPage() {
     // Step 2
     medicalHistory: '', currentMedications: '',
     allergies: '', dietaryRestrictions: [] as string[],
-    // Step 3
+    // Step 3 — Avaliação física inicial (opcional)
+    weightKg: '', heightCm: '', bodyFatPct: '', waistCm: '', hipCm: '', assessmentMethod: '',
+    // Step 4
     mainObjective: '', professionalNotes: '',
     lgpdConsent: false,
   });
+
+  // IMC calculado da avaliação física inicial
+  const newBmi = (() => {
+    const w = parseFloat(String(form.weightKg).replace(',', '.'));
+    const h = parseFloat(String(form.heightCm).replace(',', '.'));
+    return w > 0 && h > 0 ? Math.round((w / ((h / 100) ** 2)) * 10) / 10 : null;
+  })();
+  const bmiLabel = newBmi == null ? '' :
+    newBmi < 18.5 ? 'Abaixo do peso' : newBmi < 25 ? 'Normal' : newBmi < 30 ? 'Sobrepeso' : 'Obesidade';
 
   const set = (field: string, value: unknown) =>
     setForm((p) => ({ ...p, [field]: value }));
@@ -109,7 +123,7 @@ export default function PatientNewPage() {
       if (!form.birthDate)        newErrors.birthDate = 'Data de nascimento é obrigatória';
       if (!form.gender)           newErrors.gender = 'Sexo biológico é obrigatório';
     }
-    if (step === 3) {
+    if (step === 4) {
       if (!form.mainObjective)    newErrors.mainObjective = 'Selecione o objetivo principal';
       if (!form.lgpdConsent)      newErrors.lgpdConsent = 'O consentimento LGPD é obrigatório';
     }
@@ -119,7 +133,7 @@ export default function PatientNewPage() {
 
   const handleNext = () => {
     if (!validateStep()) return;
-    setStep((s) => Math.min(s + 1, 3));
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   };
 
   const handleBack = () => {
@@ -289,8 +303,73 @@ export default function PatientNewPage() {
           </Card>
         )}
 
-        {/* ── STEP 3: Objetivos & LGPD ── */}
+        {/* ── STEP 3: Avaliação Física inicial (opcional) ── */}
         {step === 3 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4 text-blue-600" /> Avaliação Física Inicial
+              </CardTitle>
+              <p className="text-xs text-gray-500 mt-1">
+                Opcional — registre as medidas iniciais já no cadastro. O IMC é calculado automaticamente.
+                Avaliações completas podem ser feitas depois no perfil do paciente.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Peso (kg)</Label>
+                  <Input type="number" step="0.1" value={form.weightKg} onChange={(e) => set('weightKg', e.target.value)} placeholder="70.0" />
+                </div>
+                <div>
+                  <Label>Altura (cm)</Label>
+                  <Input type="number" step="0.1" value={form.heightCm} onChange={(e) => set('heightCm', e.target.value)} placeholder="170" />
+                </div>
+                <div>
+                  <Label>% Gordura corporal</Label>
+                  <Input type="number" step="0.1" value={form.bodyFatPct} onChange={(e) => set('bodyFatPct', e.target.value)} placeholder="22.0" />
+                </div>
+                <div>
+                  <Label>Cintura (cm)</Label>
+                  <Input type="number" step="0.1" value={form.waistCm} onChange={(e) => set('waistCm', e.target.value)} placeholder="78" />
+                </div>
+                <div>
+                  <Label>Quadril (cm)</Label>
+                  <Input type="number" step="0.1" value={form.hipCm} onChange={(e) => set('hipCm', e.target.value)} placeholder="98" />
+                </div>
+                <div>
+                  <Label>Método</Label>
+                  <select value={form.assessmentMethod} onChange={(e) => set('assessmentMethod', e.target.value)}
+                    className="w-full h-10 rounded-md border px-3 text-sm bg-white dark:bg-gray-900">
+                    <option value="">Selecione</option>
+                    <option value="bioimpedancia">Bioimpedância</option>
+                    <option value="dobras_cutaneas">Dobras cutâneas</option>
+                    <option value="dexa">DEXA</option>
+                    <option value="perimetros">Perímetros</option>
+                  </select>
+                </div>
+              </div>
+              {newBmi && (
+                <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">IMC inicial:</span>
+                  <span className="text-lg font-bold text-blue-700 dark:text-blue-400">{newBmi}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border dark:border-gray-700">{bmiLabel}</span>
+                </div>
+              )}
+              <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-900">
+                <ShieldAlert className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                <AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">
+                  Avaliação física completa é atribuição do Profissional de Educação Física (CONFEF/CREF).
+                  Estas medidas iniciais são um registro de apoio.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── STEP 4: Objetivos & LGPD ── */}
+        {step === 4 && (
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
@@ -378,8 +457,8 @@ export default function PatientNewPage() {
           </Button>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400">Etapa {step} de {STEPS.length}</span>
-            {step < 3 ? (
+            <span className="text-xs text-gray-400">Etapa {step} de {TOTAL_STEPS}</span>
+            {step < TOTAL_STEPS ? (
               <Button onClick={handleNext} className="flex items-center gap-2">
                 Próxima etapa <ChevronRight className="h-4 w-4" />
               </Button>
