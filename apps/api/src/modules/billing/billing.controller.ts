@@ -3,7 +3,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { ClinicalStaff } from '../../common/decorators';
+import { ClinicalStaff, Public } from '../../common/decorators';
 import { BillingService } from './billing.service';
 
 @ApiTags('billing')
@@ -29,6 +29,7 @@ export class BillingController {
   }
 
   @Post('webhook')
+  @Public()
   @HttpCode(200)
   @ApiOperation({ summary: 'Webhook Mercado Pago — notificações de pagamento' })
   async mpWebhook(

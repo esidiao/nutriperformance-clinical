@@ -1,6 +1,10 @@
 import { SetMetadata } from '@nestjs/common';
 import { ROLES_KEY } from '../guards/roles.guard';
 import { TOKEN_OPERATION_KEY } from '../guards/token-balance.guard';
+import { IS_PUBLIC_KEY } from '../guards/jwt-auth.guard';
+
+/** Marca rota como pública — ignora o JwtAuthGuard global (health, webhooks) */
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 /** Restringe endpoint a roles específicos */
 export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);

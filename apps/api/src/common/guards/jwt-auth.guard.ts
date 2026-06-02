@@ -1,7 +1,11 @@
 import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { CanActivate } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import * as jwt from 'jsonwebtoken';
+
+// Marca rotas como públicas (sem necessidade de JWT). Usado pelo @Public().
+export const IS_PUBLIC_KEY = 'isPublic';
 
 // =============================================================================
 // Supabase JWT verification
@@ -25,7 +29,16 @@ const JWKS = SUPABASE_URL
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Rotas marcadas com @Public() não exigem autenticação (health, webhooks).
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
+
     const request = context.switchToHttp().getRequest();
     const authHeader: string | undefined = request.headers['authorization'];
 

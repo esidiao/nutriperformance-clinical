@@ -40,6 +40,7 @@ import { ScientificBaseModule } from './modules/scientific-base/scientific-base.
 import { AdminModule } from './modules/admin/admin.module';
 
 // Guards & Interceptors
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TokenBalanceGuard } from './common/guards/token-balance.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -116,6 +117,9 @@ import { HealthController } from './health.controller';
 
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // JwtAuthGuard ANTES do RolesGuard: autentica e popula req.user para que o
+    // RolesGuard possa checar o papel. Rotas @Public() são ignoradas pelo guard.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: TokenBalanceGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
