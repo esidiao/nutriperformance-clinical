@@ -106,15 +106,20 @@ export async function middleware(request: NextRequest) {
   let session: { user?: { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> } } | null = null;
 
   try {
+    // NOTE: @supabase/ssr@0.3.x exposes the get/set/remove cookie interface.
+    // The getAll/setAll interface only exists from 0.4.0 onward — using it with
+    // 0.3.0 silently read zero cookies, so getSession() always returned null and
+    // every protected route bounced back to /login. Match the installed API.
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
+        get(name: string) {
+          return request.cookies.get(name)?.value;
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
+        set(name: string, value: string, options: Record<string, unknown>) {
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: Record<string, unknown>) {
+          response.cookies.set({ name, value: '', ...options });
         },
       },
     });
