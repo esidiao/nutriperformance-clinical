@@ -42,9 +42,12 @@ export class JwtAuthGuard implements CanActivate {
 
     const meta = (payload.user_metadata as Record<string, unknown> | undefined) ?? {};
 
-    // Attach user info derived from Supabase JWT claims
+    // Attach user info derived from Supabase JWT claims.
+    // NOTE: vários controllers usam `req.user.id` — expomos `id` (= sub) além
+    // de `sub` para evitar `created_by`/audit indefinidos.
     request.user = {
       sub: payload.sub, // Supabase user UUID
+      id: payload.sub,
       email: (payload as Record<string, unknown>).email,
       role: (meta.role as string) ?? 'nutritionist',
       workspaceId: meta.workspace_id,

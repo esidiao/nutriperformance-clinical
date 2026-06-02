@@ -41,6 +41,13 @@ export class PatientsController {
     );
   }
 
+  @Get()
+  @ClinicalStaff()
+  @ApiOperation({ summary: 'Listar pacientes do workspace' })
+  async list(@Req() req: any) {
+    return this.patientsService.listByWorkspace(req.user.workspaceId);
+  }
+
   @Get(':id')
   @ClinicalStaff()
   @ApiOperation({ summary: 'Buscar paciente — gera audit log (LGPD)' })

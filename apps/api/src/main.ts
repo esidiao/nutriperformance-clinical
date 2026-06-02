@@ -45,6 +45,9 @@ async function bootstrap() {
       process.env.FRONTEND_URL ?? 'http://localhost:3000',
       'http://localhost:3000',
       'https://app.nutriperformance.com.br',
+      // Domínio fixo de produção na Vercel + alias de produção
+      'https://nutriperformance-clinical.vercel.app',
+      'https://web-ashy-two-76.vercel.app',
     ];
     app.enableCors({
       origin: (origin, callback) => {

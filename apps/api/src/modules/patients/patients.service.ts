@@ -118,6 +118,17 @@ export class PatientsService {
     return this.toPublicDto(patient, name, email);
   }
 
+  async listByWorkspace(workspaceId: string) {
+    const patients = await this.patientRepo.find({
+      where: { workspaceId },
+      order: { createdAt: 'DESC' },
+    });
+    return patients.map((p) => {
+      const name = p.nameEncrypted ? this.decrypt(p.nameEncrypted) : '—';
+      return this.toPublicDto(p, name);
+    });
+  }
+
   async requestDeletion(patientId: string, workspaceId: string, requestingUserId: string) {
     const patient = await this.patientRepo.findOne({ where: { id: patientId, workspaceId } });
     if (!patient) throw new NotFoundException('Paciente não encontrado');
