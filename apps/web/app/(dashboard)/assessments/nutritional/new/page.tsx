@@ -70,6 +70,9 @@ export default function NutritionalAssessmentNewPage() {
   const [liveCalc, setLiveCalc] = useState<{ bmi: number; bmr: number; tee: number; protein: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tokensConsumed, setTokensConsumed] = useState<number | null>(null);
+  const [patientId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('patient') : null,
+  );
   const { text: streamedAnalysis, isStreaming, simulateStream } = useStreamingText();
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
@@ -110,41 +113,54 @@ export default function NutritionalAssessmentNewPage() {
     `⚠️ Esta síntese é ferramenta de apoio. Diagnóstico nutricional e prescrição dietética são responsabilidade exclusiva do Nutricionista habilitado (CFN 599/2018).`;
 
   const onSubmit = async (values: FormData) => {
+    if (!patientId) {
+      toast.error('Selecione um paciente: abra esta avaliação pelo perfil do paciente (botão "Nutricional").');
+      return;
+    }
     setIsSubmitting(true);
+    const t = toast.loading('Salvando avaliação nutricional...');
     try {
-      const dto = {
-        patientId: values.patientId || 'demo',
-        weight: values.weight,
-        heightCm: values.heightCm,
-        age: values.age,
-        gender: values.gender,
-        activityLevel: values.activityLevel,
+      // Mapeia para as colunas reais da entidade (TMB/GET calculados; peso/altura/idade são insumos).
+      const dto: Record<string, unknown> = {
+        patientId,
+        basalMetabolicRate: liveCalc?.bmr,
+        totalEnergyExpenditure: liveCalc?.tee,
+        palFactor: PAL_FACTORS[values.activityLevel] ?? undefined,
         bmrFormula: values.bmrFormula,
-        tmb: liveCalc?.bmr,
-        get: liveCalc?.tee,
         caloricTarget: values.caloricTarget || liveCalc?.tee,
         proteinTargetG: values.proteinTargetG || liveCalc?.protein,
+        carbTargetG: values.carbTargetG,
+        fatTargetG: values.fatTargetG,
+        mainComplaint: values.mainComplaint,
+        dietaryRestrictions: values.dietaryRestrictions,
+        mealFrequency: values.mealFrequency,
+        waterIntakeMl: values.waterIntakeMl,
+        alcoholConsumption: values.alcoholConsumption,
+        bowelHabits: values.bowelHabits,
         nutritionalDiagnosis: values.nutritionalDiagnosis,
         dietaryStrategy: values.dietaryStrategy,
         professionalNotes: values.professionalNotes,
       };
+      Object.keys(dto).forEach((k) => (dto[k] === undefined || dto[k] === '') && delete dto[k]);
 
-      let aiText = FALLBACK_AI_TEXT;
-      let tokens: number | null = null;
+      const created: any = await api.assessments.createNutritional(dto);
+      toast.success('Avaliação nutricional salva com sucesso!', { id: t });
 
+      // Resumo com IA — best-effort (não bloqueia o sucesso da gravação)
       try {
-        const created = await api.assessments.createNutritional(dto);
-        const assessmentId: string = created.id ?? created._id;
-        const summaryResult = await api.assessments.aiSummary(assessmentId);
-        aiText = summaryResult.summary.content;
-        tokens = summaryResult.tokensConsumed ?? null;
+        const assessmentId: string = created?.id;
+        if (assessmentId) {
+          const summaryResult: any = await api.assessments.aiSummary(assessmentId);
+          setTokensConsumed(summaryResult?.tokensConsumed ?? null);
+          simulateStream(summaryResult?.summary?.content ?? FALLBACK_AI_TEXT, 12);
+        } else {
+          simulateStream(FALLBACK_AI_TEXT, 12);
+        }
       } catch {
-        // Backend unavailable — use local fallback text (already set above)
+        simulateStream(FALLBACK_AI_TEXT, 12);
       }
-
-      setTokensConsumed(tokens);
-      simulateStream(aiText, 12);
-      toast.success('Avaliação salva com sucesso!');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao salvar a avaliação.', { id: t });
     } finally {
       setIsSubmitting(false);
     }
