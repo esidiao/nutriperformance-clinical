@@ -20,6 +20,14 @@ import {
 } from 'lucide-react';
 
 const GENDER_LABEL: Record<string, string> = { male: 'Masculino', female: 'Feminino', other: 'Outro', not_informed: '—' };
+
+const GOAL_TYPES: [string, string][] = [
+  ['weight_loss', 'Emagrecimento'], ['hypertrophy', 'Hipertrofia'], ['body_recomposition', 'Recomposição corporal'],
+  ['metabolic_improvement', 'Melhora metabólica'], ['performance_improvement', 'Performance'], ['endurance_gain', 'Resistência'],
+  ['general_health', 'Saúde geral'], ['clinical_recovery', 'Recuperação clínica'], ['lean_mass_maintenance', 'Manutenção de massa magra'],
+  ['gastrointestinal_improvement', 'Melhora gastrointestinal'],
+];
+const GOAL_LABEL: Record<string, string> = Object.fromEntries(GOAL_TYPES);
 const fmtDate = (iso?: string) => { if (!iso) return '—'; const d = new Date(iso); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR'); };
 const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : (v != null && !isNaN(Number(v)) ? Number(v) : null));
 
@@ -46,6 +54,10 @@ export default function PatientPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [quickPhys, setQuickPhys] = useState({ weightKg: '', heightCm: '', bodyFatPct: '', waistCm: '' });
   const [savingPhys, setSavingPhys] = useState(false);
+  const [suppForm, setSuppForm] = useState({ supplementName: '', doseAmount: '', doseUnit: 'mg', frequencyPerDay: '1', therapeuticGoal: '' });
+  const [savingSupp, setSavingSupp] = useState(false);
+  const [goalForm, setGoalForm] = useState({ goalType: 'hypertrophy', baselineValue: '', targetValue: '', targetUnit: 'kg' });
+  const [savingGoal, setSavingGoal] = useState(false);
 
   const patientQ = useQuery({ queryKey: ['patient', patientId], queryFn: () => api.patients.get(patientId), enabled: !!patientId });
   const nutriQ = useQuery({ queryKey: ['assessNutri', patientId], queryFn: () => api.assessments.listNutritional(patientId), enabled: !!patientId });
@@ -90,6 +102,52 @@ export default function PatientPage() {
       toast.error(err?.message ?? 'Não foi possível salvar a avaliação.', { id: t });
     } finally {
       setSavingPhys(false);
+    }
+  };
+
+  const handleAddSupplement = async () => {
+    if (!suppForm.supplementName.trim()) { toast.error('Informe o nome do suplemento.'); return; }
+    setSavingSupp(true);
+    const t = toast.loading('Salvando suplemento...');
+    try {
+      await api.supplementation.create({
+        patientId,
+        supplementName: suppForm.supplementName.trim(),
+        doseAmount: suppForm.doseAmount ? Number(suppForm.doseAmount) : undefined,
+        doseUnit: suppForm.doseUnit || undefined,
+        frequencyPerDay: suppForm.frequencyPerDay ? Number(suppForm.frequencyPerDay) : undefined,
+        therapeuticGoal: suppForm.therapeuticGoal || undefined,
+        isActive: true,
+      });
+      toast.success('Suplemento adicionado', { id: t });
+      setSuppForm({ supplementName: '', doseAmount: '', doseUnit: 'mg', frequencyPerDay: '1', therapeuticGoal: '' });
+      qc.invalidateQueries({ queryKey: ['supp', patientId] });
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao salvar suplemento.', { id: t });
+    } finally {
+      setSavingSupp(false);
+    }
+  };
+
+  const handleAddGoal = async () => {
+    if (!goalForm.targetValue) { toast.error('Informe o valor alvo.'); return; }
+    setSavingGoal(true);
+    const t = toast.loading('Salvando meta...');
+    try {
+      await api.goals.create({
+        patientId,
+        goalType: goalForm.goalType,
+        baselineValue: goalForm.baselineValue ? Number(goalForm.baselineValue) : undefined,
+        targetValue: Number(goalForm.targetValue),
+        targetUnit: goalForm.targetUnit || undefined,
+      });
+      toast.success('Meta criada', { id: t });
+      setGoalForm({ goalType: 'hypertrophy', baselineValue: '', targetValue: '', targetUnit: 'kg' });
+      qc.invalidateQueries({ queryKey: ['goals', patientId] });
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao salvar meta.', { id: t });
+    } finally {
+      setSavingGoal(false);
     }
   };
 
@@ -237,6 +295,26 @@ export default function PatientPage() {
           {/* SUPPLEMENTS */}
           <TabsContent value="supplements" className="space-y-3">
             <EthicsDisclaimer />
+            <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20">
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Pill className="h-4 w-4 text-blue-600" /> Adicionar suplemento</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-5"><label className="text-[11px] text-gray-500">Suplemento</label>
+                    <Input value={suppForm.supplementName} onChange={(e) => setSuppForm((s) => ({ ...s, supplementName: e.target.value }))} placeholder="Ex: Creatina monoidratada" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-2"><label className="text-[11px] text-gray-500">Dose</label>
+                    <Input type="number" step="0.1" value={suppForm.doseAmount} onChange={(e) => setSuppForm((s) => ({ ...s, doseAmount: e.target.value }))} placeholder="5" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-2"><label className="text-[11px] text-gray-500">Unidade</label>
+                    <Input value={suppForm.doseUnit} onChange={(e) => setSuppForm((s) => ({ ...s, doseUnit: e.target.value }))} placeholder="g" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-3"><label className="text-[11px] text-gray-500">Vezes/dia</label>
+                    <Input type="number" min={1} value={suppForm.frequencyPerDay} onChange={(e) => setSuppForm((s) => ({ ...s, frequencyPerDay: e.target.value }))} placeholder="1" className="h-9 text-sm" /></div>
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" disabled={savingSupp} onClick={handleAddSupplement} className="h-8 text-xs flex items-center gap-1.5">
+                    {savingSupp ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Adicionar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
             {suppQ.isLoading ? <Empty text="Carregando..." /> :
               supps.length === 0 ? <Empty text="Nenhuma suplementação ativa." /> :
               supps.map((s, i) => (
@@ -268,15 +346,37 @@ export default function PatientPage() {
           {/* GOALS */}
           <TabsContent value="goals" className="space-y-4">
             <EthicsDisclaimer />
+            <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20">
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-blue-600" /> Nova meta</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-5"><label className="text-[11px] text-gray-500">Tipo de meta</label>
+                    <select value={goalForm.goalType} onChange={(e) => setGoalForm((s) => ({ ...s, goalType: e.target.value }))} className="w-full h-9 rounded-md border px-2 text-sm dark:bg-gray-800 dark:border-gray-700">
+                      {GOAL_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select></div>
+                  <div className="sm:col-span-3"><label className="text-[11px] text-gray-500">Valor inicial</label>
+                    <Input type="number" step="0.1" value={goalForm.baselineValue} onChange={(e) => setGoalForm((s) => ({ ...s, baselineValue: e.target.value }))} placeholder="43.2" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-2"><label className="text-[11px] text-gray-500">Alvo</label>
+                    <Input type="number" step="0.1" value={goalForm.targetValue} onChange={(e) => setGoalForm((s) => ({ ...s, targetValue: e.target.value }))} placeholder="47" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-2"><label className="text-[11px] text-gray-500">Unidade</label>
+                    <Input value={goalForm.targetUnit} onChange={(e) => setGoalForm((s) => ({ ...s, targetUnit: e.target.value }))} placeholder="kg" className="h-9 text-sm" /></div>
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" disabled={savingGoal} onClick={handleAddGoal} className="h-8 text-xs flex items-center gap-1.5">
+                    {savingGoal ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Criar meta
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
             {goalsQ.isLoading ? <Empty text="Carregando..." /> :
               goals.length === 0 ? <Empty text="Nenhuma meta definida." /> :
               goals.map((g, i) => (
                 <Card key={g.id ?? i}><CardContent className="py-4 px-5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2"><Target className="h-4 w-4 text-blue-600" />
-                      <span className="font-semibold text-sm">{g.title ?? g.label ?? g.metric ?? 'Meta'}</span>
+                      <span className="font-semibold text-sm">{GOAL_LABEL[g.goalType] ?? g.goalType ?? 'Meta'}</span>
                     </div>
-                    {num(g.targetValue ?? g.target) != null && <span className="text-xs text-gray-500">Alvo: {g.targetValue ?? g.target} {g.unit ?? ''}</span>}
+                    {num(g.targetValue) != null && <span className="text-xs text-gray-500">{num(g.baselineValue) != null ? `${g.baselineValue} → ` : 'Alvo: '}{g.targetValue} {g.targetUnit ?? ''}</span>}
                   </div>
                 </CardContent></Card>
               ))}
