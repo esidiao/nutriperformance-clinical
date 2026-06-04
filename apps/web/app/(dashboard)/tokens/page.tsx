@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -128,11 +130,19 @@ const packages: TokenPackage[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TokensPage() {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
-  const currentBalance = 557;
-  const monthlyLimit = 600;
-  const monthlyUsed = monthlyLimit - currentBalance;
+
+  const balanceQ = useQuery({ queryKey: ['tokenBalance'], queryFn: () => api.tokens.balance() });
+  const historyQ = useQuery({ queryKey: ['tokenHistory'], queryFn: () => api.tokens.history() });
+
+  const bal: any = balanceQ.data ?? {};
+  const currentBalance = typeof bal.balance === 'number' ? bal.balance : 0;
+  const available = typeof bal.available === 'number' ? bal.available : currentBalance;
+  const isUnlimited = currentBalance >= 100_000_000;
   const totalUsage = moduleUsage.reduce((a, b) => a + b.used, 0);
-  const lowBalance = currentBalance < monthlyLimit * 0.2;
+  const lowBalance = !isUnlimited && !balanceQ.isLoading && currentBalance < 120;
+  const history: any[] = Array.isArray(historyQ.data) ? historyQ.data : [];
+
+  const fmtDate = (iso?: string) => { if (!iso) return '—'; const d = new Date(iso); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR'); };
 
   return (
     <div className="flex flex-col min-h-full">
@@ -149,7 +159,7 @@ export default function TokensPage() {
           <Alert className="border-red-200 bg-red-50">
             <AlertTriangle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800 text-sm">
-              <strong>Saldo baixo!</strong> Você tem apenas <strong>{currentBalance} tokens</strong> restantes ({Math.round((currentBalance / monthlyLimit) * 100)}% do plano).
+              <strong>Saldo baixo!</strong> Você tem apenas <strong>{currentBalance} tokens</strong> restantes.
               Considere fazer uma recarga para continuar as análises.
             </AlertDescription>
           </Alert>
@@ -164,14 +174,28 @@ export default function TokensPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl sm:text-5xl font-black text-blue-600">{currentBalance.toLocaleString('pt-BR')}</span>
-                <span className="text-lg text-gray-400">tokens</span>
-                <span className="ml-auto text-sm text-gray-500 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
-                  Plano Profissional
-                </span>
-              </div>
-              <TokenBar used={monthlyUsed} total={monthlyLimit} />
+              {balanceQ.isLoading ? (
+                <p className="text-sm text-gray-400">Carregando saldo...</p>
+              ) : balanceQ.isError ? (
+                <p className="text-sm text-red-600">Não foi possível carregar o saldo.</p>
+              ) : (
+                <div className="flex items-baseline gap-2">
+                  {isUnlimited ? (
+                    <span className="text-4xl sm:text-5xl font-black text-blue-600">Ilimitado ∞</span>
+                  ) : (
+                    <>
+                      <span className="text-4xl sm:text-5xl font-black text-blue-600">{currentBalance.toLocaleString('pt-BR')}</span>
+                      <span className="text-lg text-gray-400">tokens</span>
+                    </>
+                  )}
+                  <span className="ml-auto text-sm text-gray-500 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                    {isUnlimited ? 'Acesso administrador' : 'Saldo do workspace'}
+                  </span>
+                </div>
+              )}
+              {!isUnlimited && !balanceQ.isLoading && !balanceQ.isError && (
+                <p className="text-xs text-gray-500">Disponível: <strong>{available.toLocaleString('pt-BR')}</strong> tokens (reservados: {(currentBalance - available).toLocaleString('pt-BR')})</p>
+              )}
               <Button size="sm" className="flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4" /> Comprar tokens adicionais
               </Button>
@@ -281,28 +305,33 @@ export default function TokensPage() {
             <button className="text-xs text-blue-600 hover:underline">Exportar CSV</button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              {mockTransactions.map((tx, i) => (
-                <div key={i} className="flex items-center gap-3 py-2.5 border-b last:border-0">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${tx.amount > 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                    {tx.amount > 0
-                      ? <ArrowUpCircle className="h-4 w-4 text-green-500" />
-                      : <ArrowDownCircle className="h-4 w-4 text-red-400" />
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-800 truncate">{tx.operation}</p>
-                    <p className="text-xs text-gray-400">{tx.date}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className={`text-sm font-bold ${tx.amount > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                      {tx.amount > 0 ? '+' : ''}{tx.amount} tk
-                    </p>
-                    <p className="text-[10px] text-gray-400">saldo: {tx.balance}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {historyQ.isLoading ? (
+              <p className="text-xs text-gray-400 text-center py-6">Carregando histórico...</p>
+            ) : history.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-6">Nenhuma transação de tokens ainda.</p>
+            ) : (
+              <div className="space-y-1">
+                {history.map((tx: any, i: number) => {
+                  const amount = typeof tx.amount === 'number' ? tx.amount : 0;
+                  const label = tx.description || tx.module || tx.operation || 'Transação';
+                  return (
+                    <div key={tx.id ?? i} className="flex items-center gap-3 py-2.5 border-b last:border-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${amount > 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                        {amount > 0 ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-400" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-800 truncate">{label}</p>
+                        <p className="text-xs text-gray-400">{fmtDate(tx.createdAt)}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`text-sm font-bold ${amount > 0 ? 'text-green-600' : 'text-red-500'}`}>{amount > 0 ? '+' : ''}{amount} tk</p>
+                        {typeof tx.balanceAfter === 'number' && <p className="text-[10px] text-gray-400">saldo: {tx.balanceAfter}</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
