@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,17 +145,44 @@ export default function PatientNewPage() {
   const handleSubmit = async () => {
     if (!validateStep()) return;
     setIsSaving(true);
-    toast.promise(
-      new Promise<void>((resolve) => setTimeout(resolve, 1400)).then(() => {
-        router.push('/patients');
-      }),
-      {
-        loading: 'Cadastrando paciente...',
-        success: `Paciente ${form.name.split(' ')[0]} cadastrado com sucesso!`,
-        error: 'Erro ao cadastrar paciente',
-      },
-    );
-    setIsSaving(false);
+    const t = toast.loading('Cadastrando paciente...');
+    try {
+      const dto: Record<string, unknown> = {
+        name: form.name.trim(),
+        birthDate: form.birthDate, // YYYY-MM-DD (aceito como IsDateString)
+        gender: (['male', 'female', 'other'].includes(form.gender) ? form.gender : 'not_informed'),
+        lgpdConsent: form.lgpdConsent,
+      };
+      if (form.email.trim()) dto.email = form.email.trim();
+      if (form.phone.trim()) dto.phone = form.phone.trim();
+      if (form.cpf.trim()) dto.cpf = form.cpf.trim();
+
+      const created: any = await api.patients.create(dto);
+
+      // Avaliação física inicial (opcional): grava se peso e altura informados.
+      if (created?.id && form.weightKg && form.heightCm) {
+        try {
+          await api.assessments.createPhysical({
+            patientId: created.id,
+            weightKg: Number(form.weightKg),
+            heightCm: Number(form.heightCm),
+            bodyFatPct: form.bodyFatPct ? Number(form.bodyFatPct) : undefined,
+            waistCm: form.waistCm ? Number(form.waistCm) : undefined,
+            hipCm: form.hipCm ? Number(form.hipCm) : undefined,
+            assessmentMethod: form.assessmentMethod || undefined,
+          });
+        } catch {
+          // Não bloquear o cadastro do paciente se a avaliação inicial falhar
+          toast.message('Paciente cadastrado; a avaliação física inicial não pôde ser salva agora.');
+        }
+      }
+
+      toast.success(`Paciente ${form.name.split(' ')[0]} cadastrado com sucesso!`, { id: t });
+      router.push('/patients');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao cadastrar paciente.', { id: t });
+      setIsSaving(false);
+    }
   };
 
   return (
