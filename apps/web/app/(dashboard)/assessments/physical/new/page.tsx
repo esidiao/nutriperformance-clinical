@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, Coins, Activity, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/lib/api-client';
 
 const schema = z.object({
   patientId: z.string().optional(),
@@ -135,6 +136,11 @@ export default function PhysicalAssessmentNewPage() {
     defaultValues: { activityLevel: 'moderately_active', primaryGoal: 'general_health' },
   });
 
+  // Paciente alvo via ?patient= (vindo do perfil). Leitura client-side.
+  const [patientId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('patient') : null,
+  );
+
   // Estado local das dobras cutâneas (calculadora de % de gordura)
   const [sf, setSf] = useState({ s1: '', s2: '', s3: '' });
 
@@ -156,11 +162,49 @@ export default function PhysicalAssessmentNewPage() {
     } else setWhr(null);
   }, [wW, wH, wWaist, wHip]);
 
-  const onSubmit = async () => {
+  const onSubmit = async (data: FormData) => {
+    if (!patientId) {
+      toast.error('Selecione um paciente: abra esta avaliação pelo perfil do paciente (botão "Física").');
+      return;
+    }
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsSubmitting(false);
-    toast.success('Avaliação física salva com sucesso!');
+    const t = toast.loading('Salvando avaliação física...');
+    try {
+      const n = (v: unknown) => {
+        if (v === '' || v == null) return undefined;
+        const x = Number(v);
+        return isFinite(x) ? x : undefined;
+      };
+      const g = (watch as any)('gender') ?? 'female';
+      const sfMap = g === 'male'
+        ? { skinfoldChestMm: toNum(sf.s1) || undefined, skinfoldAbdominalMm: toNum(sf.s2) || undefined, skinfoldThighMm: toNum(sf.s3) || undefined }
+        : { skinfoldTricepsMm: toNum(sf.s1) || undefined, skinfoldSuprailiacMm: toNum(sf.s2) || undefined, skinfoldThighMm: toNum(sf.s3) || undefined };
+      const dto: Record<string, unknown> = {
+        patientId,
+        weightKg: n(data.weightKg), heightCm: n(data.heightCm),
+        bmi: bmi ?? undefined, whr: whr ?? undefined,
+        bodyFatPct: n(data.bodyFatPct) ?? (sfFat ?? undefined),
+        leanMassKg: n(data.leanMassKg) ?? (sfLeanMass ?? undefined),
+        muscleMassKg: n(data.muscleMassKg), boneMassKg: n(data.boneMassKg),
+        bodyCompositionMethod: data.assessmentMethod || undefined,
+        waistCm: n(data.waistCm), hipCm: n(data.hipCm), neckCm: n(data.neckCm), chestCm: n(data.chestCm),
+        rightArmRelaxedCm: n(data.rightArmCm), rightThighCm: n(data.rightThighCm), rightCalfCm: n(data.rightCalfCm),
+        physicalActivityLevel: data.activityLevel,
+        trainingFrequencyPerWeek: n(data.weeklyFrequency), trainingDurationMin: n(data.sessionDurationMin),
+        mainSportActivity: data.sportModality || undefined,
+        primaryGoal: data.primaryGoal,
+        skinfoldProtocol: (sf.s1 || sf.s2 || sf.s3) ? 'pollock_3' : undefined,
+        ...sfMap,
+        professionalNotes: data.professionalNotes || undefined,
+      };
+      Object.keys(dto).forEach((k) => dto[k] === undefined && delete dto[k]);
+      await api.assessments.createPhysical(dto);
+      toast.success('Avaliação física salva com sucesso!', { id: t });
+      window.location.href = `/patients/${patientId}`;
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao salvar a avaliação.', { id: t });
+      setIsSubmitting(false);
+    }
   };
 
   const watchedGender = watch('activityLevel'); // workaround — read gender from form
