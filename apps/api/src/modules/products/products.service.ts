@@ -75,10 +75,11 @@ export class ProductsService {
     const q = (query ?? '').trim();
     if (q.length < 2) return [];
     const take = Math.min(50, Math.max(1, limit));
+    // Nota: industrialized_products não possui coluna `ativo` (só `foods` tem esse
+    // conceito de moderação hoje). Filtra apenas por confiabilidade, que é real.
     const rows = await this.repo
       .createQueryBuilder('p')
-      .where('p.ativo = true')
-      .andWhere("p.confiabilidade <> 'pendente'")
+      .where("p.confiabilidade <> 'pendente'")
       .andWhere('(p.nome_comercial ILIKE :like OR p.marca ILIKE :like)', { like: `%${q}%` })
       .orderBy('p.nome_comercial', 'ASC')
       .take(take)

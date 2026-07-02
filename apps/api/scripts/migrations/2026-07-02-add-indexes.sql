@@ -19,9 +19,12 @@
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_foods_ativo_confiabilidade
   ON foods (ativo, confiabilidade);
 
--- industrialized_products: busca pública filtra ativo + confiabilidade (products.service.search)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_ativo_confiabilidade
-  ON industrialized_products (ativo, confiabilidade);
+-- industrialized_products: busca pública filtra confiabilidade (products.service.search).
+-- NOTA: esta tabela NÃO possui coluna `ativo` (confirmado via information_schema em prod,
+-- 2026-07-02) — diferente de `foods`. A query original referenciava `p.ativo = true`,
+-- uma coluna inexistente, e quebrava em produção; corrigido em products.service.ts.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_confiabilidade
+  ON industrialized_products (confiabilidade);
 
 -- patients: listagem por workspace (multi-tenant; clínicas com muitos pacientes)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_patients_workspace
