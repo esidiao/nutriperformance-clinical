@@ -16,7 +16,7 @@ import { PageHeader } from '@/components/PageHeader';
 import {
   Activity, Pill, FlaskConical, Target,
   ShieldAlert, User, Calendar, GitMerge, Plus, Dumbbell,
-  TrendingUp, Loader2, AlertCircle,
+  TrendingUp, Loader2, AlertCircle, X, Stethoscope,
 } from 'lucide-react';
 
 const GENDER_LABEL: Record<string, string> = { male: 'Masculino', female: 'Feminino', other: 'Outro', not_informed: '—' };
@@ -45,6 +45,121 @@ function EthicsDisclaimer() {
 
 function Empty({ text }: { text: string }) {
   return <p className="text-xs text-gray-400 text-center py-6">{text}</p>;
+}
+
+interface Medication { name: string; activePrinciple?: string; dose?: string; }
+
+function ClinicalContextCard({
+  patientId, initialMedications, initialConditions, onSaved,
+}: {
+  patientId: string;
+  initialMedications: Medication[];
+  initialConditions: string[];
+  onSaved: () => void;
+}) {
+  const [meds, setMeds] = useState<Medication[]>(initialMedications);
+  const [conditions, setConditions] = useState<string[]>(initialConditions);
+  const [medDraft, setMedDraft] = useState<Medication>({ name: '', activePrinciple: '', dose: '' });
+  const [condDraft, setCondDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const dirty =
+    JSON.stringify(meds) !== JSON.stringify(initialMedications) ||
+    JSON.stringify(conditions) !== JSON.stringify(initialConditions);
+
+  const addMed = () => {
+    if (!medDraft.name.trim()) return;
+    setMeds((m) => [...m, {
+      name: medDraft.name.trim(),
+      activePrinciple: medDraft.activePrinciple?.trim() || undefined,
+      dose: medDraft.dose?.trim() || undefined,
+    }]);
+    setMedDraft({ name: '', activePrinciple: '', dose: '' });
+  };
+  const addCond = () => {
+    const v = condDraft.trim();
+    if (!v || conditions.some((c) => c.toLowerCase() === v.toLowerCase())) { setCondDraft(''); return; }
+    setConditions((c) => [...c, v]);
+    setCondDraft('');
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.patients.update(patientId, { medications: meds, clinicalConditions: conditions });
+      toast.success('Contexto clínico atualizado.');
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Erro ao salvar contexto clínico.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Stethoscope className="h-4 w-4 text-teal-600" /> Contexto Clínico
+        </CardTitle>
+        <p className="text-[11px] text-gray-400">Medicamentos em uso e condições clínicas — usados nas análises de interações e biodisponibilidade.</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Medicamentos */}
+        <div>
+          <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medicamentos em uso</label>
+          <div className="mt-1.5 space-y-1.5">
+            {meds.length === 0 && <p className="text-[11px] text-gray-400">Nenhum medicamento registrado.</p>}
+            {meds.map((m, i) => (
+              <div key={i} className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">
+                <span className="font-medium text-gray-800 dark:text-gray-200">{m.name}</span>
+                {m.activePrinciple && <span className="text-xs text-gray-500">· {m.activePrinciple}</span>}
+                {m.dose && <span className="text-xs text-gray-500">· {m.dose}</span>}
+                <button type="button" onClick={() => setMeds((arr) => arr.filter((_, idx) => idx !== i))}
+                  aria-label={`Remover ${m.name}`} className="ml-auto text-gray-400 hover:text-red-500">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-2">
+            <Input value={medDraft.name} onChange={(e) => setMedDraft((d) => ({ ...d, name: e.target.value }))}
+              placeholder="Nome (ex.: Omeprazol)" className="h-8 text-sm sm:col-span-2" aria-label="Nome do medicamento" />
+            <Input value={medDraft.dose} onChange={(e) => setMedDraft((d) => ({ ...d, dose: e.target.value }))}
+              placeholder="Dose (ex.: 20mg)" className="h-8 text-sm" aria-label="Dose do medicamento" />
+            <Button type="button" variant="outline" size="sm" onClick={addMed} className="h-8 text-xs"><Plus className="h-3.5 w-3.5 mr-1" /> Adicionar</Button>
+          </div>
+        </div>
+
+        {/* Condições clínicas */}
+        <div>
+          <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Condições clínicas</label>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {conditions.length === 0 && <p className="text-[11px] text-gray-400">Nenhuma condição registrada.</p>}
+            {conditions.map((c, i) => (
+              <span key={i} className="inline-flex items-center gap-1 text-xs bg-teal-50 text-teal-800 border border-teal-200 rounded-full px-2.5 py-1">
+                {c}
+                <button type="button" onClick={() => setConditions((arr) => arr.filter((_, idx) => idx !== i))}
+                  aria-label={`Remover ${c}`} className="text-teal-400 hover:text-red-500"><X className="h-3 w-3" /></button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-2">
+            <Input value={condDraft} onChange={(e) => setCondDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCond(); } }}
+              placeholder="Ex.: Hipertensão arterial" className="h-8 text-sm" aria-label="Condição clínica" />
+            <Button type="button" variant="outline" size="sm" onClick={addCond} className="h-8 text-xs flex-shrink-0"><Plus className="h-3.5 w-3.5 mr-1" /> Adicionar</Button>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button size="sm" onClick={save} disabled={!dirty || saving} className="h-8 text-xs flex items-center gap-1.5">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Salvar contexto clínico
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function PatientPage() {
@@ -266,6 +381,17 @@ export default function PatientPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Contexto clínico (medicamentos + condições) */}
+            {!patientQ.isLoading && (
+              <ClinicalContextCard
+                key={`${patientId}:${(p.medications?.length ?? 0)}:${(p.clinicalConditions?.length ?? 0)}`}
+                patientId={patientId}
+                initialMedications={Array.isArray(p.medications) ? p.medications : []}
+                initialConditions={Array.isArray(p.clinicalConditions) ? p.clinicalConditions : []}
+                onSaved={() => qc.invalidateQueries({ queryKey: ['patient', patientId] })}
+              />
+            )}
           </TabsContent>
 
           {/* ASSESSMENTS */}

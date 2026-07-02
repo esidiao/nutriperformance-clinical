@@ -95,6 +95,14 @@ export class TokenService {
     description: string;
     paymentId?: string;
   }): Promise<TokenTransaction> {
+    if (params.paymentId) {
+      const existing = await this.txRepo.findOne({ where: { paymentId: params.paymentId } });
+      if (existing) {
+        this.logger.warn(`Crédito ignorado — paymentId ${params.paymentId} já processado (tx ${existing.id})`);
+        return existing;
+      }
+    }
+
     return this.dataSource.transaction(async (em) => {
       const workspace = await em
         .getRepository(Workspace)

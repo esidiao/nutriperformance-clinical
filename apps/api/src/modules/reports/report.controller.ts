@@ -1,6 +1,7 @@
 import {
   Controller, Post, Get, Param, Body, Req, Res,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportService } from './report.service';
@@ -19,6 +20,7 @@ export class ReportController {
   @Post('generate')
   @ClinicalStaff()
   @RequiresTokens('report_generation')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Gerar relatório PDF — consome 5 tokens' })
   async generate(@Body() body: any, @Req() req: any, @Res() res: Response) {
     // Consumir tokens

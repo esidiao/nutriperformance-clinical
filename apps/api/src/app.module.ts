@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 // Entities — needed for TypeORM entity list at root level
@@ -19,6 +20,9 @@ import { PhysicalAssessment } from './modules/assessments/physical-assessment.en
 import { PatientSupplementation } from './modules/supplementation/patient-supplementation.entity';
 import { LaboratoryExam } from './modules/laboratory/laboratory-exam.entity';
 import { PatientGoal } from './modules/goals/patient-goal.entity';
+import { Food } from './modules/foods/food.entity';
+import { IndustrializedProduct } from './modules/products/product.entity';
+import { SupplementCatalog } from './modules/supplements-catalog/supplement-catalog.entity';
 
 // Feature modules
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
@@ -38,6 +42,12 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ScientificBaseModule } from './modules/scientific-base/scientific-base.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { FoodsModule } from './modules/foods/foods.module';
+import { ProductsModule } from './modules/products/products.module';
+import { SupplementsCatalogModule } from './modules/supplements-catalog/supplements-catalog.module';
+import { RagModule } from './modules/rag/rag.module';
+import { CurationModule } from './modules/curation/curation.module';
 
 // Guards & Interceptors
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -51,6 +61,7 @@ import { HealthController } from './health.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
 
     TypeOrmModule.forRootAsync({
@@ -72,6 +83,7 @@ import { HealthController } from './health.controller';
             ClinicalAlert, AuditLog,
             NutritionalAssessment, PhysicalAssessment,
             PatientSupplementation, LaboratoryExam, PatientGoal,
+            Food, IndustrializedProduct, SupplementCatalog,
           ],
           synchronize: !isProduction,
           logging: !isProduction,
@@ -111,6 +123,12 @@ import { HealthController } from './health.controller';
     BillingModule,
     ScientificBaseModule,
     AdminModule,
+    DashboardModule,
+    FoodsModule,
+    ProductsModule,
+    SupplementsCatalogModule,
+    RagModule,
+    CurationModule,
   ],
 
   controllers: [HealthController],

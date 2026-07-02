@@ -87,7 +87,9 @@ export default function PatientNewPage() {
     email: '', phone: '', address: '',
     emergencyContactName: '', emergencyContactPhone: '',
     // Step 2
-    medicalHistory: '', currentMedications: '',
+    medicalHistory: '',
+    medications: [] as Array<{ name: string; activePrinciple?: string; dose?: string }>,
+    clinicalConditions: [] as string[],
     allergies: '', dietaryRestrictions: [] as string[],
     // Step 3 — Avaliação física inicial (opcional)
     weightKg: '', heightCm: '', bodyFatPct: '', waistCm: '', hipCm: '', assessmentMethod: '',
@@ -95,6 +97,33 @@ export default function PatientNewPage() {
     mainObjective: '', professionalNotes: '',
     lgpdConsent: false,
   });
+
+  const [medDraft, setMedDraft] = useState({ name: '', dose: '' });
+  const [condDraft, setCondDraft] = useState('');
+
+  const addMedication = () => {
+    if (!medDraft.name.trim()) return;
+    setForm((p) => ({
+      ...p,
+      medications: [...p.medications, { name: medDraft.name.trim(), dose: medDraft.dose.trim() || undefined }],
+    }));
+    setMedDraft({ name: '', dose: '' });
+  };
+  const removeMedication = (i: number) =>
+    setForm((p) => ({ ...p, medications: p.medications.filter((_, idx) => idx !== i) }));
+
+  const addCondition = () => {
+    const v = condDraft.trim();
+    if (!v) return;
+    setForm((p) =>
+      p.clinicalConditions.some((c) => c.toLowerCase() === v.toLowerCase())
+        ? p
+        : { ...p, clinicalConditions: [...p.clinicalConditions, v] },
+    );
+    setCondDraft('');
+  };
+  const removeCondition = (i: number) =>
+    setForm((p) => ({ ...p, clinicalConditions: p.clinicalConditions.filter((_, idx) => idx !== i) }));
 
   // IMC calculado da avaliação física inicial
   const newBmi = (() => {
@@ -156,6 +185,8 @@ export default function PatientNewPage() {
       if (form.email.trim()) dto.email = form.email.trim();
       if (form.phone.trim()) dto.phone = form.phone.trim();
       if (form.cpf.trim()) dto.cpf = form.cpf.trim();
+      if (form.medications.length) dto.medications = form.medications;
+      if (form.clinicalConditions.length) dto.clinicalConditions = form.clinicalConditions;
 
       const created: any = await api.patients.create(dto);
 
@@ -236,6 +267,7 @@ export default function PatientNewPage() {
               <div>
                 <Label>Sexo biológico *</Label>
                 <select
+                  aria-label="Sexo biológico"
                   value={form.gender}
                   onChange={(e) => set('gender', e.target.value)}
                   className={`w-full h-10 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 ${errors.gender ? 'border-red-400' : ''}`}
@@ -291,12 +323,49 @@ export default function PatientNewPage() {
               </div>
               <div>
                 <Label>Medicamentos em uso</Label>
-                <Textarea
-                  value={form.currentMedications}
-                  onChange={(e) => set('currentMedications', e.target.value)}
-                  placeholder="Nome do medicamento, dose e frequência..."
-                  rows={2}
-                />
+                <p className="text-[11px] text-gray-400 mb-1.5">Usados nas análises de interações e biodisponibilidade.</p>
+                {form.medications.length > 0 && (
+                  <div className="space-y-1.5 mb-2">
+                    {form.medications.map((m, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">
+                        <span className="font-medium text-gray-800 dark:text-gray-200">{m.name}</span>
+                        {m.dose && <span className="text-xs text-gray-500">· {m.dose}</span>}
+                        <button type="button" onClick={() => removeMedication(i)} aria-label={`Remover ${m.name}`}
+                          className="ml-auto text-gray-400 hover:text-red-500"><span aria-hidden>✕</span></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <Input value={medDraft.name} onChange={(e) => setMedDraft((d) => ({ ...d, name: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addMedication(); } }}
+                    placeholder="Nome (ex.: Omeprazol)" className="sm:col-span-2" aria-label="Nome do medicamento" />
+                  <Input value={medDraft.dose} onChange={(e) => setMedDraft((d) => ({ ...d, dose: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addMedication(); } }}
+                    placeholder="Dose (ex.: 20mg)" aria-label="Dose do medicamento" />
+                  <Button type="button" variant="outline" onClick={addMedication} className="text-sm">Adicionar</Button>
+                </div>
+              </div>
+              <div>
+                <Label>Condições clínicas</Label>
+                <p className="text-[11px] text-gray-400 mb-1.5">Comorbidades e condições relevantes (ex.: hipertensão, diabetes).</p>
+                {form.clinicalConditions.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {form.clinicalConditions.map((c, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 text-xs bg-teal-50 text-teal-800 border border-teal-200 rounded-full px-2.5 py-1">
+                        {c}
+                        <button type="button" onClick={() => removeCondition(i)} aria-label={`Remover ${c}`}
+                          className="text-teal-400 hover:text-red-500" aria-hidden>✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input value={condDraft} onChange={(e) => setCondDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCondition(); } }}
+                    placeholder="Ex.: Hipertensão arterial" aria-label="Condição clínica" />
+                  <Button type="button" variant="outline" onClick={addCondition} className="text-sm flex-shrink-0">Adicionar</Button>
+                </div>
               </div>
               <div>
                 <Label>Alergias e intolerâncias alimentares</Label>
@@ -367,7 +436,7 @@ export default function PatientNewPage() {
                 </div>
                 <div>
                   <Label>Método</Label>
-                  <select value={form.assessmentMethod} onChange={(e) => set('assessmentMethod', e.target.value)}
+                  <select aria-label="Método de avaliação física" value={form.assessmentMethod} onChange={(e) => set('assessmentMethod', e.target.value)}
                     className="w-full h-10 rounded-md border px-3 text-sm bg-white dark:bg-gray-900">
                     <option value="">Selecione</option>
                     <option value="bioimpedancia">Bioimpedância</option>

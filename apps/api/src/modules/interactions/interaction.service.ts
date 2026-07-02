@@ -20,8 +20,9 @@ export interface CreateInteractionAnalysisDto {
   isBreastfeeding?: boolean;
 }
 
-// Interações pré-definidas de alta evidência (base local — não depende de IA)
-const HIGH_EVIDENCE_INTERACTIONS = [
+// Interações pré-definidas de alta evidência (base local — não depende de IA).
+// Exportada para reuso (ex.: indexação no RAG).
+export const HIGH_EVIDENCE_INTERACTIONS = [
   {
     entityA: 'vitamina k',
     entityB: 'varfarina',

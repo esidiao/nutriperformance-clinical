@@ -175,6 +175,7 @@ export default function AuditLogPage() {
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                    aria-label="Página anterior"
                     className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40">
                     <ChevronLeft className="h-4 w-4" />
                   </button>
@@ -182,11 +183,14 @@ export default function AuditLogPage() {
                     .filter((p) => Math.abs(p - page) <= 2)
                     .map((p) => (
                       <button key={p} onClick={() => setPage(p)}
-                        className={`w-8 h-8 rounded text-xs font-medium ${p === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+                        aria-label={`Ir para página ${p}`}
+                        aria-current={p === page ? 'page' : undefined}
+                        className={`w-8 h-8 rounded text-xs font-medium ${p === page ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
                         {p}
                       </button>
                     ))}
                   <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                    aria-label="Próxima página"
                     className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40">
                     <ChevronRight className="h-4 w-4" />
                   </button>

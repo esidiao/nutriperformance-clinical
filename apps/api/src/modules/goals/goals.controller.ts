@@ -2,10 +2,16 @@ import {
   Controller, Get, Post, Patch, Delete, Param, Body, Request, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 import { GoalsService } from './goals.service';
 import { PatientGoal } from './patient-goal.entity';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ClinicalStaff } from '../../common/decorators';
+
+class CheckpointDto {
+  @IsNumber() value: number;
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+}
 
 @ApiTags('goals')
 @ApiBearerAuth()
@@ -53,10 +59,9 @@ export class GoalsController {
   addCheckpoint(
     @Request() req: any,
     @Param('id') id: string,
-    @Body('value') value: number,
-    @Body('note') note?: string,
+    @Body() dto: CheckpointDto,
   ) {
-    return this.svc.addCheckpoint(req.user.workspaceId, id, req.user.sub, value, note);
+    return this.svc.addCheckpoint(req.user.workspaceId, id, req.user.sub, dto.value, dto.note);
   }
 
   @ClinicalStaff()

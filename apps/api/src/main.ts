@@ -2,7 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import * as Sentry from '@sentry/node';
+import helmet from 'helmet';
 import * as http from 'http';
 
 // Fallback health server — keeps the port alive while NestJS bootstraps
@@ -38,6 +40,13 @@ async function bootstrap() {
     if (process.env.SENTRY_DSN) {
       Sentry.init({ dsn: process.env.SENTRY_DSN });
     }
+
+    app.use(helmet({
+      crossOriginEmbedderPolicy: false,
+      contentSecurityPolicy: false,
+    }));
+
+    app.useGlobalFilters(new GlobalExceptionFilter());
 
     // CORS — permite localhost (dev), o domínio de produção e qualquer
     // deployment da Vercel do projeto (as URLs mudam a cada deploy).

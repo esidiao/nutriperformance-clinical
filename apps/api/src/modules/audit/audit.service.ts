@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLog } from './audit-log.entity';
@@ -18,6 +18,8 @@ interface LogParams {
 
 @Injectable()
 export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
   constructor(
     @InjectRepository(AuditLog) private auditRepo: Repository<AuditLog>,
   ) {}
@@ -35,8 +37,10 @@ export class AuditService {
       changes: params.changes,
       success: params.success ?? true,
     });
-    // Fire-and-forget — não bloquear o fluxo principal
-    this.auditRepo.save(entry).catch(() => {/* silencioso — log secundário */});
+    // Fire-and-forget — não bloquear o fluxo principal; falhas são alertadas
+    this.auditRepo.save(entry).catch((e: any) =>
+      this.logger.warn(`Falha ao salvar audit log [${params.action} ${params.resource}/${params.resourceId}]: ${e?.message}`),
+    );
   }
 
   async getForWorkspace(workspaceId: string, limit = 100, offset = 0) {

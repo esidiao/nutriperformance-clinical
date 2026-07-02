@@ -1,7 +1,12 @@
 import { Controller, Get, Patch, Param, Body, Req, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { AlertsService } from './alerts.service';
 import { ClinicalStaff } from '../../common/decorators';
+
+class ResolveAlertDto {
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+}
 
 @ApiTags('alerts')
 @ApiBearerAuth()
@@ -24,10 +29,12 @@ export class AlertsController {
   @ApiOperation({ summary: 'Registrar resolução de alerta' })
   async resolve(
     @Param('alertId') alertId: string,
-    @Body() body: { note?: string },
+    @Body() dto: ResolveAlertDto,
     @Req() req: any,
   ) {
-    await this.alertsService.resolveAlert(alertId, req.user.id, body.note);
+    // Frontend envia `notes`; antes a controller lia `note` (singular) e a
+    // nota de resolução era perdida silenciosamente. Corrigido aqui.
+    await this.alertsService.resolveAlert(alertId, req.user.id, dto.notes);
     return { resolved: true, alertId };
   }
 }

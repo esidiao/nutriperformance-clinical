@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, KeyboardEvent } from 'react';
+import { useState, useEffect, Suspense, KeyboardEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { ShieldAlert, Coins, Dna, AlertTriangle, X, ChevronDown, ChevronUp, Plus, Loader2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { ShieldAlert, Coins, Dna, AlertTriangle, X, ChevronDown, ChevronUp, Plus, Loader2, UserPlus } from 'lucide-react';
 import { api } from '@/lib/api-client';
 
 interface BioRisk {
@@ -150,12 +154,62 @@ function RiskCard({ risk }: { risk: BioRisk }) {
   );
 }
 
-export default function BioavailabilityPage() {
-  const [nutrients, setNutrients] = useState<string[]>(['Ferro', 'Vitamina D3', 'Zinco']);
-  const [medications, setMedications] = useState<string[]>(['Omeprazol']);
+function BioavailabilityContent() {
+  const searchParams = useSearchParams();
+  const [patientId, setPatientId] = useState<string>(searchParams.get('patient') ?? '');
+  const [nutrients, setNutrients] = useState<string[]>([]);
+  const [medications, setMedications] = useState<string[]>([]);
   const [giConditions, setGiConditions] = useState<string[]>([]);
   const [surgicalHistory, setSurgicalHistory] = useState<string[]>([]);
   const [dietaryFactors, setDietaryFactors] = useState<string[]>([]);
+
+  // Pacientes do workspace (seletor opcional)
+  const patientsQuery = useQuery({
+    queryKey: ['patients', { page: 1, limit: 100 }],
+    queryFn: () => api.patients.list({ page: 1, limit: 100 }),
+  });
+  const patients = patientsQuery.data?.items ?? [];
+
+  // Suplementos ativos do paciente (para importar como nutrientes)
+  const supplementsQuery = useQuery({
+    queryKey: ['supplementation', patientId],
+    queryFn: () => api.supplementation.list(patientId),
+    enabled: !!patientId,
+  });
+
+  const selectedPatient = patients.find((p: any) => p.id === patientId);
+
+  const importFromProfile = () => {
+    const active = (supplementsQuery.data ?? []).filter((s: any) => s.isActive !== false);
+    const profileMeds: any[] = Array.isArray(selectedPatient?.medications) ? selectedPatient.medications : [];
+
+    if (active.length === 0 && profileMeds.length === 0) {
+      toast.message('Este paciente não tem suplementos ativos nem medicamentos cadastrados.');
+      return;
+    }
+
+    setNutrients((prev) => {
+      const existing = new Set(prev.map((n) => n.toLowerCase()));
+      const fresh = active
+        .map((s: any) => s.supplementName)
+        .filter((n: any): n is string => typeof n === 'string' && n.length > 0 && !existing.has(n.toLowerCase()));
+      return [...prev, ...fresh];
+    });
+
+    setMedications((prev) => {
+      const existing = new Set(prev.map((n) => n.toLowerCase()));
+      const fresh = profileMeds
+        .map((m: any) => m?.name)
+        .filter((n: any): n is string => typeof n === 'string' && n.length > 0 && !existing.has(n.toLowerCase()));
+      return [...prev, ...fresh];
+    });
+
+    const parts = [
+      active.length && `${active.length} suplemento(s)`,
+      profileMeds.length && `${profileMeds.length} medicamento(s)`,
+    ].filter(Boolean);
+    toast.success(`Importado do perfil: ${parts.join(', ')}.`);
+  };
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<BioRisk[] | null>(null);
   const [aiAssessment, setAiAssessment] = useState<string | null>(null);
@@ -251,6 +305,49 @@ export default function BioavailabilityPage() {
           Todas as sugestões requerem validação profissional.
         </AlertDescription>
       </Alert>
+
+      {/* Paciente (opcional) */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="flex-1">
+              <Label htmlFor="bio-patient-select" className="text-xs text-gray-600 font-semibold">Paciente (opcional — para importar dados reais)</Label>
+              {patientsQuery.isLoading ? (
+                <div role="status" className="flex items-center gap-2 mt-1 text-sm text-gray-400">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+                </div>
+              ) : (
+                <select
+                  id="bio-patient-select"
+                  aria-label="Selecionar paciente para importar dados"
+                  value={patientId}
+                  onChange={(e) => setPatientId(e.target.value)}
+                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Sem paciente (entrada manual)</option>
+                  {patients.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name || p.internalCode || p.id}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {patientId && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={importFromProfile}
+                disabled={supplementsQuery.isLoading}
+                className="flex items-center gap-1.5 flex-shrink-0"
+              >
+                {supplementsQuery.isLoading
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <><UserPlus className="h-4 w-4" /> Importar dados do perfil</>}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tag input form */}
       <Card>
@@ -360,5 +457,13 @@ export default function BioavailabilityPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BioavailabilityPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400 text-sm">Carregando…</div>}>
+      <BioavailabilityContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 import {
   Controller, Post, Get, Patch, Param, Body, Req, Res,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, IsNumber, IsBoolean, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -49,6 +50,7 @@ export class InteractionController {
   @Post('analyze')
   @ClinicalStaff()
   @RequiresTokens('interaction_analysis')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Analisar interações — consome 15 tokens' })
   async analyze(@Body() dto: AnalyzeInteractionsDto, @Req() req: any) {
     const result = await this.interactionService.analyze({
@@ -76,6 +78,7 @@ export class InteractionController {
 
   @Post('analyze/stream')
   @ClinicalStaff()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Analisar interações com streaming SSE — consome 15 tokens' })
   async analyzeStream(@Body() dto: AnalyzeInteractionsDto, @Req() req: any, @Res() res: Response) {
     res.setHeader('Content-Type', 'text/event-stream');

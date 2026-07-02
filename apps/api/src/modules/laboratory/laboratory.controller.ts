@@ -1,6 +1,7 @@
 import {
   Controller, Get, Post, Patch, Param, Body, Request, UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { LaboratoryService } from './laboratory.service';
 import { LaboratoryExam } from './laboratory-exam.entity';
@@ -50,6 +51,7 @@ export class LaboratoryController {
 
   @ClinicalStaff()
   @RequiresTokens('laboratory_analysis')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post(':id/analyze')
   analyze(
     @Request() req: any,

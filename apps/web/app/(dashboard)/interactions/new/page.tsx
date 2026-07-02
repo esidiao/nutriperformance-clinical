@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { queryInteractions, getOverallRisk, EVIDENCE_BASE, type EvidenceEntry } from '@/lib/evidence/evidence-base';
 import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,9 +11,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import {
   ShieldAlert, Coins, Plus, X, AlertTriangle,
-  CheckCircle, Loader2, Search,
+  CheckCircle, Loader2, Search, UserPlus,
 } from 'lucide-react';
 
 const EVIDENCE_BASE_SIZE = EVIDENCE_BASE.length;
@@ -119,12 +122,89 @@ function AutocompleteInput({
   );
 }
 
-export default function InteractionAnalysisNewPage() {
+function InteractionAnalysisContent() {
+  const searchParams = useSearchParams();
+  const [patientId, setPatientId] = useState<string>(searchParams.get('patient') ?? '');
   const [supplements, setSupplements] = useState<SupplementEntry[]>([{ name: '', dose: '', frequency: '' }]);
   const [medications, setMedications] = useState<MedicationEntry[]>([{ name: '', activePrinciple: '', dose: '' }]);
   const [conditions, setConditions] = useState<string[]>(['']);
   const [patientAge, setPatientAge] = useState('');
   const [isPregnant, setIsPregnant] = useState(false);
+
+  // Pacientes do workspace (para o seletor opcional)
+  const patientsQuery = useQuery({
+    queryKey: ['patients', { page: 1, limit: 100 }],
+    queryFn: () => api.patients.list({ page: 1, limit: 100 }),
+  });
+  const patients = patientsQuery.data?.items ?? [];
+
+  // Suplementos ativos do paciente selecionado (para pré-preenchimento)
+  const supplementsQuery = useQuery({
+    queryKey: ['supplementation', patientId],
+    queryFn: () => api.supplementation.list(patientId),
+    enabled: !!patientId,
+  });
+  const activeProfileSupplements = (supplementsQuery.data ?? []).filter((s: any) => s.isActive !== false);
+
+  const selectedPatient = patients.find((p: any) => p.id === patientId);
+
+  // Pré-preenche demografia (idade/gestação) a partir do paciente selecionado
+  useEffect(() => {
+    if (!selectedPatient) return;
+    if (selectedPatient.age != null) setPatientAge(String(selectedPatient.age));
+    if (typeof selectedPatient.isPregnant === 'boolean') setIsPregnant(selectedPatient.isPregnant);
+  }, [selectedPatient?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const importFromProfile = () => {
+    const profileMeds: any[] = Array.isArray(selectedPatient?.medications) ? selectedPatient.medications : [];
+    const profileConds: string[] = Array.isArray(selectedPatient?.clinicalConditions) ? selectedPatient.clinicalConditions : [];
+
+    if (activeProfileSupplements.length === 0 && profileMeds.length === 0 && profileConds.length === 0) {
+      toast.message('Este paciente não tem suplementos, medicamentos ou condições cadastrados.');
+      return;
+    }
+
+    // Suplementos ativos
+    const importedSupps: SupplementEntry[] = activeProfileSupplements.map((s: any) => ({
+      name: s.supplementName ?? '',
+      dose: [s.doseAmount, s.doseUnit].filter(Boolean).join(' '),
+      frequency: s.frequencyPerDay ? `${s.frequencyPerDay}x/dia` : '',
+    }));
+    setSupplements((prev) => {
+      const manual = prev.filter((e) => e.name.trim());
+      const existing = new Set(manual.map((e) => e.name.toLowerCase()));
+      const fresh = importedSupps.filter((e) => e.name && !existing.has(e.name.toLowerCase()));
+      const merged = [...manual, ...fresh];
+      return merged.length ? merged : [{ name: '', dose: '', frequency: '' }];
+    });
+
+    // Medicamentos do perfil
+    setMedications((prev) => {
+      const manual = prev.filter((e) => e.name.trim());
+      const existing = new Set(manual.map((e) => e.name.toLowerCase()));
+      const fresh: MedicationEntry[] = profileMeds
+        .filter((m: any) => m?.name && !existing.has(String(m.name).toLowerCase()))
+        .map((m: any) => ({ name: m.name, activePrinciple: m.activePrinciple ?? '', dose: m.dose ?? '' }));
+      const merged = [...manual, ...fresh];
+      return merged.length ? merged : [{ name: '', activePrinciple: '', dose: '' }];
+    });
+
+    // Condições clínicas do perfil
+    setConditions((prev) => {
+      const manual = prev.filter((c) => c.trim());
+      const existing = new Set(manual.map((c) => c.toLowerCase()));
+      const fresh = profileConds.filter((c) => c && !existing.has(c.toLowerCase()));
+      const merged = [...manual, ...fresh];
+      return merged.length ? merged : [''];
+    });
+
+    const parts = [
+      activeProfileSupplements.length && `${activeProfileSupplements.length} suplemento(s)`,
+      profileMeds.length && `${profileMeds.length} medicamento(s)`,
+      profileConds.length && `${profileConds.length} condição(ões)`,
+    ].filter(Boolean);
+    toast.success(`Importado do perfil: ${parts.join(', ')}.`);
+  };
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(-1);
   const [results, setResults] = useState<InteractionResult[] | null>(null);
@@ -212,7 +292,7 @@ export default function InteractionAnalysisNewPage() {
         clinicalConditions: conditions.filter(Boolean),
         patientContext: {
           age: parseInt(patientAge) || 30,
-          gender: 'não informado',
+          gender: selectedPatient?.gender ?? 'não informado',
           isPregnant: isPregnant,
         },
       };
@@ -261,6 +341,49 @@ export default function InteractionAnalysisNewPage() {
           O profissional responsável deve validar e interpretar clinicamente cada interação identificada.
         </AlertDescription>
       </Alert>
+
+      {/* PACIENTE (opcional) */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="flex-1">
+              <Label htmlFor="int-patient-select" className="text-xs text-gray-600 font-semibold">Paciente (opcional — para importar dados reais)</Label>
+              {patientsQuery.isLoading ? (
+                <div role="status" className="flex items-center gap-2 mt-1 text-sm text-gray-400">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+                </div>
+              ) : (
+                <select
+                  id="int-patient-select"
+                  aria-label="Selecionar paciente para importar dados"
+                  value={patientId}
+                  onChange={(e) => setPatientId(e.target.value)}
+                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Sem paciente (entrada manual)</option>
+                  {patients.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name || p.internalCode || p.id}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {patientId && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={importFromProfile}
+                disabled={supplementsQuery.isLoading}
+                className="flex items-center gap-1.5 flex-shrink-0"
+              >
+                {supplementsQuery.isLoading
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <><UserPlus className="h-4 w-4" /> Importar dados do perfil</>}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* SUPLEMENTOS */}
       <Card>
@@ -502,5 +625,13 @@ export default function InteractionAnalysisNewPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function InteractionAnalysisNewPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400 text-sm">Carregando…</div>}>
+      <InteractionAnalysisContent />
+    </Suspense>
   );
 }

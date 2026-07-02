@@ -270,6 +270,8 @@ export default function GoalsPage() {
 
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : goal.id)}
+                    aria-label={isExpanded ? 'Recolher detalhes da meta' : 'Expandir detalhes da meta'}
+                    aria-expanded={isExpanded}
                     className="text-gray-400 hover:text-gray-600 mt-1"
                   >
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}

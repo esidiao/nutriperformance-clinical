@@ -1,6 +1,7 @@
 import {
   Controller, Get, Post, Patch, Param, Body, Request, UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { SupplementationService } from './supplementation.service';
 import { PatientSupplementation } from './patient-supplementation.entity';
@@ -50,6 +51,7 @@ export class SupplementationController {
 
   @ClinicalStaff()
   @RequiresTokens('supplementation_analysis')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('patient/:patientId/analyze')
   analyze(@Request() req: any, @Param('patientId') patientId: string) {
     return this.svc.analyzeWithAi(req.user.workspaceId, patientId, req.user.sub);

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "NutriPerformance Clinical — SaaS para Nutricionistas e Profissionais de Educação Física",
+  "packageManager": "pnpm@11.2.2",
   "workspaces": [
     "apps/*",
     "packages/*"

@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export interface AIAnalysisResult {
@@ -174,12 +174,50 @@ export class AIEngineService {
     });
   }
 
+  /**
+   * Traduz falhas do provedor de IA (Gemini) em erro 503 com mensagem em português,
+   * evitando vazamento de stack trace (500) quando a GEMINI_API_KEY está inválida/expirada
+   * ou o serviço externo está indisponível.
+   */
+  private handleGeminiError(err: any): never {
+    this.logger.error(`Falha na chamada ao Gemini: ${err?.message ?? err}`);
+    throw new ServiceUnavailableException(
+      'Serviço de análise por IA temporariamente indisponível. Tente novamente em instantes.',
+    );
+  }
+
   private async generate(prompt: string, maxOutputTokens = 2048): Promise<string> {
-    const result = await this.model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens, temperature: 0.2 },
-    });
-    return result.response.text();
+    try {
+      const result = await this.model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens, temperature: 0.2 },
+      });
+      return result.response.text();
+    } catch (err: any) {
+      this.handleGeminiError(err);
+    }
+  }
+
+  /**
+   * RAG: responde a uma pergunta usando APENAS os trechos de contexto fornecidos.
+   * Herda o system prompt anti-alucinação; reforça citação de fonte e recusa quando
+   * o contexto não cobre a pergunta. Não substitui decisão profissional.
+   */
+  async answerFromContext(question: string, context: string): Promise<string> {
+    const prompt = `Você recebeu trechos de bases nutricionais com proveniência (fonte e confiabilidade).
+Responda à PERGUNTA do nutricionista usando EXCLUSIVAMENTE os TRECHOS abaixo.
+
+Regras:
+- Cite a fonte entre colchetes ao usar um dado, ex.: "[TACO]".
+- Se os trechos não contêm a informação, responda exatamente: "Não há dado suficiente nas bases atuais para responder com segurança." Não invente valores.
+- Diferencie informação nutricional de conduta clínica; recomende validação profissional.
+- Seja objetivo e em português do Brasil.
+
+TRECHOS:
+${context}
+
+PERGUNTA: ${question}`;
+    return this.generate(prompt, 1024);
   }
 
   /**
@@ -187,10 +225,15 @@ export class AIEngineService {
    * Use with SSE / Server-Sent Events controller to stream tokens to frontend.
    */
   async *generateStream(prompt: string, maxOutputTokens = 2048): AsyncIterable<string> {
-    const result = await this.model.generateContentStream({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens, temperature: 0.2 },
-    });
+    let result: Awaited<ReturnType<GenerativeModel['generateContentStream']>>;
+    try {
+      result = await this.model.generateContentStream({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens, temperature: 0.2 },
+      });
+    } catch (err: any) {
+      this.handleGeminiError(err);
+    }
     for await (const chunk of result.stream) {
       const text = chunk.text();
       if (text) yield text;

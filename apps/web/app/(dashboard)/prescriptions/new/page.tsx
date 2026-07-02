@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
+import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
 import type { PrescriptionData, PrescriptionItem, PrescriptionInteraction, PrescriptionMeal } from '@/lib/pdf/generatePrescription';
 import {
   FileText, Download, Plus, Trash2, Coins, ShieldAlert,
@@ -40,15 +41,6 @@ const COMMON_SUPPLEMENTS = [
   'Magnésio dimalato', 'Cálcio quelato', 'Probiótico',
   'Colágeno hidrolisado', 'Melatonina', 'Ashwagandha',
   'L-Carnitina', 'Coenzima Q10', 'Curcumina',
-];
-
-const COMMON_FOODS = [
-  'Frango grelhado', 'Ovo inteiro', 'Clara de ovo', 'Arroz branco cozido',
-  'Batata-doce cozida', 'Aveia em flocos', 'Banana-prata', 'Maçã',
-  'Brócolis cozido', 'Espinafre cru', 'Azeite extravirgem', 'Amendoim',
-  'Iogurte grego', 'Queijo cottage', 'Salmão grelhado', 'Atum em água',
-  'Feijão cozido', 'Lentilha cozida', 'Quinoa cozida', 'Pão integral',
-  'Tapioca', 'Café sem açúcar', 'Leite desnatado', 'Castanha-do-pará',
 ];
 
 type DocType = 'supplementation' | 'prescription';
@@ -130,6 +122,21 @@ export default function PrescriptionNewPage() {
     setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, foods: [...m.foods, emptyMealFood()] } : m));
   const removeFood = (mi: number, fi: number) =>
     setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, foods: m.foods.filter((_, j) => j !== fi) } : m));
+
+  // Autopreenchimento ao selecionar um alimento da base (valores por porção padrão).
+  // Mantém edição manual: o nutricionista pode ajustar dose e macros depois.
+  const applyFood = (mi: number, fi: number, food: FoodResult) =>
+    setMeals((prev) => prev.map((m, idx) => idx === mi
+      ? { ...m, foods: m.foods.map((f, j) => j === fi ? {
+          ...f,
+          name: food.nome,
+          dose: f.dose.trim() || `${Math.round(food.porcaoPadraoG)} g`,
+          kcal: food.energiaKcal != null ? String(Math.round(food.energiaKcal)) : f.kcal,
+          prot: food.proteinasG != null ? String(food.proteinasG) : f.prot,
+          carb: food.carboidratosG != null ? String(food.carboidratosG) : f.carb,
+          fat: food.lipidiosG != null ? String(food.lipidiosG) : f.fat,
+        } : f) }
+      : m));
 
   // ─── Interaction CRUD ──────────────────────────────────────────────────────
   const updateInter = (i: number, field: keyof PrescriptionInteraction, val: string) =>
@@ -436,11 +443,13 @@ export default function PrescriptionNewPage() {
                         <div className="grid grid-cols-12 gap-2 items-start">
                           <div className="col-span-12 sm:col-span-5">
                             <Label className="text-[10px] text-gray-400">Alimento / Preparação</Label>
-                            <Input value={food.name} onChange={(e) => updateFood(mi, fi, 'name', e.target.value)}
-                              placeholder="Ex: Ovos mexidos" list={`food-${mi}-${fi}`} maxLength={100} className="h-9 text-sm" />
-                            <datalist id={`food-${mi}-${fi}`}>
-                              {COMMON_FOODS.map((s) => <option key={s} value={s} />)}
-                            </datalist>
+                            <FoodAutocomplete
+                              value={food.name}
+                              onChange={(name) => updateFood(mi, fi, 'name', name)}
+                              onSelect={(f) => applyFood(mi, fi, f)}
+                              placeholder="Buscar na base (TACO/USDA) ou digitar…"
+                              className="h-9 text-sm"
+                            />
                           </div>
                           <div className="col-span-6 sm:col-span-4">
                             <Label className="text-[10px] text-gray-400">Quantidade / Medida</Label>
@@ -531,8 +540,9 @@ export default function PrescriptionNewPage() {
                     <div className="bg-rose-500" style={{ width: `${macroPct(totals.fat * 9)}%` }} />
                   </div>
                   <p className="mt-2 text-[11px] text-gray-400 leading-relaxed">
-                    Cálculo automático a partir dos valores informados por alimento. <strong>Micronutrientes</strong> exigem
-                    integração com base de composição de alimentos (ex.: TACO) — planejado como próximo passo.
+                    Cálculo automático a partir dos valores por alimento — preenchidos pela base de composição
+                    (TACO/USDA) ao buscar, com edição manual livre. <strong>Micronutrientes</strong> serão ampliados
+                    nas próximas fases (USDA/TBCA).
                   </p>
                 </>
               ) : (

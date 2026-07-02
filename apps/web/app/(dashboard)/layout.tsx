@@ -7,14 +7,17 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Users, FlaskConical,
   Pill, GitMerge, Microscope, Target, FileText,
-  Coins, Settings, ShieldCheck, Dna, LogOut,
-  TrendingUp, Menu, X, Keyboard, ClipboardList,
+  Coins, Settings, ShieldCheck, LogOut,
+  TrendingUp, Menu, X, Keyboard, ClipboardList, Barcode, Scale,
+  Sparkles, Database, Globe, Wand2, Atom,
 } from 'lucide-react';
 import { AuthGuard } from '@/components/AuthGuard';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ShortcutsPanel } from '@/components/ShortcutsPanel';
 import { CommandPalette } from '@/components/CommandPalette';
+import { LogoMark } from '@/components/LogoMark';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { api } from '@/lib/api-client';
 
 // ─── Nav structure ──────────────────────────────────────────────────────────
 const NAV_GROUPS = [
@@ -22,6 +25,7 @@ const NAV_GROUPS = [
     label: 'Visão Geral',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/assistente', label: 'Assistente IA', icon: Sparkles },
     ],
   },
   {
@@ -42,10 +46,14 @@ const NAV_GROUPS = [
     label: 'Análises',
     items: [
       { href: '/supplementation', label: 'Suplementação', icon: Pill },
-      { href: '/supplementation/suggest', label: 'Protocolo IA', icon: Dna },
+      { href: '/supplementation/suggest', label: 'Protocolo IA', icon: Wand2 },
       { href: '/interactions/new', label: 'Interações', icon: GitMerge },
-      { href: '/bioavailability', label: 'Biodisponibilidade', icon: Dna },
+      { href: '/bioavailability', label: 'Biodisponibilidade', icon: Atom },
       { href: '/laboratory', label: 'Exames', icon: Microscope },
+      { href: '/produtos', label: 'Produtos', icon: Barcode },
+      { href: '/comparador', label: 'Comparador', icon: Scale },
+      { href: '/suplementos-base', label: 'Base Suplementos', icon: Pill },
+      { href: '/alimentos-internacional', label: 'Base Internacional', icon: Globe },
     ],
   },
   {
@@ -60,6 +68,7 @@ const NAV_GROUPS = [
     label: 'Sistema',
     items: [
       { href: '/admin', label: 'Admin', icon: ShieldCheck },
+      { href: '/admin/curadoria', label: 'Curadoria', icon: Database },
       { href: '/settings', label: 'Configurações', icon: Settings },
     ],
   },
@@ -75,7 +84,7 @@ function Sidebar({
 }) {
   const pathname = usePathname();
   const [user, setUser] = useState<{ name: string; email: string; plan: string } | null>(null);
-  const [alertCount] = useState(2);
+  const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
     const supabase = createBrowserClient(
@@ -92,6 +101,8 @@ function Sidebar({
         });
       }
     });
+    // Contagem real de alertas pendentes
+    api.dashboard.stats().then((s: any) => setAlertCount(s?.alerts?.pending ?? 0)).catch(() => {});
   }, []);
 
   const handleLogout = async () => {
@@ -121,15 +132,13 @@ function Sidebar({
         {/* Logo */}
         <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-sm">
-              <span className="text-white text-xs font-bold">NP</span>
-            </div>
+            <LogoMark size={32} />
             <div>
               <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">NutriPerformance</p>
-              <p className="text-[10px] text-blue-600 font-medium leading-tight tracking-wide uppercase">Clinical</p>
+              <p className="text-[10px] text-primary font-semibold leading-tight tracking-widest uppercase">Clinical</p>
             </div>
           </div>
-          <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} aria-label="Fechar menu lateral" className="lg:hidden text-gray-400 hover:text-gray-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -138,14 +147,14 @@ function Sidebar({
         {user && (
           <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-800">
             <div className="flex items-center gap-3 px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-xs font-bold">{initials}</span>
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                <span className="text-primary-foreground text-xs font-bold">{initials}</span>
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">{user.name}</p>
                 <p className="text-[10px] text-gray-400 truncate">{user.email}</p>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium flex-shrink-0">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium flex-shrink-0">
                 {user.plan}
               </span>
             </div>
@@ -171,12 +180,12 @@ function Sidebar({
                       className={`
                         flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-all min-h-[44px]
                         ${isActive
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-accent hover:text-accent-foreground dark:hover:bg-gray-800 dark:hover:text-white'
                         }
                       `}
                     >
-                      <item.icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
+                      <item.icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-primary-foreground' : 'text-gray-400 dark:text-gray-500'}`} />
                       <span className="flex-1">{item.label}</span>
                       {hasAlert && (
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-red-500 text-white'}`}>
@@ -224,13 +233,11 @@ function Sidebar({
 function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   return (
     <div className="lg:hidden fixed top-0 left-0 right-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center gap-3">
-      <button onClick={onMenuClick} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400">
+      <button onClick={onMenuClick} aria-label="Abrir menu de navegação" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400">
         <Menu className="h-5 w-5" />
       </button>
       <div className="flex items-center gap-2">
-        <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
-          <span className="text-white text-[10px] font-bold">NP</span>
-        </div>
+        <LogoMark size={24} />
         <span className="text-sm font-bold text-gray-900 dark:text-white">NutriPerformance</span>
       </div>
     </div>

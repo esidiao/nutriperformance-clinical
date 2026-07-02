@@ -55,6 +55,13 @@ export class Patient {
   @Column({ name: 'internal_code', nullable: true })
   internalCode: string | null;
 
+  // Contexto clínico (alimenta análises de interações/biodisponibilidade)
+  @Column({ name: 'medications', type: 'jsonb', default: () => "'[]'::jsonb" })
+  medications: Array<{ name: string; activePrinciple?: string; dose?: string }>;
+
+  @Column({ name: 'clinical_conditions', type: 'text', array: true, default: () => "'{}'::text[]" })
+  clinicalConditions: string[];
+
   @Column({ name: 'notes_encrypted', type: 'bytea', nullable: true })
   notesEncrypted: Buffer | null;
 

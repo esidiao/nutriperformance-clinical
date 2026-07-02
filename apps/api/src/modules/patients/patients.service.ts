@@ -11,6 +11,12 @@ import { AuditService } from '../audit/audit.service';
 // CPF é armazenado apenas como hash para busca (não reversível).
 // =============================================================
 
+export interface PatientMedication {
+  name: string;
+  activePrinciple?: string;
+  dose?: string;
+}
+
 export interface CreatePatientDto {
   workspaceId: string;
   createdBy: string;
@@ -24,6 +30,8 @@ export interface CreatePatientDto {
   isBreastfeeding?: boolean;
   lgpdConsentIp: string;
   internalCode?: string;
+  medications?: PatientMedication[];
+  clinicalConditions?: string[];
 }
 
 @Injectable()
@@ -76,6 +84,8 @@ export class PatientsService {
       lgpdConsentAt: new Date(),
       lgpdConsentIp: requestingIp,
       internalCode: dto.internalCode,
+      medications: dto.medications ?? [],
+      clinicalConditions: dto.clinicalConditions ?? [],
       createdBy: dto.createdBy,
     });
 
@@ -118,15 +128,89 @@ export class PatientsService {
     return this.toPublicDto(patient, name, email);
   }
 
-  async listByWorkspace(workspaceId: string) {
-    const patients = await this.patientRepo.find({
-      where: { workspaceId },
-      order: { createdAt: 'DESC' },
+  async updateClinicalContext(
+    patientId: string,
+    workspaceId: string,
+    requestingUserId: string,
+    requestingIp: string,
+    dto: { medications?: PatientMedication[]; clinicalConditions?: string[] },
+  ) {
+    const patient = await this.patientRepo.findOne({ where: { id: patientId, workspaceId } });
+    if (!patient) throw new NotFoundException('Paciente não encontrado');
+
+    const changes: Record<string, unknown> = {};
+    if (dto.medications !== undefined) changes.medications = dto.medications;
+    if (dto.clinicalConditions !== undefined) changes.clinicalConditions = dto.clinicalConditions;
+
+    await this.patientRepo.update({ id: patientId, workspaceId }, changes);
+
+    await this.auditService.log({
+      workspaceId,
+      userId: requestingUserId,
+      patientId,
+      action: 'UPDATE',
+      resource: 'patients',
+      resourceId: patientId,
+      ipAddress: requestingIp,
+      changes: { fields: Object.keys(changes) },
     });
-    return patients.map((p) => {
-      const name = p.nameEncrypted ? this.decrypt(p.nameEncrypted) : '—';
-      return this.toPublicDto(p, name);
+
+    const updated = await this.patientRepo.findOne({ where: { id: patientId, workspaceId } });
+    const name = updated?.nameEncrypted ? this.decrypt(updated.nameEncrypted) : '—';
+    return this.toPublicDto(updated!, name);
+  }
+
+  async listByWorkspace(
+    workspaceId: string,
+    params: {
+      page?: number;
+      limit?: number;
+      code?: string;
+      active?: boolean;
+      requestingUserId?: string;
+      requestingIp?: string;
+    } = {},
+  ) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(100, Math.max(1, params.limit ?? 20));
+    const offset = (page - 1) * limit;
+
+    const qb = this.patientRepo
+      .createQueryBuilder('p')
+      .where('p.workspace_id = :workspaceId', { workspaceId })
+      .orderBy('p.created_at', 'DESC')
+      .skip(offset)
+      .take(limit);
+
+    if (params.code) {
+      qb.andWhere('LOWER(p.internal_code) LIKE :code', { code: `%${params.code.toLowerCase()}%` });
+    }
+    if (params.active !== undefined) {
+      qb.andWhere('p.is_active = :active', { active: params.active });
+    }
+
+    const [patients, total] = await qb.getManyAndCount();
+
+    // LGPD: registrar acesso à lista de pacientes (dados pessoais)
+    await this.auditService.log({
+      workspaceId,
+      userId: params.requestingUserId,
+      action: 'READ',
+      resource: 'patients',
+      ipAddress: params.requestingIp,
+      changes: { listed: patients.length, page, limit },
     });
+
+    return {
+      items: patients.map((p) => {
+        const name = p.nameEncrypted ? this.decrypt(p.nameEncrypted) : '—';
+        return this.toPublicDto(p, name);
+      }),
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    };
   }
 
   async requestDeletion(patientId: string, workspaceId: string, requestingUserId: string) {
@@ -176,6 +260,8 @@ export class PatientsService {
       lgpdConsent: patient.lgpdConsent,
       lgpdConsentAt: patient.lgpdConsentAt,
       isActive: patient.isActive,
+      medications: patient.medications ?? [],
+      clinicalConditions: patient.clinicalConditions ?? [],
       createdAt: patient.createdAt,
     };
   }

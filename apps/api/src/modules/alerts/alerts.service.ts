@@ -202,13 +202,14 @@ export class AlertsService {
     return triggeredAlerts;
   }
 
-  async getPatientAlerts(patientId: string, includeResolved = false) {
+  async getPatientAlerts(patientId: string, includeResolved = false, limit = 200) {
     return this.alertRepo.find({
       where: {
         patientId,
         ...(includeResolved ? {} : { isResolved: false }),
       },
       order: { createdAt: 'DESC' },
+      take: Math.min(500, Math.max(1, limit)),
     });
   }
 

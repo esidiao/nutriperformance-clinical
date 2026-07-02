@@ -1,13 +1,21 @@
 import {
-  Controller, Post, Get, Patch, Param, Body, Req, Ip, UseGuards,
+  Controller, Post, Get, Patch, Param, Body, Req, Ip, Query, UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import {
   IsString, IsEmail, IsOptional, IsEnum, IsBoolean, IsDateString,
+  IsArray, ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PatientsService } from './patients.service';
 import { ClinicalStaff } from '../../common/decorators';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+
+class MedicationDto {
+  @IsString() name: string;
+  @IsOptional() @IsString() activePrinciple?: string;
+  @IsOptional() @IsString() dose?: string;
+}
 
 class CreatePatientDto {
   @IsString() name: string;
@@ -19,7 +27,14 @@ class CreatePatientDto {
   @IsOptional() @IsBoolean() isPregnant?: boolean;
   @IsOptional() @IsBoolean() isBreastfeeding?: boolean;
   @IsOptional() @IsString() internalCode?: string;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => MedicationDto) medications?: MedicationDto[];
+  @IsOptional() @IsArray() @IsString({ each: true }) clinicalConditions?: string[];
   @IsBoolean() lgpdConsent: boolean;
+}
+
+class UpdateClinicalContextDto {
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => MedicationDto) medications?: MedicationDto[];
+  @IsOptional() @IsArray() @IsString({ each: true }) clinicalConditions?: string[];
 }
 
 @ApiTags('patients')
@@ -45,9 +60,27 @@ export class PatientsController {
 
   @Get()
   @ClinicalStaff()
-  @ApiOperation({ summary: 'Listar pacientes do workspace' })
-  async list(@Req() req: any) {
-    return this.patientsService.listByWorkspace(req.user.workspaceId);
+  @ApiOperation({ summary: 'Listar pacientes do workspace (paginado)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'code', required: false, type: String, description: 'Filtro por código interno' })
+  @ApiQuery({ name: 'active', required: false, type: Boolean })
+  async list(
+    @Req() req: any,
+    @Ip() ip: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('code') code?: string,
+    @Query('active') active?: string,
+  ) {
+    return this.patientsService.listByWorkspace(req.user.workspaceId, {
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      code: code || undefined,
+      active: active === 'true' ? true : active === 'false' ? false : undefined,
+      requestingUserId: req.user.id,
+      requestingIp: ip,
+    });
   }
 
   @Get(':id')
@@ -55,6 +88,18 @@ export class PatientsController {
   @ApiOperation({ summary: 'Buscar paciente — gera audit log (LGPD)' })
   async findOne(@Param('id') id: string, @Req() req: any, @Ip() ip: string) {
     return this.patientsService.findById(id, req.user.id, req.user.workspaceId, ip);
+  }
+
+  @Patch(':id')
+  @ClinicalStaff()
+  @ApiOperation({ summary: 'Atualizar contexto clínico do paciente (medicamentos/condições)' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateClinicalContextDto,
+    @Req() req: any,
+    @Ip() ip: string,
+  ) {
+    return this.patientsService.updateClinicalContext(id, req.user.workspaceId, req.user.id, ip, dto);
   }
 
   @Post(':id/deletion-request')

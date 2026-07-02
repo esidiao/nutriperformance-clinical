@@ -1,10 +1,12 @@
 import {
   Controller, Post, Body, Req, Headers, HttpCode, UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ClinicalStaff, Public } from '../../common/decorators';
 import { BillingService } from './billing.service';
+import { CreateCheckoutDto } from './dto/create-checkout.dto';
 
 @ApiTags('billing')
 @Controller('billing')
@@ -16,13 +18,13 @@ export class BillingController {
   @ClinicalStaff()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Criar preferência de pagamento Mercado Pago' })
-  async createCheckout(@Body() body: any, @Req() req: any) {
+  async createCheckout(@Body() dto: CreateCheckoutDto, @Req() req: any) {
     return this.billingService.createCheckoutSession({
       workspaceId: req.user.workspaceId,
-      packageId: body.packageId,
-      tokens: body.tokens,
-      priceBrl: body.priceBrl,
-      isSubscription: body.isSubscription ?? false,
+      packageId: dto.packageId,
+      tokens: dto.tokens,
+      priceBrl: dto.priceBrl,
+      isSubscription: dto.isSubscription ?? false,
       successUrl: `${process.env.FRONTEND_URL}/tokens?success=1`,
       cancelUrl: `${process.env.FRONTEND_URL}/tokens?cancelled=1`,
     });
@@ -31,6 +33,9 @@ export class BillingController {
   @Post('webhook')
   @Public()
   @HttpCode(200)
+  // Limite específico: webhook público — protege contra flood mesmo com assinatura.
+  // Generoso o bastante para retries legítimos do Mercado Pago.
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Webhook Mercado Pago — notificações de pagamento' })
   async mpWebhook(
     @Body() body: any,

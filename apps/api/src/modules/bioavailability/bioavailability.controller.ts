@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString } from 'class-validator';
 import { BioavailabilityService } from './bioavailability.service';
@@ -22,6 +23,7 @@ export class BioavailabilityController {
   @Post('analyze')
   @ClinicalStaff()
   @RequiresTokens('bioavailability_analysis')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Analisar biodisponibilidade nutricional — consome 12 tokens' })
   async analyze(@Body() dto: AnalyzeBioavailabilityDto, @Req() req: any) {
     return this.bioavailabilityService.analyze({

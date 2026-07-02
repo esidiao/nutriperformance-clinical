@@ -8,13 +8,39 @@ import { Button } from '@/components/ui/button';
 import {
   Users, Coins, AlertTriangle, TrendingUp, FileText,
   Pill, ShieldAlert, Activity, FlaskConical, ArrowRight,
-  Microscope, Target, Dna,
+  Microscope, Atom,
 } from 'lucide-react';
 import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
 import { toast } from 'sonner';
+import { api } from '@/lib/api-client';
 import { OnboardingBanner } from '@/components/OnboardingBanner';
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
+
+// ─── Helpers de mapeamento da API ──────────────────────────────────────────────
+const PLAN_LABEL: Record<string, string> = {
+  free_trial: 'Avaliação Gratuita',
+  individual_basic: 'Individual Básico',
+  individual_pro: 'Individual Pro',
+  clinic: 'Clínica',
+  institutional: 'Institucional',
+};
+
+function mapModule(module: string | null): string {
+  if (!module) return 'reports';
+  if (module.includes('nutritional')) return 'nutritional';
+  if (module.includes('interaction')) return 'interactions';
+  return 'reports';
+}
+
+function fmtActivityDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  if (isToday) return 'Hoje';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 function Skeleton({ className = '' }: { className?: string }) {
@@ -38,7 +64,7 @@ function StatSkeleton() {
 // ─── Token progress bar ───────────────────────────────────────────────────────
 function TokenBar({ used, total }: { used: number; total: number }) {
   const pct = Math.min(100, Math.round((used / total) * 100));
-  const color = pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-400' : 'bg-blue-500';
+  const color = pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-400' : 'bg-primary';
   return (
     <div className="mt-3">
       <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -58,7 +84,7 @@ const QUICK_ACTIONS = [
   { label: 'Avaliação Nutricional', icon: FlaskConical, href: '/assessments/nutritional/new', tokens: 10, color: 'bg-green-50 text-green-600 border-green-200' },
   { label: 'Avaliação Física', icon: TrendingUp, href: '/assessments/physical/new', tokens: 5, color: 'bg-blue-50 text-blue-600 border-blue-200' },
   { label: 'Análise de Interações', icon: Pill, href: '/interactions/new', tokens: 15, color: 'bg-red-50 text-red-500 border-red-200' },
-  { label: 'Biodisponibilidade', icon: Dna, href: '/bioavailability', tokens: 12, color: 'bg-purple-50 text-purple-600 border-purple-200' },
+  { label: 'Biodisponibilidade', icon: Atom, href: '/bioavailability', tokens: 12, color: 'bg-purple-50 text-purple-600 border-purple-200' },
   { label: 'Exames Laboratoriais', icon: Microscope, href: '/laboratory', tokens: 10, color: 'bg-orange-50 text-orange-500 border-orange-200' },
   { label: 'Gerar Relatório', icon: FileText, href: '/reports/new', tokens: 5, color: 'bg-gray-50 text-gray-600 border-gray-200' },
 ];
@@ -80,7 +106,7 @@ interface DashboardData {
   userName: string;
   workspace: { plan: string; tokenBalance: number; tokenLimit: number };
   stats: { patients: number; alertPatients: number; reports: number; alerts: number };
-  pendingAlerts: Array<{ id: number; severity: AlertSeverity; title: string; description: string; patientCode: string }>;
+  pendingAlerts: Array<{ id: string; severity: AlertSeverity; title: string; description: string; patientCode: string }>;
   recentActivity: Array<{ action: string; patient: string; date: string; tokens: number; module: string }>;
 }
 
@@ -88,53 +114,84 @@ interface DashboardData {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [greeting, setGreeting] = useState('Bom dia');
+
+  async function load() {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      );
+      const { data: { session } } = await supabase.auth.getSession();
+      const userName = session?.user?.user_metadata?.full_name
+        ?? session?.user?.email?.split('@')[0]
+        ?? 'Profissional';
+
+      const stats = await api.dashboard.stats();
+
+      const balance = stats.workspace.tokenBalance ?? 0;
+      const reserved = stats.workspace.tokenReserved ?? 0;
+      const unlimited = balance >= 100_000_000;
+
+      setData({
+        userName,
+        workspace: {
+          plan: PLAN_LABEL[stats.workspace.plan] ?? stats.workspace.plan,
+          tokenBalance: balance,
+          tokenLimit: unlimited ? balance : balance + reserved,
+        },
+        stats: {
+          patients: stats.patients.active,
+          alertPatients: stats.patients.withAlerts,
+          reports: stats.reports.total,
+          alerts: stats.alerts.pending,
+        },
+        pendingAlerts: stats.pendingAlerts.map((a) => ({
+          id: a.id,
+          severity: (a.severity as AlertSeverity) ?? 'info',
+          title: a.title,
+          description: a.description,
+          patientCode: a.patientCode ?? '—',
+        })),
+        recentActivity: stats.recentActivity.map((t) => ({
+          action: t.description || t.operation,
+          patient: t.module ?? '—',
+          date: fmtActivityDate(t.createdAt),
+          tokens: Math.abs(t.amount),
+          module: mapModule(t.module),
+        })),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao carregar o dashboard';
+      setLoadError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     const h = new Date().getHours();
     setGreeting(h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite');
-
-    async function load() {
-      try {
-        const supabase = createBrowserClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        );
-        const { data: { session } } = await supabase.auth.getSession();
-        const userName = session?.user?.user_metadata?.full_name
-          ?? session?.user?.email?.split('@')[0]
-          ?? 'Profissional';
-
-        // TODO: fetch real stats from API when endpoints are wired
-        // const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/stats`, {
-        //   headers: { Authorization: `Bearer ${session?.access_token}` },
-        // });
-        // const stats = await res.json();
-
-        // Placeholder data (replace with real API call above)
-        // Example toast on load — remove in production
-        // toast.success('Dashboard carregado');
-        setData({
-          userName,
-          workspace: { plan: 'Profissional', tokenBalance: 557, tokenLimit: 600 },
-          stats: { patients: 12, alertPatients: 3, reports: 8, alerts: 2 },
-          pendingAlerts: [
-            { id: 1, severity: 'high', title: 'Interação: Ferro × Omeprazol', description: 'IBP pode reduzir absorção de ferro. Avaliar estratégia de suplementação.', patientCode: 'PAC-SEED-001' },
-            { id: 2, severity: 'info', title: 'Revisão recomendada', description: 'Suplementação não revisada há 87 dias.', patientCode: 'PAC-002' },
-          ],
-          recentActivity: [
-            { action: 'Avaliação nutricional', patient: 'PAC-SEED-001', date: 'Hoje', tokens: 10, module: 'nutritional' },
-            { action: 'Análise de interações', patient: 'PAC-SEED-001', date: 'Ontem', tokens: 15, module: 'interactions' },
-            { action: 'Relatório PDF gerado', patient: 'PAC-SEED-001', date: '20/05', tokens: 5, module: 'reports' },
-          ],
-        });
-      } finally {
-        setLoading(false);
-      }
-    }
-
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (loadError && !loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-12 flex flex-col items-center gap-4 text-center">
+        <AlertTriangle className="h-10 w-10 text-red-400" />
+        <h2 className="text-lg font-semibold text-gray-900">Não foi possível carregar o dashboard</h2>
+        <p className="text-sm text-gray-500 max-w-sm">{loadError}</p>
+        <Button onClick={load}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -165,9 +222,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Ethical banner */}
-      <Alert className="border-blue-100 bg-blue-50">
-        <ShieldAlert className="h-4 w-4 text-blue-500 flex-shrink-0" />
-        <AlertDescription className="text-blue-800 text-xs leading-relaxed">
+      <Alert className="border-primary/20 bg-primary/5">
+        <ShieldAlert className="h-4 w-4 text-primary flex-shrink-0" />
+        <AlertDescription className="text-primary/90 text-xs leading-relaxed">
           <strong>Ferramenta de apoio profissional.</strong> Auxilia na organização clínica e análise de suplementação.{' '}
           <strong>Não substitui</strong> consulta, diagnóstico ou prescrição. Valide cada análise com seu julgamento clínico.{' '}
           CFN · CONFEF · LGPD (Lei 13.709/2018).
@@ -201,10 +258,10 @@ export default function DashboardPage() {
             <Card className="col-span-1">
               <CardHeader className="pb-1 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs font-medium text-gray-500">Tokens</CardTitle>
-                <Coins className="h-4 w-4 text-blue-400" />
+                <Coins className="h-4 w-4 text-primary/60" />
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-blue-600">{data?.workspace.tokenBalance}</p>
+                <p className="text-3xl font-bold text-primary">{data?.workspace.tokenBalance}</p>
                 <TokenBar
                   used={data!.workspace.tokenLimit - data!.workspace.tokenBalance}
                   total={data!.workspace.tokenLimit}
@@ -215,12 +272,14 @@ export default function DashboardPage() {
             <Link href="/reports/new">
               <Card className="hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5">
                 <CardHeader className="pb-1 flex flex-row items-center justify-between">
-                  <CardTitle className="text-xs font-medium text-gray-500">Relatórios do Mês</CardTitle>
+                  <CardTitle className="text-xs font-medium text-gray-500">Relatórios Gerados</CardTitle>
                   <FileText className="h-4 w-4 text-gray-300" />
                 </CardHeader>
                 <CardContent>
                   <p className="text-3xl font-bold text-gray-900">{data?.stats.reports}</p>
-                  <p className="text-xs text-gray-400 mt-1">Último há 2 dias</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {data?.stats.reports === 0 ? 'Nenhum ainda' : 'Total no workspace'}
+                  </p>
                 </CardContent>
               </Card>
             </Link>
@@ -253,7 +312,7 @@ export default function DashboardPage() {
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
               Alertas Clínicos Pendentes
             </CardTitle>
-            <Link href="/patients" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+            <Link href="/patients" className="text-xs text-primary hover:underline flex items-center gap-1">
               Ver pacientes <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>

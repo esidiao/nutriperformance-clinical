@@ -71,26 +71,32 @@ export class BillingService {
   ): Promise<void> {
     const webhookSecret = this.config.get<string>('MP_WEBHOOK_SECRET');
 
-    // Se o secret estiver configurado, a validação é obrigatória
-    if (webhookSecret) {
-      if (!xSignature || !xRequestId) {
-        this.logger.error('Webhook sem assinatura rejeitado');
-        throw new Error('Assinatura obrigatória');
-      }
-      const tsMatch = xSignature.match(/ts=([^,]+)/);
-      const v1Match = xSignature.match(/v1=([^,]+)/);
-      const ts = tsMatch?.[1];
-      const v1 = v1Match?.[1];
-      const dataId = body?.data?.id ?? '';
-      if (!ts || !v1) {
-        throw new Error('Assinatura malformada');
-      }
-      const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
-      const expected = createHmac('sha256', webhookSecret).update(manifest).digest('hex');
-      if (v1 !== expected) {
-        this.logger.error('Assinatura do webhook Mercado Pago inválida');
-        throw new Error('Webhook inválido');
-      }
+    if (!webhookSecret) {
+      this.logger.error('MP_WEBHOOK_SECRET não configurado — webhook rejeitado por segurança');
+      throw new Error('Configuração de webhook ausente');
+    }
+
+    if (!xSignature || !xRequestId) {
+      this.logger.warn(`Webhook sem assinatura rejeitado (ip omitido por privacidade)`);
+      throw new Error('Assinatura obrigatória');
+    }
+
+    const tsMatch = xSignature.match(/ts=([^,]+)/);
+    const v1Match = xSignature.match(/v1=([^,]+)/);
+    const ts = tsMatch?.[1];
+    const v1 = v1Match?.[1];
+    const dataId = body?.data?.id ?? '';
+
+    if (!ts || !v1) {
+      throw new Error('Assinatura malformada');
+    }
+
+    const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+    const expected = createHmac('sha256', webhookSecret).update(manifest).digest('hex');
+
+    if (v1 !== expected) {
+      this.logger.error(`Assinatura Mercado Pago inválida para request-id=${xRequestId}`);
+      throw new Error('Webhook inválido');
     }
 
     const { type, action, data } = body;
