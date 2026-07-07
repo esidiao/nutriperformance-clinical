@@ -40,6 +40,7 @@ export class GoalsService {
     return this.repo.find({
       where: { workspaceId, patientId },
       order: { createdAt: 'DESC' },
+      take: 500,
     });
   }
 

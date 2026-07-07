@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
+import { AuthGuard } from '@/components/AuthGuard';
 import Link from 'next/link';
 import {
   Users, Coins, TrendingUp, Database, ShieldAlert,
@@ -96,6 +97,7 @@ export default function AdminPage() {
   };
 
   return (
+    <AuthGuard requiredRole="admin">
     <div className="flex flex-col min-h-full">
       <PageHeader
         title="Painel Administrativo"
@@ -300,16 +302,20 @@ export default function AdminPage() {
                 </p>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1}
+                    aria-label="Página anterior"
                     className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30">
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                     <button key={p} onClick={() => setPage(p)}
-                      className={`w-7 h-7 text-xs rounded-lg transition-colors ${p === page ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600'}`}>
+                      aria-label={`Ir para página ${p}`}
+                      aria-current={p === page ? 'page' : undefined}
+                      className={`w-7 h-7 text-xs rounded-lg transition-colors ${p === page ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600'}`}>
                       {p}
                     </button>
                   ))}
                   <button onClick={() => setPage((p) => Math.min(p + 1, totalPages))} disabled={page === totalPages}
+                    aria-label="Próxima página"
                     className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30">
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -320,5 +326,6 @@ export default function AdminPage() {
         </Card>
       </div>
     </div>
+    </AuthGuard>
   );
 }

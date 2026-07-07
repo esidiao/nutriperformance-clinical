@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AIEngineService } from '../ai/ai-engine.service';
@@ -85,6 +85,8 @@ export interface CreateBioavailabilityDto {
 
 @Injectable()
 export class BioavailabilityService {
+  private readonly logger = new Logger(BioavailabilityService.name);
+
   constructor(
     @InjectRepository(BioavailabilityAnalysis)
     private analysisRepo: Repository<BioavailabilityAnalysis>,
@@ -103,13 +105,23 @@ export class BioavailabilityService {
     const localRisks = this.checkLocalRules(dto);
 
     // 2. Análise complementar com IA
-    const aiResult = await this.aiEngine.analyzeBioavailability({
-      nutrientsOrSupplements: dto.nutrientsOrSupplements,
-      giConditions: dto.giConditions,
-      medications: dto.medications,
-      surgicalHistory: dto.surgicalHistory,
-      dietaryFactors: dto.dietaryFactors,
-    });
+    let aiResult;
+    try {
+      aiResult = await this.aiEngine.analyzeBioavailability({
+        nutrientsOrSupplements: dto.nutrientsOrSupplements,
+        giConditions: dto.giConditions,
+        medications: dto.medications,
+        surgicalHistory: dto.surgicalHistory,
+        dietaryFactors: dto.dietaryFactors,
+      });
+    } catch (err: any) {
+      // Token já foi debitado no passo anterior; se a IA falhar aqui, o crédito fica
+      // perdido até estorno manual. Log estruturado para o suporte localizar e reembolsar.
+      this.logger.error(
+        `Falha na IA após débito de token — requer estorno manual [workspace=${dto.workspaceId} user=${dto.userId} operation=bioavailability_analysis]: ${err?.message}`,
+      );
+      throw err;
+    }
 
     // 3. Determinar se encaminhamento é necessário
     const referralNeeded =

@@ -25,11 +25,12 @@ export function ShortcutsPanel({ open, onClose }: ShortcutsPanelProps) {
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
           <div className="flex items-center gap-2">
-            <Keyboard className="h-4 w-4 text-blue-600" />
+            <Keyboard className="h-4 w-4 text-primary" />
             <h2 className="font-semibold text-gray-900 dark:text-white text-sm">Atalhos de Teclado</h2>
           </div>
           <button
             onClick={onClose}
+            aria-label="Fechar atalhos de teclado"
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
           >
             <X className="h-4 w-4" />

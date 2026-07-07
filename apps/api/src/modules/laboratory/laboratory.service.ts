@@ -41,6 +41,7 @@ export class LaboratoryService {
     return this.repo.find({
       where: { workspaceId, patientId },
       order: { collectionDate: 'DESC' },
+      take: 500,
     });
   }
 

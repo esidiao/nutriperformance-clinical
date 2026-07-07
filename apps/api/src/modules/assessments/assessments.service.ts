@@ -46,6 +46,7 @@ export class AssessmentsService {
     return this.nutritionalRepo.find({
       where: { workspaceId, patientId },
       order: { assessmentDate: 'DESC' },
+      take: 500,
     });
   }
 
@@ -140,6 +141,7 @@ export class AssessmentsService {
     return this.physicalRepo.find({
       where: { workspaceId, patientId },
       order: { assessmentDate: 'DESC' },
+      take: 500,
     });
   }
 

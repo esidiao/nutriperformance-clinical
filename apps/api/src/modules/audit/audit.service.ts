@@ -56,6 +56,7 @@ export class AuditService {
     return this.auditRepo.find({
       where: { patientId },
       order: { createdAt: 'DESC' },
+      take: 500,
     });
   }
 }

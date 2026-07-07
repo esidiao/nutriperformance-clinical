@@ -76,6 +76,7 @@ export function OnboardingBanner() {
           </div>
           <button
             onClick={handleDismiss}
+            aria-label="Dispensar banner de boas-vindas"
             className="text-white/60 hover:text-white transition-colors flex-shrink-0 mt-0.5"
           >
             <X className="h-4 w-4" />

@@ -119,7 +119,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => setQuery('')} aria-label="Limpar busca" className="text-gray-400 hover:text-gray-600">
               <X className="h-3.5 w-3.5" />
             </button>
           )}

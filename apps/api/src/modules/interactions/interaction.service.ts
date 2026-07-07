@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AIEngineService, InteractionAnalysisInput } from '../ai/ai-engine.service';
@@ -115,6 +115,8 @@ export const HIGH_EVIDENCE_INTERACTIONS = [
 
 @Injectable()
 export class InteractionService {
+  private readonly logger = new Logger(InteractionService.name);
+
   constructor(
     @InjectRepository(InteractionAnalysis)
     private analysisRepo: Repository<InteractionAnalysis>,
@@ -149,7 +151,17 @@ export class InteractionService {
       },
     };
 
-    const aiResult = await this.aiEngine.analyzeInteractions(aiInput);
+    let aiResult;
+    try {
+      aiResult = await this.aiEngine.analyzeInteractions(aiInput);
+    } catch (err: any) {
+      // Token já foi debitado no passo 1; se a IA falhar aqui, o crédito fica perdido
+      // até estorno manual. Log estruturado para o suporte localizar e reembolsar.
+      this.logger.error(
+        `Falha na IA após débito de token — requer estorno manual [workspace=${dto.workspaceId} user=${dto.userId} operation=interaction_analysis]: ${err?.message}`,
+      );
+      throw err;
+    }
 
     // 4. Determinar risco geral
     const hasContradindication = localInteractions.some((i) => i.riskLevel === 'contraindicated');
