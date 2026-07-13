@@ -58,7 +58,8 @@ export class RagSyncService {
       this.logger.log(`RAG sync concluído: ${ok}/${foods.length} indexados.`);
     } finally {
       // Libera o lock para que a próxima execução (ou outra instância) possa adquiri-lo.
-      await this.dataSource.query('SELECT pg_advisory_unlock($1)', [RagSyncService.LOCK_KEY]).catch(() => undefined);
+      await this.dataSource.query('SELECT pg_advisory_unlock($1)', [RagSyncService.LOCK_KEY])
+        .catch((e: any) => this.logger.warn(`Falha ao liberar advisory lock do RAG sync: ${e?.message ?? e}`));
       this.running = false;
     }
   }

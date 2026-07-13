@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Patch, Param, Body, Req, Res,
+  Controller, Post, Get, Patch, Param, Body, Req, Res, Logger,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -41,6 +41,8 @@ class AnalyzeInteractionsDto {
 @ApiBearerAuth()
 @Controller('interactions')
 export class InteractionController {
+  private readonly logger = new Logger(InteractionController.name);
+
   constructor(
     private interactionService: InteractionService,
     private alertsService: AlertsService,
@@ -71,7 +73,9 @@ export class InteractionController {
         patientAge: dto.patientAge,
         isPregnant: dto.isPregnant,
       },
-    }).catch(() => {/* silencioso — não bloquear resposta */});
+    }).catch((e: any) => this.logger.warn(
+      `Falha ao avaliar alertas clínicos (patient=${dto.patientId}): ${e?.message ?? e}`,
+    ));
 
     return result;
   }

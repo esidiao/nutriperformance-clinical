@@ -431,7 +431,7 @@ export default function PrescriptionNewPage() {
                       />
                     </div>
                     {meals.length > 1 && (
-                      <button onClick={() => removeMeal(mi)} className="text-red-400 hover:text-red-600 p-1 rounded flex-shrink-0" title="Remover refeição">
+                      <button onClick={() => removeMeal(mi)} className="text-red-400 hover:text-red-600 p-1 rounded flex-shrink-0" title="Remover refeição" aria-label="Remover refeição">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
@@ -481,7 +481,7 @@ export default function PrescriptionNewPage() {
                             <Input type="number" min={0} step="0.1" value={food.fat} onChange={(e) => updateFood(mi, fi, 'fat', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           {meal.foods.length > 1 && (
-                            <button onClick={() => removeFood(mi, fi)} className="text-red-400 hover:text-red-600 p-1.5 rounded mb-0.5" title="Remover alimento">
+                            <button onClick={() => removeFood(mi, fi)} className="text-red-400 hover:text-red-600 p-1.5 rounded mb-0.5" title="Remover alimento" aria-label="Remover alimento">
                               <Trash2 className="h-4 w-4" />
                             </button>
                           )}

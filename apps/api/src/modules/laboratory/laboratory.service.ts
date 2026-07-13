@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LaboratoryExam } from './laboratory-exam.entity';
@@ -9,6 +9,8 @@ import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class LaboratoryService {
+  private readonly logger = new Logger(LaboratoryService.name);
+
   constructor(
     @InjectRepository(LaboratoryExam)
     private readonly repo: Repository<LaboratoryExam>,
@@ -33,7 +35,9 @@ export class LaboratoryService {
       resourceId: saved.id,
     });
     // Alert evaluation in background
-    this.alertsService.evaluateLaboratory(dto.patientId!, workspaceId, saved).catch(() => {});
+    this.alertsService.evaluateLaboratory(dto.patientId!, workspaceId, saved).catch((e: any) =>
+      this.logger.warn(`Falha ao avaliar alertas laboratoriais (patient=${dto.patientId}): ${e?.message ?? e}`),
+    );
     return saved;
   }
 

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Food } from '../foods/food.entity';
@@ -10,6 +10,8 @@ const CONFIABILIDADES = ['alta', 'media', 'baixa', 'pendente'];
 
 @Injectable()
 export class CurationService {
+  private readonly logger = new Logger(CurationService.name);
+
   constructor(
     @InjectRepository(Food) private readonly foodRepo: Repository<Food>,
     private readonly dataSource: DataSource,
@@ -96,7 +98,9 @@ export class CurationService {
       const texto = buildFoodChunkText({ ...food, ...changes } as any);
       this.ragService
         .indexChunk(food.fonte, id, 'alta', texto, { nome: food.nomePadronizado })
-        .catch(() => undefined);
+        .catch((e: any) => this.logger.warn(
+          `Falha ao re-indexar alimento liberado no RAG (id=${id}): ${e?.message ?? e}`,
+        ));
     }
 
     return { id, ...changes };

@@ -23,28 +23,37 @@ export class AdminController {
 
   @Get('metrics')
   async getMetrics() {
-    const [workspaces] = await this.db.query(`SELECT COUNT(*) FROM workspaces WHERE is_active = true`);
-    const [users] = await this.db.query(`SELECT COUNT(*) FROM users WHERE is_active = true`);
-    const [patients] = await this.db.query(`SELECT COUNT(*) FROM patients WHERE deleted_at IS NULL`);
-    const [tokensThisMonth] = await this.db.query(`
-      SELECT COALESCE(SUM(ABS(amount)), 0) AS total
-      FROM token_transactions
-      WHERE amount < 0
-        AND created_at >= date_trunc('month', NOW())
-    `);
-    const [mrr] = await this.db.query(`
-      SELECT COALESCE(SUM(monthly_price_brl), 0) AS mrr
-      FROM workspaces
-      WHERE is_active = true AND plan != 'free'
-    `);
-
-    const moduleUsage = await this.db.query(`
-      SELECT operation, COUNT(*) AS uses, SUM(ABS(amount)) AS tokens_consumed
-      FROM token_transactions
-      WHERE amount < 0 AND created_at >= NOW() - INTERVAL '30 days'
-      GROUP BY operation
-      ORDER BY uses DESC
-    `);
+    // Consultas independentes → paralelizadas (evita 6 round-trips sequenciais ao Postgres).
+    const [
+      [workspaces],
+      [users],
+      [patients],
+      [tokensThisMonth],
+      [mrr],
+      moduleUsage,
+    ] = await Promise.all([
+      this.db.query(`SELECT COUNT(*) FROM workspaces WHERE is_active = true`),
+      this.db.query(`SELECT COUNT(*) FROM users WHERE is_active = true`),
+      this.db.query(`SELECT COUNT(*) FROM patients WHERE deleted_at IS NULL`),
+      this.db.query(`
+        SELECT COALESCE(SUM(ABS(amount)), 0) AS total
+        FROM token_transactions
+        WHERE amount < 0
+          AND created_at >= date_trunc('month', NOW())
+      `),
+      this.db.query(`
+        SELECT COALESCE(SUM(monthly_price_brl), 0) AS mrr
+        FROM workspaces
+        WHERE is_active = true AND plan != 'free'
+      `),
+      this.db.query(`
+        SELECT operation, COUNT(*) AS uses, SUM(ABS(amount)) AS tokens_consumed
+        FROM token_transactions
+        WHERE amount < 0 AND created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY operation
+        ORDER BY uses DESC
+      `),
+    ]);
 
     return {
       activeWorkspaces: Number(workspaces.count),

@@ -36,8 +36,12 @@ export class ScientificBaseController {
 
   @ClinicalStaff()
   @Get('category/:category')
-  listByCategory(@Param('category') category: string) {
-    return this.svc.listByCategory(category);
+  listByCategory(
+    @Param('category') category: string,
+    @Query('limit') limit = '200',
+    @Query('offset') offset = '0',
+  ) {
+    return this.svc.listByCategory(category, Number(limit), Number(offset));
   }
 
   @AdminOnly()

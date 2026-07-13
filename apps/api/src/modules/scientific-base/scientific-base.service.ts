@@ -86,14 +86,18 @@ export class ScientificBaseService {
     }));
   }
 
-  async listByCategory(category: string): Promise<ScientificReference[]> {
+  async listByCategory(category: string, limit = 200, offset = 0): Promise<ScientificReference[]> {
+    // Limite defensivo: evita retornar lista ilimitada de referências por categoria.
+    const safeLimit = Math.min(500, Math.max(1, limit));
+    const safeOffset = Math.max(0, offset);
     const rows = await this.dataSource.query(
       `SELECT id, category, title, authors, journal, publication_year,
               evidence_level, doi, conclusions
        FROM scientific_references
        WHERE category = $1
-       ORDER BY evidence_level DESC, publication_year DESC`,
-      [category],
+       ORDER BY evidence_level DESC, publication_year DESC
+       LIMIT $2 OFFSET $3`,
+      [category, safeLimit, safeOffset],
     );
     return rows;
   }
