@@ -4,7 +4,9 @@ services:
     runtime: docker
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
-    plan: free
+    # starter (pago) e não free: o plano gratuito hiberna por inatividade e a
+    # primeira requisição depois disso leva ~50s — inaceitável para uso clínico.
+    plan: starter
     # O banco fica no Supabase sa-east-1 (São Paulo). O Render não tem região
     # no Brasil; virginia (us-east) é a mais próxima — oregon (us-west) somava
     # uma travessia de continente em cada query.
