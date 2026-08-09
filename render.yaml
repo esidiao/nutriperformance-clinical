@@ -5,48 +5,77 @@ services:
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     plan: free
-    region: oregon
+    # O banco fica no Supabase sa-east-1 (São Paulo). O Render não tem região
+    # no Brasil; virginia (us-east) é a mais próxima — oregon (us-west) somava
+    # uma travessia de continente em cada query.
+    region: virginia
     healthCheckPath: /health
     envVars:
+      # OBRIGATÓRIA: com NODE_ENV != 'production' o TypeORM liga `synchronize`
+      # e reescreve o schema de produção (app.module.ts: synchronize: !isProduction).
       - key: NODE_ENV
         value: production
-      - key: API_URL
-        sync: false
-      - key: CPF_SALT
-        sync: false
+
+      # ---- Banco (Supabase sa-east-1) ----------------------------------------
+      # Usar o pooler de SESSÃO (5432). O de transação (6543) quebra prepared
+      # statements no TypeORM. DB_SSL=true é obrigatório com o pooler.
       - key: DATABASE_URL
-        sync: false
-      - key: DB_HOST
-        sync: false
-      - key: DB_NAME
-        sync: false
-      - key: DB_PASS
-        sync: false
-      - key: DB_PORT
         sync: false
       - key: DB_SSL
         sync: false
-      - key: DB_SYNC
+      # Só usadas se DATABASE_URL estiver ausente (fallback host/porta):
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
         sync: false
       - key: DB_USER
         sync: false
+      - key: DB_PASS
+        sync: false
+      - key: DB_NAME
+        sync: false
+
+      # ---- Auth (Supabase) ---------------------------------------------------
+      # SUPABASE_URL monta o JWKS de verificação do token no JwtAuthGuard.
+      - key: SUPABASE_URL
+        sync: false
+      # Fallback HS256 para projetos legados; o caminho atual é o JWKS acima.
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+
+      # ---- Dados clínicos ----------------------------------------------------
+      # Trocar qualquer uma torna ilegíveis os dados de paciente já gravados.
       - key: ENCRYPTION_KEY
         sync: false
+      - key: CPF_SALT
+        sync: false
+
+      # ---- Integrações -------------------------------------------------------
+      # API_URL: URL pública desta API. Sem ela o BillingService cai no
+      # fallback RAILWAY_STATIC_URL -> 'localhost:3001' e as preferências do
+      # Mercado Pago saem com URL de retorno inválida.
+      - key: API_URL
+        sync: false
+      # FRONTEND_URL entra na allowlist de CORS em main.ts.
       - key: FRONTEND_URL
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-      - key: JWT_EXPIRY
-        sync: false
-      - key: JWT_SECRET
-        sync: false
       - key: MP_ACCESS_TOKEN
         sync: false
+      # Sem MP_WEBHOOK_SECRET a API rejeita todo webhook do Mercado Pago.
       - key: MP_WEBHOOK_SECRET
         sync: false
-      - key: SUPABASE_JWT_SECRET
+
+      # ---- Opcionais ---------------------------------------------------------
+      # Sem USDA_API_KEY o /foods/usda cai em DEMO_KEY (~30 req/h).
+      - key: USDA_API_KEY
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      # Sentry só inicializa se o DSN existir.
+      - key: SENTRY_DSN
         sync: false
-      - key: SUPABASE_URL
-        sync: false
+
+# Removidas: DB_SYNC, JWT_SECRET, JWT_EXPIRY e SUPABASE_SERVICE_ROLE_KEY.
+# Nenhuma é lida pelo código hoje. DB_SYNC era a mais perigosa: sugeria
+# controlar o `synchronize` do TypeORM, que na verdade depende só de NODE_ENV.
+# PORT é injetada pelo Render e lida em main.ts — não declarar aqui.
