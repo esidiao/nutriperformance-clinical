@@ -4,9 +4,15 @@ services:
     runtime: docker
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
-    # starter (pago) e não free: o plano gratuito hiberna por inatividade e a
-    # primeira requisição depois disso leva ~50s — inaceitável para uso clínico.
-    plan: starter
+    # Plano gratuito: o serviço hiberna após ~15 min sem tráfego e o próximo
+    # request paga ~50s de cold start. O código foi adaptado para isso:
+    #  - api-client.ts refaz a requisição com orçamento longo em vez de estourar
+    #    no timeout de 30s (que era erro garantido no primeiro acesso do dia);
+    #  - warmUp() dispara /health no carregamento do app, então a instância
+    #    acorda enquanto o usuário faz login;
+    #  - POST /assistant/sync permite disparar o sync do RAG por cron externo,
+    #    já que o @Cron in-process não roda com a instância dormindo.
+    plan: free
     # O banco fica no Supabase sa-east-1 (São Paulo). O Render não tem região
     # no Brasil; virginia (us-east) é a mais próxima — oregon (us-west) somava
     # uma travessia de continente em cada query.

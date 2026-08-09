@@ -1,13 +1,19 @@
 import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { IsString, MinLength, MaxLength } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsInt, IsOptional, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { ClinicalStaff } from '../../common/decorators';
+import { ClinicalStaff, AdminOnly } from '../../common/decorators';
 import { RagService } from './rag.service';
+import { RagSyncService } from './rag-sync.service';
 
 class AskDto {
   @IsString() @MinLength(3) @MaxLength(500) question: string;
+}
+
+class SyncDto {
+  @Type(() => Number) @IsInt() @Min(1) @Max(500) @IsOptional() limit = 100;
 }
 
 @ApiTags('assistant')
@@ -15,7 +21,10 @@ class AskDto {
 @UseGuards(JwtAuthGuard)
 @Controller('assistant')
 export class RagController {
-  constructor(private readonly ragService: RagService) {}
+  constructor(
+    private readonly ragService: RagService,
+    private readonly ragSyncService: RagSyncService,
+  ) {}
 
   @Post('ask')
   @ClinicalStaff()
@@ -27,5 +36,23 @@ export class RagController {
       workspaceId: req.user.workspaceId,
       userId: req.user.id,
     });
+  }
+
+  /**
+   * Dispara o sync do RAG sob demanda.
+   *
+   * O `@Cron(EVERY_WEEK)` do RagSyncService só roda com o processo vivo, e no
+   * plano gratuito do Render a instância hiberna sem tráfego — na prática o
+   * agendamento semanal não dispara. Este endpoint permite acioná-lo de fora
+   * (cron externo ou manualmente pelo painel), mantendo o mesmo advisory lock
+   * que impede execução concorrente.
+   */
+  @Post('sync')
+  @AdminOnly()
+  @Throttle({ default: { limit: 2, ttl: 60000 } })
+  @ApiOperation({ summary: 'Indexa no RAG os alimentos ainda sem chunk (idempotente)' })
+  async sync(@Body() dto: SyncDto) {
+    const result = await this.ragSyncService.syncMissingFoods(dto.limit);
+    return result ?? { skipped: true, reason: 'Sync já em execução' };
   }
 }

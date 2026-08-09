@@ -74,6 +74,24 @@ export async function middleware(request: NextRequest) {
     ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
     : "script-src 'self' 'unsafe-inline'";
 
+  // A allowlist do connect-src precisa conter a API. Em produção é o serviço do
+  // Render; em desenvolvimento a API sobe em localhost:3001, que a CSP bloqueava
+  // — todo fetch local falhava com "Refused to connect", inclusive o warm-up.
+  const apiOrigin = (() => {
+    const raw = process.env.NEXT_PUBLIC_API_URL;
+    if (!raw) return null;
+    try { return new URL(raw).origin; } catch { return null; }
+  })();
+
+  const connectSrc = [
+    "connect-src 'self'",
+    'https://*.supabase.co',
+    'https://supabase.io',
+    'wss://*.supabase.co',
+    'https://nutriperformance-api.onrender.com',
+    ...(apiOrigin && apiOrigin !== 'https://nutriperformance-api.onrender.com' ? [apiOrigin] : []),
+  ].join(' ');
+
   response.headers.set(
     'Content-Security-Policy',
     [
@@ -82,7 +100,7 @@ export async function middleware(request: NextRequest) {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://dgvrflipjxaclpmudtwt.supabase.co",
-      "connect-src 'self' https://*.supabase.co https://supabase.io wss://*.supabase.co https://nutriperformance-api.onrender.com",
+      connectSrc,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

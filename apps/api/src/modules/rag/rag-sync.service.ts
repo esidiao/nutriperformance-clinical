@@ -4,6 +4,13 @@ import { DataSource } from 'typeorm';
 import { RagService } from './rag.service';
 import { buildFoodChunkText } from './rag-chunk.util';
 
+export interface SyncResult {
+  /** Alimentos elegíveis encontrados nesta execução (limitado por `limit`). */
+  candidatos: number;
+  indexados: number;
+  falhas: number;
+}
+
 /**
  * Sincronização periódica do RAG: indexa incrementalmente alimentos que ainda não
  * têm chunk (ex.: após novas importações). Incremental + limitado, semanal — barato.
@@ -21,14 +28,20 @@ export class RagSyncService {
   // Chave do advisory lock (evita execução duplicada se houver >1 instância da API).
   private static readonly LOCK_KEY = 778921;
 
+  /**
+   * Retorna o resumo da execução, ou `null` se outra execução já estava em
+   * curso — o endpoint `POST /assistant/sync` usa isso para responder ao
+   * chamador externo, já que no plano gratuito o @Cron não é confiável
+   * (a instância hiberna sem tráfego).
+   */
   @Cron(CronExpression.EVERY_WEEK)
-  async syncMissingFoods(limit = 100) {
-    if (this.running) return;
+  async syncMissingFoods(limit = 100): Promise<SyncResult | null> {
+    if (this.running) return null;
     this.running = true;
 
     // Lock distribuído no Postgres: só uma instância roda o sync por vez.
     const lockRes = await this.dataSource.query('SELECT pg_try_advisory_lock($1) AS locked', [RagSyncService.LOCK_KEY]);
-    if (!lockRes?.[0]?.locked) { this.running = false; return; }
+    if (!lockRes?.[0]?.locked) { this.running = false; return null; }
 
     try {
       const foods = await this.dataSource.query(
@@ -41,7 +54,10 @@ export class RagSyncService {
          LIMIT $1`,
         [limit],
       );
-      if (foods.length === 0) { this.logger.debug('RAG sync: nada a indexar.'); return; }
+      if (foods.length === 0) {
+        this.logger.debug('RAG sync: nada a indexar.');
+        return { candidatos: 0, indexados: 0, falhas: 0 };
+      }
       this.logger.log(`RAG sync: indexando ${foods.length} alimento(s) sem chunk...`);
       let ok = 0;
       for (const f of foods) {
@@ -56,6 +72,7 @@ export class RagSyncService {
         await new Promise((r) => setTimeout(r, 250));
       }
       this.logger.log(`RAG sync concluído: ${ok}/${foods.length} indexados.`);
+      return { candidatos: foods.length, indexados: ok, falhas: foods.length - ok };
     } finally {
       // Libera o lock para que a próxima execução (ou outra instância) possa adquiri-lo.
       await this.dataSource.query('SELECT pg_advisory_unlock($1)', [RagSyncService.LOCK_KEY])

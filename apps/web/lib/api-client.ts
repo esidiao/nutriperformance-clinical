@@ -24,35 +24,68 @@ export class ApiError extends Error {
   }
 }
 
+// A API roda no plano gratuito do Render, que hiberna após ~15 min sem tráfego.
+// O primeiro request depois disso espera o container subir (~50s), então um
+// teto único de 30s transformava todo primeiro acesso do dia em erro — e ainda
+// culpava a conexão do usuário na mensagem.
+const REQUEST_TIMEOUT_MS = 30_000;
+const COLD_START_TIMEOUT_MS = 75_000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Timeout ou queda de rede — casos em que vale reesperar por cold start. */
+function isTransport(err: unknown): boolean {
+  return err instanceof TypeError || (err instanceof Error && err.name === 'AbortError');
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  timeoutMs = 30_000,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<T> {
   const token = await getToken();
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const url = `${API_BASE}${path}`;
+  const init: RequestInit = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  };
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
+    res = await fetchWithTimeout(url, init, timeoutMs);
   } catch (err: unknown) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new ApiError('A requisição excedeu o tempo limite. Verifique sua conexão.', 408, path);
+    if (!isTransport(err)) throw err;
+
+    // Provável hibernação: repete uma vez com orçamento de cold start.
+    try {
+      res = await fetchWithTimeout(url, init, COLD_START_TIMEOUT_MS);
+    } catch (retryErr: unknown) {
+      if (isTransport(retryErr)) {
+        throw new ApiError(
+          'O servidor demorou a responder. Ele hiberna quando fica sem uso — tente novamente em alguns segundos.',
+          504,
+          path,
+        );
+      }
+      throw retryErr;
     }
-    throw err;
-  } finally {
-    clearTimeout(timer);
   }
 
   if (!res.ok) {
@@ -62,6 +95,18 @@ async function request<T>(
   }
 
   return res.json() as Promise<T>;
+}
+
+/**
+ * Acorda a API sem bloquear a UI. Chamado no carregamento do app: enquanto o
+ * usuário faz login, o container já está subindo, e a primeira tela com dados
+ * costuma encontrar a instância de pé.
+ *
+ * `/health` é @Public() — não exige token, então roda antes da sessão existir.
+ */
+export function warmUp(): void {
+  fetchWithTimeout(`${API_BASE}/health`, { method: 'GET' }, COLD_START_TIMEOUT_MS)
+    .catch(() => undefined);
 }
 
 export const api = {
