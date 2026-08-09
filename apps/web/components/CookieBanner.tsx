@@ -45,15 +45,15 @@ export function CookieBanner() {
               Não há rastreamento publicitário ou analytics de terceiros.
               Dados clínicos são protegidos por criptografia AES-256 conforme a{' '}
               <strong>LGPD (Lei 13.709/2018)</strong>.{' '}
-              <Link href="/legal/privacy" className="text-blue-600 hover:underline">Política de Privacidade</Link>
+              <Link href="/legal/privacy" className="text-primary hover:underline">Política de Privacidade</Link>
               {' '}·{' '}
-              <Link href="/legal/cookies" className="text-blue-600 hover:underline">Política de Cookies</Link>
+              <Link href="/legal/cookies" className="text-primary hover:underline">Política de Cookies</Link>
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-2">
             <button
               onClick={accept}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
             >
               Entendido
             </button>

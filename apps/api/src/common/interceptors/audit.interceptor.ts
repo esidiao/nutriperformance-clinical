@@ -22,15 +22,17 @@ export class AuditInterceptor implements NestInterceptor {
     }
 
     const user = req.user;
-    const start = Date.now();
+
+    // Derivado uma única vez: a trilha de auditoria precisa registrar a MESMA
+    // ação no sucesso e na falha (antes, toda falha era gravada como 'CREATE',
+    // mesmo em PATCH/DELETE — trilha LGPD com ação incorreta).
+    const action = method === 'POST' ? 'CREATE'
+      : method === 'DELETE' ? 'DELETE' : 'UPDATE';
 
     return next.handle().pipe(
       tap({
         next: () => {
           if (!user) return;
-          const action = method === 'POST' ? 'CREATE'
-            : method === 'DELETE' ? 'DELETE' : 'UPDATE';
-
           this.auditService.log({
             workspaceId: user.workspaceId,
             userId: user.id,
@@ -46,9 +48,10 @@ export class AuditInterceptor implements NestInterceptor {
           this.auditService.log({
             workspaceId: user.workspaceId,
             userId: user.id,
-            action: 'CREATE',
+            action,
             resource: req.path,
             ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
             success: false,
             changes: { error: err?.message },
           });

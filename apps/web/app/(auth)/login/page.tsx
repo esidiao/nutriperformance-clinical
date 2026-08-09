@@ -40,12 +40,12 @@ function LoginForm() {
 
   if (!supabaseOrNull) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-accent p-4">
         <div className="w-full max-w-md text-center space-y-4">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-            <span className="text-white text-2xl font-bold">NP</span>
+          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <span className="text-primary-foreground text-2xl font-bold">NP</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">NutriPerformance Clinical</h1>
+          <h1 className="text-2xl font-bold text-foreground">NutriPerformance Clinical</h1>
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-left">
             <p className="text-red-800 font-semibold text-sm mb-2">⚠️ Configuração pendente</p>
             <p className="text-red-700 text-xs leading-relaxed">
@@ -170,14 +170,14 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-accent p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white text-2xl font-bold">NP</span>
+          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <span className="text-primary-foreground text-2xl font-bold">NP</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">NutriPerformance Clinical</h1>
-          <p className="text-gray-500 text-sm mt-1">Plataforma de apoio para profissionais de saúde</p>
+          <h1 className="text-2xl font-bold text-foreground">NutriPerformance Clinical</h1>
+          <p className="text-muted-foreground text-sm mt-1">Plataforma de apoio para profissionais de saúde</p>
         </div>
 
         <Card className="shadow-xl">
@@ -214,7 +214,7 @@ function LoginForm() {
                   <div className="flex items-center justify-between mb-1">
                     <Label htmlFor="password">Senha</Label>
                     <button type="button" onClick={() => switchMode('forgot')}
-                      className="text-xs text-blue-600 hover:underline">
+                      className="text-xs text-primary hover:underline">
                       Esqueci minha senha
                     </button>
                   </div>
@@ -226,10 +226,10 @@ function LoginForm() {
                 <Button type="submit" className="w-full" disabled={isLoading || isLocked}>
                   {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Entrando...</> : isLocked ? `Aguarde ${lockSecondsLeft}s...` : 'Entrar'}
                 </Button>
-                <p className="text-center text-xs text-gray-500">
+                <p className="text-center text-xs text-muted-foreground">
                   Não tem conta?{' '}
                   <button type="button" onClick={() => switchMode('register')}
-                    className="text-blue-600 hover:underline font-medium">
+                    className="text-primary hover:underline font-medium">
                     Criar conta
                   </button>
                 </p>
@@ -266,11 +266,11 @@ function LoginForm() {
                     className="mt-0.5 h-4 w-4 rounded flex-shrink-0"
                     required
                   />
-                  <span className="text-xs text-gray-600 leading-relaxed">
+                  <span className="text-xs text-muted-foreground leading-relaxed">
                     Li e aceito os{' '}
-                    <a href="/legal/terms" target="_blank" className="text-blue-600 hover:underline font-medium">Termos de Uso</a>
+                    <a href="/legal/terms" target="_blank" className="text-primary hover:underline font-medium">Termos de Uso</a>
                     {' '}e a{' '}
-                    <a href="/legal/privacy" target="_blank" className="text-blue-600 hover:underline font-medium">Política de Privacidade</a>,
+                    <a href="/legal/privacy" target="_blank" className="text-primary hover:underline font-medium">Política de Privacidade</a>,
                     incluindo o tratamento de dados conforme a <strong>LGPD (Lei 13.709/2018)</strong>.
                     Sou profissional habilitado pelo <strong>CFN ou CONFEF</strong>.
                   </span>
@@ -279,10 +279,10 @@ function LoginForm() {
                 <Button type="submit" className="w-full" disabled={isLoading || !termsAccepted}>
                   {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Criando conta...</> : 'Criar conta'}
                 </Button>
-                <p className="text-center text-xs text-gray-500">
+                <p className="text-center text-xs text-muted-foreground">
                   Já tem conta?{' '}
                   <button type="button" onClick={() => switchMode('login')}
-                    className="text-blue-600 hover:underline font-medium">
+                    className="text-primary hover:underline font-medium">
                     Entrar
                   </button>
                 </p>
@@ -302,9 +302,9 @@ function LoginForm() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</> : 'Enviar link de recuperação'}
                 </Button>
-                <p className="text-center text-xs text-gray-500">
+                <p className="text-center text-xs text-muted-foreground">
                   <button type="button" onClick={() => switchMode('login')}
-                    className="text-blue-600 hover:underline font-medium">
+                    className="text-primary hover:underline font-medium">
                     ← Voltar ao login
                   </button>
                 </p>
@@ -313,15 +313,15 @@ function LoginForm() {
           </CardContent>
         </Card>
 
-        <Alert className="border-blue-200 bg-blue-50">
-          <ShieldCheck className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800 text-xs leading-relaxed">
+        <Alert className="border-primary/25 bg-primary/5">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <AlertDescription className="text-foreground text-xs leading-relaxed">
             <strong>Plataforma segura.</strong> Dados protegidos por criptografia AES-256.
             Conforme LGPD (Lei 13.709/2018).
           </AlertDescription>
         </Alert>
 
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-muted-foreground">
           Ferramenta de apoio profissional. Não substitui avaliação clínica.
           <br />CFN · CONFEF · LGPD
         </p>
@@ -333,8 +333,8 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary to-accent">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     }>
       <LoginForm />

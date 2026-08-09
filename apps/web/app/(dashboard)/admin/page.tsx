@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,95 +11,139 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
 import { AuthGuard } from '@/components/AuthGuard';
+import { EmptyState } from '@/components/EmptyState';
 import Link from 'next/link';
 import {
-  Users, Coins, TrendingUp, Database, ShieldAlert,
-  AlertTriangle, BookOpen, Activity, RefreshCw, Search,
-  ChevronLeft, ChevronRight, MoreHorizontal, CheckCircle,
-  XCircle, Edit3, Shield,
+  Users, Coins, TrendingUp, AlertTriangle, BookOpen, Activity, Search,
+  ChevronLeft, ChevronRight, MoreHorizontal, CheckCircle, XCircle, Shield, Loader2,
 } from 'lucide-react';
 
-const metrics = {
-  totalWorkspaces: 47, activeWorkspaces: 43,
-  totalUsers: 189, totalPatients: 1240,
-  tokensConsumedThisMonth: 28750, mrr: 12350,
-  analyses: { interactions: 890, nutritional: 1240, physical: 780, bioavailability: 320, reports: 560 },
-  scientificBase: [
-    { category: 'Suplementação',             lastUpdated: '15/04/2026', daysAgo: 37, stale: false },
-    { category: 'Interações medicamentosas', lastUpdated: '18/03/2026', daysAgo: 65, stale: false },
-    { category: 'Biodisponibilidade',        lastUpdated: '10/01/2026', daysAgo: 132, stale: true },
-    { category: 'Diretrizes nutricionais',   lastUpdated: '02/02/2026', daysAgo: 109, stale: true },
-    { category: 'Valores laboratoriais',     lastUpdated: '20/05/2026', daysAgo: 2, stale: false },
-  ],
+const PLAN_BADGE: Record<string, string> = {
+  free_trial:       'bg-muted text-muted-foreground',
+  individual_basic: 'bg-secondary text-secondary-foreground',
+  individual_pro:   'bg-accent text-accent-foreground',
+  clinic:           'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  institutional:    'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
+};
+const PLAN_LABEL: Record<string, string> = {
+  free_trial: 'Trial', individual_basic: 'Básico', individual_pro: 'Profissional',
+  clinic: 'Clínica', institutional: 'Institucional',
 };
 
-type UserStatus = 'active' | 'suspended' | 'pending';
-type UserPlan = 'starter' | 'individual_pro' | 'clinic' | 'institutional';
+// Rótulos das operações registradas em token_transactions.operation.
+const OPERATION_LABEL: Record<string, string> = {
+  nutritional_assessment: 'Avaliação Nutricional',
+  physical_assessment: 'Avaliação Física',
+  interaction_analysis: 'Análise de Interações',
+  bioavailability_analysis: 'Biodisponibilidade',
+  report_generation: 'Relatórios Gerados',
+  assistant_query: 'Consultas ao Assistente',
+  lab_analysis: 'Análise Laboratorial',
+  supplementation_analysis: 'Análise de Suplementação',
+};
 
-interface WorkspaceUser {
-  id: string; name: string; email: string; plan: UserPlan;
-  tokensLeft: number; tokensTotal: number;
-  lastAccess: string; status: UserStatus;
-  usersCount: number; patientsCount: number;
+const PAGE_SIZE = 10;
+const BAR_COLORS = ['bg-primary', 'bg-emerald-500', 'bg-sky-500', 'bg-violet-500', 'bg-amber-500'];
+
+function fmtNum(n: number) {
+  return n.toLocaleString('pt-BR');
 }
 
-const MOCK_USERS: WorkspaceUser[] = [
-  { id: 'W1', name: 'Clínica Alpha',       email: 'admin@alpha.com.br',   plan: 'clinic',        tokensLeft: 850,  tokensTotal: 2000, lastAccess: 'Hoje',       status: 'active',    usersCount: 4, patientsCount: 87 },
-  { id: 'W2', name: 'Nutri Esportivo SP',  email: 'nutri@esportivo.com',  plan: 'individual_pro',tokensLeft: 420,  tokensTotal: 600,  lastAccess: 'Ontem',      status: 'active',    usersCount: 1, patientsCount: 34 },
-  { id: 'W3', name: 'Centro Beta',         email: 'adm@centrobeta.com.br',plan: 'clinic',        tokensLeft: 1200, tokensTotal: 2000, lastAccess: '20/05/2026', status: 'active',    usersCount: 3, patientsCount: 62 },
-  { id: 'W4', name: 'Academia Premium',    email: 'premium@acad.com',     plan: 'individual_pro',tokensLeft: 0,    tokensTotal: 600,  lastAccess: '15/05/2026', status: 'active',    usersCount: 1, patientsCount: 18 },
-  { id: 'W5', name: 'Dr. Carlos Melo',     email: 'carlos@nutrimelo.com', plan: 'starter',       tokensLeft: 40,   tokensTotal: 200,  lastAccess: '10/05/2026', status: 'active',    usersCount: 1, patientsCount: 7 },
-  { id: 'W6', name: 'Clínica Suspensos',   email: 'contato@suspenso.com', plan: 'individual_pro',tokensLeft: 0,    tokensTotal: 600,  lastAccess: '01/04/2026', status: 'suspended', usersCount: 1, patientsCount: 12 },
-  { id: 'W7', name: 'Hospital Institucional', email: 'ti@hospital.org.br',plan: 'institutional', tokensLeft: 7200, tokensTotal: 10000,lastAccess: 'Hoje',       status: 'active',    usersCount: 18, patientsCount: 340 },
-  { id: 'W8', name: 'Nutri Pendente',      email: 'novo@nutri.com',       plan: 'starter',       tokensLeft: 200,  tokensTotal: 200,  lastAccess: 'Nunca',      status: 'pending',   usersCount: 1, patientsCount: 0 },
-];
+function fmtDate(iso: string | null) {
+  return iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+}
 
-const PLAN_BADGE: Record<UserPlan, string> = {
-  starter:        'bg-gray-100 text-gray-600',
-  individual_pro: 'bg-blue-100 text-blue-700',
-  clinic:         'bg-purple-100 text-purple-700',
-  institutional:  'bg-amber-100 text-amber-700',
-};
-const PLAN_LABEL: Record<UserPlan, string> = {
-  starter: 'Starter', individual_pro: 'Profissional', clinic: 'Clínica', institutional: 'Institucional',
-};
-
-const PAGE_SIZE = 5;
-
-export default function AdminPage() {
-  const [search, setSearch]       = useState('');
-  const [planFilter, setPlanFilter] = useState<UserPlan | 'all'>('all');
-  const [page, setPage]           = useState(1);
-  const [users, setUsers]         = useState<WorkspaceUser[]>(MOCK_USERS);
+function AdminContent() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
 
-  const staleCategories = metrics.scientificBase.filter((s) => s.stale);
-
-  const filtered = users.filter((u) => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
-    const matchPlan = planFilter === 'all' || u.plan === planFilter;
-    return matchSearch && matchPlan;
+  const metricsQuery = useQuery({
+    queryKey: ['admin-metrics'],
+    queryFn: () => api.admin.metrics(),
   });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const healthQuery = useQuery({
+    queryKey: ['admin-scientific-health'],
+    queryFn: () => api.admin.scientificBaseHealth(),
+  });
 
-  const handleAction = (action: string, user: WorkspaceUser) => {
-    setActionMenu(null);
-    if (action === 'suspend') {
-      setUsers((us) => us.map((u) => u.id === user.id ? { ...u, status: 'suspended' as UserStatus } : u));
-      toast.warning(`Workspace "${user.name}" suspenso`);
-    } else if (action === 'activate') {
-      setUsers((us) => us.map((u) => u.id === user.id ? { ...u, status: 'active' as UserStatus } : u));
-      toast.success(`Workspace "${user.name}" reativado`);
-    } else if (action === 'tokens') {
-      toast.info(`Ajuste de tokens para "${user.name}" — em breve`);
-    }
+  const workspacesQuery = useQuery({
+    queryKey: ['admin-workspaces', page],
+    queryFn: () => api.admin.listWorkspaces({ page, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
+
+  const invalidateWorkspaces = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-workspaces'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-metrics'] });
   };
 
+  const suspendMutation = useMutation({
+    mutationFn: (id: string) => api.admin.suspendWorkspace(id),
+    onSuccess: (_d, id) => {
+      toast.warning(`Workspace suspenso (${id.slice(0, 8)})`);
+      invalidateWorkspaces();
+    },
+    onError: (e: Error) => toast.error(e.message ?? 'Falha ao suspender workspace'),
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => api.admin.reactivateWorkspace(id),
+    onSuccess: () => {
+      toast.success('Workspace reativado');
+      invalidateWorkspaces();
+    },
+    onError: (e: Error) => toast.error(e.message ?? 'Falha ao reativar workspace'),
+  });
+
+  const metrics = metricsQuery.data;
+  const health = healthQuery.data ?? [];
+  const staleCategories = health.filter((h) => h.isStale);
+
+  // Filtro local sobre a página corrente — a API pagina por data de criação.
+  const items = workspacesQuery.data?.items ?? [];
+  const filtered = items.filter((w) => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || w.name.toLowerCase().includes(q);
+    const matchPlan = planFilter === 'all' || w.plan === planFilter;
+    return matchSearch && matchPlan;
+  });
+  const totalPages = workspacesQuery.data?.pages ?? 1;
+
+  const moduleUsage = (metrics?.moduleUsage ?? []).slice(0, 6);
+  const maxUses = Math.max(1, ...moduleUsage.map((m) => Number(m.uses)));
+
+  const kpis = [
+    {
+      icon: Users, color: 'text-primary',
+      value: metrics ? fmtNum(metrics.totalWorkspaces) : '—',
+      sub: metrics ? `${fmtNum(metrics.activeWorkspaces)} ativos` : 'carregando…',
+      label: 'Workspaces',
+    },
+    {
+      icon: Users, color: 'text-emerald-500',
+      value: metrics ? fmtNum(metrics.totalUsers) : '—',
+      sub: metrics ? `${fmtNum(metrics.totalPatients)} pacientes` : 'carregando…',
+      label: 'Profissionais',
+    },
+    {
+      icon: Coins, color: 'text-amber-500',
+      value: metrics ? fmtNum(metrics.tokensConsumedThisMonth) : '—',
+      sub: 'tokens consumidos (mês)',
+      label: 'Tokens',
+    },
+    {
+      icon: TrendingUp, color: 'text-violet-500',
+      value: metrics ? `R$ ${fmtNum(metrics.mrrBrl)}` : '—',
+      sub: 'MRR dos planos ativos',
+      label: 'Receita',
+    },
+  ];
+
   return (
-    <AuthGuard requiredRole="admin">
     <div className="flex flex-col min-h-full">
       <PageHeader
         title="Painel Administrativo"
@@ -113,10 +159,20 @@ export default function AdminPage() {
       />
 
       <div className="px-4 py-5 sm:p-6 max-w-6xl mx-auto w-full space-y-6 flex-1">
+        {metricsQuery.isError && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              Não foi possível carregar as métricas administrativas:{' '}
+              {(metricsQuery.error as Error)?.message ?? 'erro desconhecido'}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {staleCategories.length > 0 && (
-          <Alert className="border-red-200 bg-red-50 dark:bg-red-950">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800 dark:text-red-300 text-sm">
+          <Alert className="border-destructive/30 bg-destructive/10">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <AlertDescription className="text-sm">
               <strong>Base científica desatualizada:</strong>{' '}
               {staleCategories.map((s) => s.category).join(', ')} — mais de 90 dias sem atualização.
             </AlertDescription>
@@ -125,19 +181,14 @@ export default function AdminPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { icon: Users,     color: 'text-blue-500',   value: metrics.totalWorkspaces,              sub: `${metrics.activeWorkspaces} ativos`,         label: 'Workspaces' },
-            { icon: Users,     color: 'text-green-500',  value: metrics.totalUsers,                   sub: `${metrics.totalPatients.toLocaleString('pt-BR')} pacientes`, label: 'Profissionais' },
-            { icon: Coins,     color: 'text-yellow-500', value: metrics.tokensConsumedThisMonth.toLocaleString('pt-BR'), sub: 'tokens consumidos (mês)', label: 'Tokens' },
-            { icon: TrendingUp, color: 'text-purple-500', value: `R$ ${metrics.mrr.toLocaleString('pt-BR')}`, sub: 'MRR estimado', label: 'Receita' },
-          ].map((kpi, i) => (
-            <Card key={i}>
+          {kpis.map((kpi) => (
+            <Card key={kpi.label}>
               <CardContent className="pt-5">
                 <div className="flex items-center gap-3">
-                  <kpi.icon className={`h-6 w-6 ${kpi.color} flex-shrink-0`} />
+                  <kpi.icon className={`h-6 w-6 ${kpi.color} flex-shrink-0`} aria-hidden="true" />
                   <div>
-                    <p className="text-2xl font-black text-gray-900 dark:text-white">{kpi.value}</p>
-                    <p className="text-xs text-gray-500">{kpi.sub}</p>
+                    <p className="text-2xl font-black text-foreground">{kpi.value}</p>
+                    <p className="text-xs text-muted-foreground">{kpi.sub}</p>
                   </div>
                 </div>
               </CardContent>
@@ -145,31 +196,32 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Analysis chart + Scientific base */}
+        {/* Uso por módulo + Base científica */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Activity className="h-4 w-4" /> Análises por Módulo (30 dias)
+                <Activity className="h-4 w-4" aria-hidden="true" /> Uso por Módulo (30 dias)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {[
-                { label: 'Avaliação Nutricional', count: metrics.analyses.nutritional, color: 'bg-green-500' },
-                { label: 'Análise de Interações', count: metrics.analyses.interactions, color: 'bg-red-400' },
-                { label: 'Avaliação Física',      count: metrics.analyses.physical,     color: 'bg-blue-400' },
-                { label: 'Relatórios Gerados',    count: metrics.analyses.reports,      color: 'bg-purple-400' },
-                { label: 'Biodisponibilidade',    count: metrics.analyses.bioavailability, color: 'bg-yellow-400' },
-              ].map((item) => {
-                const max = Math.max(...Object.values(metrics.analyses));
+              {metricsQuery.isLoading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+              ) : moduleUsage.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-4 text-center">
+                  Nenhum consumo registrado nos últimos 30 dias.
+                </p>
+              ) : moduleUsage.map((item, i) => {
+                const uses = Number(item.uses);
                 return (
-                  <div key={item.label} className="space-y-1">
+                  <div key={item.operation} className="space-y-1">
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
-                      <span className="font-bold text-gray-800 dark:text-gray-200">{item.count}</span>
+                      <span className="text-muted-foreground">{OPERATION_LABEL[item.operation] ?? item.operation}</span>
+                      <span className="font-bold text-foreground">{fmtNum(uses)}</span>
                     </div>
-                    <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                      <div className={`h-full ${item.color} rounded-full`} style={{ width: `${(item.count / max) * 100}%` }} />
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className={`h-full ${BAR_COLORS[i % BAR_COLORS.length]} rounded-full`}
+                        style={{ width: `${(uses / maxUses) * 100}%` }} />
                     </div>
                   </div>
                 );
@@ -178,24 +230,29 @@ export default function AdminPage() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <BookOpen className="h-4 w-4" /> Base Científica
+                <BookOpen className="h-4 w-4" aria-hidden="true" /> Base Científica
               </CardTitle>
-              <Button size="sm" variant="outline" className="text-xs flex items-center gap-1" onClick={() => toast.info('Atualização agendada')}>
-                <RefreshCw className="h-3 w-3" /> Atualizar
-              </Button>
             </CardHeader>
             <CardContent className="space-y-2">
-              {metrics.scientificBase.map((item) => (
-                <div key={item.category} className="flex items-center justify-between py-2 border-b dark:border-gray-800 last:border-0">
+              {healthQuery.isLoading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+              ) : health.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-4 text-center">
+                  Nenhuma categoria registrada em <code>scientific_base_health</code>.
+                </p>
+              ) : health.map((item) => (
+                <div key={item.category} className="flex items-center justify-between py-2 border-b last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.category}</p>
-                    <p className="text-xs text-gray-400">{item.lastUpdated}</p>
+                    <p className="text-sm font-medium text-foreground">{item.category}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtDate(item.lastUpdatedAt)} · {fmtNum(item.totalReferences ?? 0)} referências
+                    </p>
                   </div>
-                  {item.stale
-                    ? <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{item.daysAgo}d</Badge>
-                    : <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">OK · {item.daysAgo}d</Badge>
+                  {item.isStale
+                    ? <Badge variant="outline" className="text-xs border-destructive/40 text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{item.daysSinceUpdate}d</Badge>
+                    : <Badge variant="outline" className="text-xs border-primary/40 text-primary">OK · {item.daysSinceUpdate}d</Badge>
                   }
                 </div>
               ))}
@@ -203,121 +260,160 @@ export default function AdminPage() {
           </Card>
         </div>
 
-        {/* Users table */}
+        {/* Workspaces */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2"><Users className="h-4 w-4" /> Workspaces</span>
-              <span className="text-xs text-gray-400 font-normal">{filtered.length} total</span>
+              <span className="flex items-center gap-2"><Users className="h-4 w-4" aria-hidden="true" /> Workspaces</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                {fmtNum(workspacesQuery.data?.total ?? 0)} total
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Filters */}
+            {/* Filtros */}
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Buscar por nome ou email..." className="pl-9 h-9 text-sm" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <Input value={search} onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por nome nesta página..." className="pl-9 h-9 text-sm"
+                  aria-label="Buscar workspace por nome" />
               </div>
               <div className="flex gap-1.5 flex-wrap">
-                {(['all', 'starter', 'individual_pro', 'clinic', 'institutional'] as const).map((plan) => (
-                  <button key={plan} onClick={() => { setPlanFilter(plan); setPage(1); }}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${planFilter === plan ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}>
-                    {plan === 'all' ? 'Todos' : plan === 'individual_pro' ? 'Profissional' : plan.charAt(0).toUpperCase() + plan.slice(1)}
+                {(['all', 'free_trial', 'individual_basic', 'individual_pro', 'clinic', 'institutional'] as const).map((plan) => (
+                  <button key={plan} onClick={() => setPlanFilter(plan)}
+                    aria-pressed={planFilter === plan}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      planFilter === plan
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card text-muted-foreground hover:border-foreground/30'
+                    }`}>
+                    {plan === 'all' ? 'Todos' : PLAN_LABEL[plan] ?? plan}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto rounded-xl border dark:border-gray-800">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    {['Workspace', 'Plano', 'Tokens', 'Pacientes', 'Último acesso', 'Status', ''].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {paged.map((u) => {
-                    const tokenPct = Math.round((u.tokensLeft / u.tokensTotal) * 100);
-                    const tokenColor = tokenPct > 40 ? 'bg-blue-400' : tokenPct > 15 ? 'bg-yellow-400' : 'bg-red-400';
-                    return (
-                      <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-gray-800 dark:text-gray-200">{u.name}</p>
-                          <p className="text-xs text-gray-400">{u.email}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_BADGE[u.plan]}`}>
-                            {PLAN_LABEL[u.plan]}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{u.tokensLeft.toLocaleString('pt-BR')}</p>
-                          <div className="w-16 h-1 bg-gray-200 dark:bg-gray-700 rounded-full mt-1 overflow-hidden">
-                            <div className={`h-full ${tokenColor} rounded-full`} style={{ width: `${tokenPct}%` }} />
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{u.patientsCount}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{u.lastAccess}</td>
-                        <td className="px-4 py-3">
-                          {u.status === 'active'    && <span className="flex items-center gap-1 text-xs text-green-600"><CheckCircle className="h-3 w-3" />Ativo</span>}
-                          {u.status === 'suspended' && <span className="flex items-center gap-1 text-xs text-red-600"><XCircle className="h-3 w-3" />Suspenso</span>}
-                          {u.status === 'pending'   && <span className="flex items-center gap-1 text-xs text-yellow-600"><AlertTriangle className="h-3 w-3" />Pendente</span>}
-                        </td>
-                        <td className="px-4 py-3 relative">
-                          <button onClick={() => setActionMenu(actionMenu === u.id ? null : u.id)}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                          {actionMenu === u.id && (
-                            <div className="absolute right-4 top-10 bg-white dark:bg-gray-900 rounded-xl shadow-lg border dark:border-gray-700 z-20 overflow-hidden w-44">
-                              <button onClick={() => handleAction('tokens', u)} className="w-full px-4 py-2.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2">
-                                <Coins className="h-3 w-3 text-blue-500" /> Ajustar tokens
-                              </button>
-                              {u.status !== 'suspended'
-                                ? <button onClick={() => handleAction('suspend', u)} className="w-full px-4 py-2.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-800 text-red-600 flex items-center gap-2">
-                                    <XCircle className="h-3 w-3" /> Suspender
+            {/* Tabela */}
+            {workspacesQuery.isLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            ) : workspacesQuery.isError ? (
+              <EmptyState
+                icon="⚠️"
+                title="Não foi possível carregar os workspaces"
+                description={(workspacesQuery.error as Error)?.message ?? 'Tente novamente em instantes.'}
+              />
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                icon="🏢"
+                title="Nenhum workspace encontrado"
+                description="Ajuste os filtros ou navegue para outra página."
+              />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">Workspaces cadastrados na plataforma</caption>
+                  <thead className="bg-muted/50">
+                    <tr>
+                      {['Workspace', 'Plano', 'Tokens', 'Usuários', 'Pacientes', 'Criado em', 'Status', 'Ações'].map((h) => (
+                        <th key={h} scope="col" className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">
+                          {h === 'Ações' ? <span className="sr-only">Ações</span> : h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filtered.map((w) => {
+                      const isBusy = suspendMutation.isPending || reactivateMutation.isPending;
+                      return (
+                        <tr key={w.id} className="hover:bg-muted/40 transition-colors">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-foreground">{w.name}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{w.id.slice(0, 8)}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_BADGE[w.plan] ?? 'bg-muted text-muted-foreground'}`}>
+                              {PLAN_LABEL[w.plan] ?? w.plan}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs font-bold text-foreground">{fmtNum(Number(w.token_balance))}</p>
+                            {Number(w.token_reserved) > 0 && (
+                              <p className="text-xs text-muted-foreground">{fmtNum(Number(w.token_reserved))} reservados</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">{w.user_count}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">{w.patient_count}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">{fmtDate(w.created_at)}</td>
+                          <td className="px-4 py-3">
+                            {w.is_active
+                              ? <span className="flex items-center gap-1 text-xs text-primary"><CheckCircle className="h-3 w-3" aria-hidden="true" />Ativo</span>
+                              : <span className="flex items-center gap-1 text-xs text-destructive"><XCircle className="h-3 w-3" aria-hidden="true" />Suspenso</span>
+                            }
+                          </td>
+                          <td className="px-4 py-3 relative">
+                            <button onClick={() => setActionMenu(actionMenu === w.id ? null : w.id)}
+                              aria-label={`Ações para o workspace ${w.name}`}
+                              aria-expanded={actionMenu === w.id}
+                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
+                              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            {actionMenu === w.id && (
+                              <div className="absolute right-4 top-10 bg-popover rounded-xl shadow-lg border z-20 overflow-hidden w-44">
+                                {w.is_active ? (
+                                  <button
+                                    onClick={() => { setActionMenu(null); suspendMutation.mutate(w.id); }}
+                                    disabled={isBusy}
+                                    className="w-full px-4 py-2.5 text-xs text-left hover:bg-muted text-destructive flex items-center gap-2 disabled:opacity-50">
+                                    <XCircle className="h-3 w-3" aria-hidden="true" /> Suspender
                                   </button>
-                                : <button onClick={() => handleAction('activate', u)} className="w-full px-4 py-2.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-800 text-green-600 flex items-center gap-2">
-                                    <CheckCircle className="h-3 w-3" /> Reativar
+                                ) : (
+                                  <button
+                                    onClick={() => { setActionMenu(null); reactivateMutation.mutate(w.id); }}
+                                    disabled={isBusy}
+                                    className="w-full px-4 py-2.5 text-xs text-left hover:bg-muted text-primary flex items-center gap-2 disabled:opacity-50">
+                                    <CheckCircle className="h-3 w-3" aria-hidden="true" /> Reativar
                                   </button>
-                              }
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-            {/* Pagination */}
+            {/* Paginação */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
-                <p className="text-xs text-gray-400">
-                  Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+                <p className="text-xs text-muted-foreground">
+                  Página {page} de {totalPages} · {fmtNum(workspacesQuery.data?.total ?? 0)} workspaces
                 </p>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1}
                     aria-label="Página anterior"
-                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30">
-                    <ChevronLeft className="h-4 w-4" />
+                    className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30">
+                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                    <button key={p} onClick={() => setPage(p)}
-                      aria-label={`Ir para página ${p}`}
-                      aria-current={p === page ? 'page' : undefined}
-                      className={`w-7 h-7 text-xs rounded-lg transition-colors ${p === page ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600'}`}>
-                      {p}
-                    </button>
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => Math.abs(p - page) <= 2)
+                    .map((p) => (
+                      <button key={p} onClick={() => setPage(p)}
+                        aria-label={`Ir para página ${p}`}
+                        aria-current={p === page ? 'page' : undefined}
+                        className={`w-7 h-7 text-xs rounded-lg transition-colors ${
+                          p === page ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'
+                        }`}>
+                        {p}
+                      </button>
+                    ))}
                   <button onClick={() => setPage((p) => Math.min(p + 1, totalPages))} disabled={page === totalPages}
                     aria-label="Próxima página"
-                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30">
-                    <ChevronRight className="h-4 w-4" />
+                    className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30">
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -326,6 +422,13 @@ export default function AdminPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <AuthGuard requiredRole="admin">
+      <AdminContent />
     </AuthGuard>
   );
 }

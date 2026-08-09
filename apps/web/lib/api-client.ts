@@ -161,6 +161,62 @@ export const api = {
     costs: () => api.get<any[]>('/tokens/costs'),
   },
 
+  // Painel administrativo (role admin / institutional_manager)
+  admin: {
+    metrics: () => api.get<{
+      totalWorkspaces: number; activeWorkspaces: number;
+      totalUsers: number; activeUsers: number;
+      totalPatients: number; tokensConsumedThisMonth: number; mrrBrl: number;
+      moduleUsage: Array<{ operation: string; uses: string; tokens_consumed: string }>;
+    }>('/admin/metrics'),
+
+    listWorkspaces: (params?: { page?: number; limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.page) qs.set('page', String(params.page));
+      if (params?.limit) qs.set('limit', String(params.limit));
+      const query = qs.toString();
+      return api.get<{
+        items: Array<{
+          id: string; name: string; plan: string; token_balance: number; token_reserved: number;
+          is_active: boolean; created_at: string; user_count: string; patient_count: string;
+        }>;
+        total: number; page: number; limit: number; pages: number;
+      }>(`/admin/workspaces${query ? `?${query}` : ''}`);
+    },
+
+    adjustTokens: (workspaceId: string, amount: number, reason: string) =>
+      api.patch<any>(`/admin/workspaces/${workspaceId}/tokens`, { amount, reason }),
+    suspendWorkspace: (workspaceId: string) =>
+      api.patch<any>(`/admin/workspaces/${workspaceId}/suspend`),
+    reactivateWorkspace: (workspaceId: string) =>
+      api.patch<any>(`/admin/workspaces/${workspaceId}/reactivate`),
+
+    auditLogs: (params?: {
+      page?: number; limit?: number; workspaceId?: string;
+      userId?: string; resource?: string; from?: string; to?: string;
+    }) => {
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(params ?? {})) {
+        if (v !== undefined && v !== '') qs.set(k, String(v));
+      }
+      const query = qs.toString();
+      return api.get<{
+        items: Array<{
+          id: string; workspace_id: string | null; user_id: string | null;
+          patient_id: string | null; action: string; resource: string;
+          resource_id: string | null; ip_address: string | null;
+          success: boolean; created_at: string; user_email: string | null;
+        }>;
+        total: number; page: number; limit: number; pages: number;
+      }>(`/admin/audit-logs${query ? `?${query}` : ''}`);
+    },
+
+    scientificBaseHealth: () => api.get<Array<{
+      category: string; lastUpdatedAt: string; daysSinceUpdate: number;
+      isStale: boolean; totalReferences: number; highEvidenceCount: number;
+    }>>('/admin/scientific-base/health'),
+  },
+
   // Curadoria / governança das bases (admin)
   curation: {
     overview: () => api.get<{

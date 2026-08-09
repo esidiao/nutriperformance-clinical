@@ -1,5 +1,6 @@
 import {
   Controller, Get, Patch, Post, Param, Body, Query, Request, UseGuards,
+  ParseUUIDPipe, NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -8,6 +9,17 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminOnly } from '../../common/decorators';
 import { ScientificBaseService } from '../scientific-base/scientific-base.service';
 import { TokenService } from '../tokens/token.service';
+import {
+  ListWorkspacesQueryDto, AuditLogsQueryDto, AdjustTokensDto, UpdateTokenCostDto,
+} from './dto/admin-query.dto';
+
+// Colunas expostas do workspace — evita devolver `settings` (jsonb que pode
+// guardar credenciais de integração) num SELECT *.
+const WORKSPACE_COLUMNS = `id, name, slug, cnpj, logo_url, plan, token_balance,
+  token_reserved, is_active, trial_ends_at, created_at, updated_at`;
+
+const AUDIT_LOG_COLUMNS = `id, workspace_id, user_id, patient_id, action, resource,
+  resource_id, ip_address, success, created_at`;
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -32,8 +44,16 @@ export class AdminController {
       [mrr],
       moduleUsage,
     ] = await Promise.all([
-      this.db.query(`SELECT COUNT(*) FROM workspaces WHERE is_active = true`),
-      this.db.query(`SELECT COUNT(*) FROM users WHERE is_active = true`),
+      this.db.query(`
+        SELECT COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE is_active = true) AS active
+        FROM workspaces
+      `),
+      this.db.query(`
+        SELECT COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE is_active = true) AS active
+        FROM users
+      `),
       this.db.query(`SELECT COUNT(*) FROM patients WHERE deleted_at IS NULL`),
       this.db.query(`
         SELECT COALESCE(SUM(ABS(amount)), 0) AS total
@@ -56,8 +76,10 @@ export class AdminController {
     ]);
 
     return {
-      activeWorkspaces: Number(workspaces.count),
-      activeUsers: Number(users.count),
+      totalWorkspaces: Number(workspaces.total),
+      activeWorkspaces: Number(workspaces.active),
+      totalUsers: Number(users.total),
+      activeUsers: Number(users.active),
       totalPatients: Number(patients.count),
       tokensConsumedThisMonth: Number(tokensThisMonth.total),
       mrrBrl: Number(mrr.mrr),
@@ -66,79 +88,93 @@ export class AdminController {
   }
 
   @Get('workspaces')
-  async listWorkspaces(
-    @Query('page') page = '1',
-    @Query('limit') limit = '20',
-  ) {
-    const offset = (Number(page) - 1) * Number(limit);
-    return this.db.query(
-      `SELECT id, name, plan, token_balance, token_reserved, is_active, created_at,
-              (SELECT COUNT(*) FROM users u WHERE u.workspace_id = w.id) AS user_count,
-              (SELECT COUNT(*) FROM patients p WHERE p.workspace_id = w.id AND p.deleted_at IS NULL) AS patient_count
-       FROM workspaces w
-       ORDER BY created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [Number(limit), offset],
-    );
+  async listWorkspaces(@Query() query: ListWorkspacesQueryDto) {
+    const { page, limit } = query;
+    const offset = (page - 1) * limit;
+    const [items, [count]] = await Promise.all([
+      this.db.query(
+        `SELECT id, name, plan, token_balance, token_reserved, is_active, created_at,
+                (SELECT COUNT(*) FROM users u WHERE u.workspace_id = w.id) AS user_count,
+                (SELECT COUNT(*) FROM patients p WHERE p.workspace_id = w.id AND p.deleted_at IS NULL) AS patient_count
+         FROM workspaces w
+         ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset],
+      ),
+      this.db.query(`SELECT COUNT(*) AS total FROM workspaces`),
+    ]);
+    const total = Number(count.total);
+    return { items, total, page, limit, pages: Math.max(1, Math.ceil(total / limit)) };
   }
 
   @Get('workspaces/:id')
-  async getWorkspace(@Param('id') id: string) {
+  async getWorkspace(@Param('id', ParseUUIDPipe) id: string) {
     const [ws] = await this.db.query(
-      `SELECT * FROM workspaces WHERE id = $1`, [id],
+      `SELECT ${WORKSPACE_COLUMNS} FROM workspaces WHERE id = $1`, [id],
     );
+    if (!ws) throw new NotFoundException('Workspace não encontrado');
     return ws;
   }
 
   @Patch('workspaces/:id/tokens')
   async adjustTokens(
-    @Param('id') workspaceId: string,
+    @Param('id', ParseUUIDPipe) workspaceId: string,
     @Request() req: any,
-    @Body('amount') amount: number,
-    @Body('reason') reason: string,
+    @Body() dto: AdjustTokensDto,
   ) {
-    return this.tokenService.adminAdjust({ workspaceId, amount, reason, adminUserId: req.user.sub });
+    return this.tokenService.adminAdjust({
+      workspaceId,
+      amount: dto.amount,
+      reason: dto.reason,
+      adminUserId: req.user.sub,
+    });
   }
 
   @Patch('workspaces/:id/suspend')
-  async suspendWorkspace(@Param('id') id: string) {
+  async suspendWorkspace(@Param('id', ParseUUIDPipe) id: string) {
     await this.db.query(`UPDATE workspaces SET is_active = false WHERE id = $1`, [id]);
     return { success: true };
   }
 
   @Patch('workspaces/:id/reactivate')
-  async reactivateWorkspace(@Param('id') id: string) {
+  async reactivateWorkspace(@Param('id', ParseUUIDPipe) id: string) {
     await this.db.query(`UPDATE workspaces SET is_active = true WHERE id = $1`, [id]);
     return { success: true };
   }
 
   @Get('audit-logs')
-  async getAuditLogs(
-    @Query('workspaceId') workspaceId?: string,
-    @Query('userId') userId?: string,
-    @Query('resource') resource?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('page') page = '1',
-  ) {
-    const limit = 100;
-    const offset = (Number(page) - 1) * limit;
+  async getAuditLogs(@Query() query: AuditLogsQueryDto) {
+    const { page, limit, workspaceId, userId, resource, from, to } = query;
+    const offset = (page - 1) * limit;
     const params: unknown[] = [];
     const conditions: string[] = [];
 
-    if (workspaceId) { params.push(workspaceId); conditions.push(`workspace_id = $${params.length}`); }
-    if (userId) { params.push(userId); conditions.push(`user_id = $${params.length}`); }
-    if (resource) { params.push(resource); conditions.push(`resource = $${params.length}`); }
-    if (from) { params.push(from); conditions.push(`created_at >= $${params.length}`); }
-    if (to) { params.push(to); conditions.push(`created_at <= $${params.length}`); }
+    if (workspaceId) { params.push(workspaceId); conditions.push(`l.workspace_id = $${params.length}`); }
+    if (userId) { params.push(userId); conditions.push(`l.user_id = $${params.length}`); }
+    if (resource) { params.push(resource); conditions.push(`l.resource = $${params.length}`); }
+    if (from) { params.push(from); conditions.push(`l.created_at >= $${params.length}`); }
+    if (to) { params.push(to); conditions.push(`l.created_at <= $${params.length}`); }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    params.push(limit, offset);
 
-    return this.db.query(
-      `SELECT * FROM audit_logs ${where} ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
-      params,
-    );
+    // Total e página em paralelo — a contagem não depende do LIMIT/OFFSET.
+    const [items, [count]] = await Promise.all([
+      this.db.query(
+        `SELECT ${AUDIT_LOG_COLUMNS.split(',').map(c => `l.${c.trim()}`).join(', ')}, u.email AS user_email
+         FROM audit_logs l
+         -- audit_logs.user_id guarda o UID do Supabase (req.user.sub),
+         -- que corresponde a users.auth_id — não a users.id.
+         LEFT JOIN users u ON u.auth_id = l.user_id
+         ${where}
+         ORDER BY l.created_at DESC
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, offset],
+      ),
+      this.db.query(`SELECT COUNT(*) AS total FROM audit_logs l ${where}`, params),
+    ]);
+
+    const total = Number(count.total);
+    return { items, total, page, limit, pages: Math.max(1, Math.ceil(total / limit)) };
   }
 
   @Get('scientific-base/health')
@@ -159,12 +195,13 @@ export class AdminController {
   @Patch('token-costs/:operation')
   async updateTokenCost(
     @Param('operation') operation: string,
-    @Body('tokensCost') tokensCost: number,
+    @Body() dto: UpdateTokenCostDto,
   ) {
-    await this.db.query(
-      `UPDATE token_costs SET tokens_cost = $1 WHERE operation = $2`,
-      [tokensCost, operation],
+    const result = await this.db.query(
+      `UPDATE token_costs SET tokens_cost = $1 WHERE operation = $2 RETURNING operation`,
+      [dto.tokensCost, operation],
     );
+    if (!result?.length) throw new NotFoundException(`Operação '${operation}' não encontrada`);
     return { success: true };
   }
 }
