@@ -4,7 +4,8 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString, MinLength, MaxLength, IsInt, IsOptional, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { ClinicalStaff, AdminOnly } from '../../common/decorators';
+import { CronSecretGuard } from '../../common/guards/cron-secret.guard';
+import { ClinicalStaff, Public } from '../../common/decorators';
 import { RagService } from './rag.service';
 import { RagSyncService } from './rag-sync.service';
 
@@ -43,14 +44,19 @@ export class RagController {
    *
    * O `@Cron(EVERY_WEEK)` do RagSyncService só roda com o processo vivo, e no
    * plano gratuito do Render a instância hiberna sem tráfego — na prática o
-   * agendamento semanal não dispara. Este endpoint permite acioná-lo de fora
-   * (cron externo ou manualmente pelo painel), mantendo o mesmo advisory lock
-   * que impede execução concorrente.
+   * agendamento semanal não dispara. Quem aciona é o workflow
+   * `.github/workflows/rag-sync.yml`, semanalmente.
+   *
+   * Autenticada por segredo compartilhado (`X-Cron-Secret`) em vez de JWT: um
+   * agendador não sustenta um token do Supabase, que expira em ~1h. `@Public()`
+   * é obrigatório para escapar do JwtAuthGuard global — o CronSecretGuard passa
+   * a ser a única barreira e falha fechado se `CRON_SECRET` não estiver setado.
    */
   @Post('sync')
-  @AdminOnly()
+  @Public()
+  @UseGuards(CronSecretGuard)
   @Throttle({ default: { limit: 2, ttl: 60000 } })
-  @ApiOperation({ summary: 'Indexa no RAG os alimentos ainda sem chunk (idempotente)' })
+  @ApiOperation({ summary: 'Indexa no RAG os alimentos ainda sem chunk (idempotente) — requer X-Cron-Secret' })
   async sync(@Body() dto: SyncDto) {
     const result = await this.ragSyncService.syncMissingFoods(dto.limit);
     return result ?? { skipped: true, reason: 'Sync já em execução' };

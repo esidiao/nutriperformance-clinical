@@ -1,0 +1,107 @@
+name: RAG sync semanal
+
+# O @Cron(EVERY_WEEK) do RagSyncService só dispara com o processo vivo, e a API
+# roda no plano gratuito do Render, que hiberna após ~15 min sem tráfego. Na
+# prática o agendamento in-process nunca rodava — quem aciona é este workflow.
+on:
+  schedule:
+    # Segundas às 06:10 UTC (03:10 em Brasília) — fora do horário de uso.
+    # Minuto propositalmente não redondo: no topo da hora a fila do GitHub
+    # Actions congestiona e agendamentos atrasam.
+    - cron: '10 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Máximo de alimentos a indexar nesta execução (1-500)'
+        required: false
+        default: '100'
+
+# Duas execuções simultâneas seriam barradas pelo advisory lock no Postgres,
+# mas a segunda voltaria "skipped" e mascararia o resultado.
+concurrency:
+  group: rag-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Validar segredos
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          [ -n "$API_URL" ]     || { echo "::error::Secret API_URL não configurado"; exit 1; }
+          [ -n "$CRON_SECRET" ] || { echo "::error::Secret CRON_SECRET não configurado"; exit 1; }
+          echo "Alvo: ${API_URL}"
+
+      # A instância está hibernando. Acorda antes para que o POST de sync não
+      # gaste seu próprio orçamento esperando o container subir.
+      - name: Acordar a API
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "${API_URL}/health" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "API respondeu 200 na tentativa ${attempt}."
+              exit 0
+            fi
+            echo "Tentativa ${attempt}: HTTP ${code} — aguardando cold start..."
+            sleep 15
+          done
+          echo "::error::A API não respondeu 200 em /health após 6 tentativas"
+          exit 1
+
+      - name: Disparar sync do RAG
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          LIMIT: ${{ github.event.inputs.limit || '100' }}
+        run: |
+          set -euo pipefail
+
+          # -D separa headers do corpo: o status sai por --write-out, sem que
+          # um corpo malformado atrapalhe o parsing.
+          status=$(curl -s -X POST "${API_URL}/assistant/sync" \
+            -H 'Content-Type: application/json' \
+            -H "X-Cron-Secret: ${CRON_SECRET}" \
+            -d "{\"limit\": ${LIMIT}}" \
+            --max-time 600 \
+            -o resposta.json \
+            -w '%{http_code}')
+
+          echo "HTTP ${status}"
+          cat resposta.json || true
+          echo
+
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            echo "::error::Sync falhou com HTTP ${status}"
+            exit 1
+          fi
+
+          # Resumo na aba do run, sem precisar abrir os logs.
+          {
+            echo "### RAG sync"
+            echo ''
+            echo '```json'
+            cat resposta.json
+            echo ''
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Falhas de indexação não derrubam o job (o lote é parcial por
+          # design), mas precisam ficar visíveis.
+          falhas=$(node -e "
+            try {
+              const r = JSON.parse(require('fs').readFileSync('resposta.json', 'utf8'));
+              process.stdout.write(String(r.falhas ?? 0));
+            } catch { process.stdout.write('0'); }
+          ")
+          if [ "$falhas" != "0" ]; then
+            echo "::warning::${falhas} alimento(s) falharam ao indexar — ver logs da API"
+          fi

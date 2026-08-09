@@ -75,6 +75,13 @@ services:
       - key: MP_WEBHOOK_SECRET
         sync: false
 
+      # Segredo compartilhado com o workflow .github/workflows/rag-sync.yml,
+      # que autentica POST /assistant/sync. Sem ele a rota fica FECHADA (o
+      # CronSecretGuard falha fechado) — o sync simplesmente não roda.
+      # Gerar com: openssl rand -hex 32
+      - key: CRON_SECRET
+        sync: false
+
       # ---- Opcionais ---------------------------------------------------------
       # Sem USDA_API_KEY o /foods/usda cai em DEMO_KEY (~30 req/h).
       - key: USDA_API_KEY
