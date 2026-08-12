@@ -3,7 +3,9 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, IsNumber, IsBoolean, ValidateNested } from 'class-validator';
+import {
+  IsArray, IsOptional, IsString, IsNumber, IsBoolean, IsNotEmpty, MaxLength, ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { Response } from 'express';
 import { InteractionService } from './interaction.service';
@@ -35,6 +37,18 @@ class AnalyzeInteractionsDto {
   @IsString() patientGender: string;
   @IsOptional() @IsBoolean() isPregnant?: boolean;
   @IsOptional() @IsBoolean() isBreastfeeding?: boolean;
+}
+
+/**
+ * Corpo do PATCH :id/review. Precisa ser classe, não interface: o
+ * ValidationPipe global (whitelist + forbidNonWhitelisted) só enxerga
+ * metadados de class-validator, então uma interface deixaria o campo passar
+ * sem validação nenhuma.
+ */
+class ProfessionalReviewDto {
+  @IsString() @IsNotEmpty({ message: 'A revisão profissional não pode ser vazia' })
+  @MaxLength(5000)
+  review: string;
 }
 
 @ApiTags('interactions')
@@ -144,9 +158,8 @@ Se não houver evidência suficiente para afirmar uma interação, declare expli
   @Get(':patientId')
   @ClinicalStaff()
   @ApiOperation({ summary: 'Histórico de análises de interações do paciente' })
-  async getHistory(@Param('patientId') patientId: string) {
-    // Retornado pelo repositório via service — simplificado aqui
-    return { patientId, analyses: [] };
+  async getHistory(@Param('patientId') patientId: string, @Req() req: any) {
+    return this.interactionService.findByPatient(req.user.workspaceId, patientId);
   }
 
   @Patch(':id/review')
@@ -154,9 +167,14 @@ Se não houver evidência suficiente para afirmar uma interação, declare expli
   @ApiOperation({ summary: 'Registrar revisão profissional da análise' })
   async addProfessionalReview(
     @Param('id') id: string,
-    @Body() body: { review: string },
+    @Body() body: ProfessionalReviewDto,
     @Req() req: any,
   ) {
-    return { id, review: body.review, reviewedBy: req.user.id, reviewedAt: new Date() };
+    return this.interactionService.addProfessionalReview({
+      workspaceId: req.user.workspaceId,
+      userId: req.user.id,
+      id,
+      review: body.review,
+    });
   }
 }

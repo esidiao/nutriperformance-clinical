@@ -83,4 +83,95 @@ describe('InteractionService — local evidence base', () => {
       expect(results.length).toBeGreaterThan(0);
     });
   });
+
+  describe('findByPatient', () => {
+    it('escopa a busca ao workspace do chamador', async () => {
+      mockRepo.find.mockResolvedValueOnce([]);
+      await service.findByPatient('ws-1', 'pac-1');
+
+      expect(mockRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { workspaceId: 'ws-1', patientId: 'pac-1' } }),
+      );
+    });
+
+    it('limita o histórico mesmo se pedirem um limite absurdo', async () => {
+      mockRepo.find.mockResolvedValueOnce([]);
+      await service.findByPatient('ws-1', 'pac-1', 10_000);
+
+      expect(mockRepo.find).toHaveBeenCalledWith(expect.objectContaining({ take: 200 }));
+    });
+
+    it('devolve as análises persistidas, não uma lista vazia fixa', async () => {
+      mockRepo.find.mockResolvedValueOnce([
+        {
+          id: 'ia-9',
+          analysisDate: new Date('2026-08-01T00:00:00Z'),
+          overallRiskLevel: 'high',
+          interactionsFound: [{ source: 'local_evidence_base' }],
+          requiresMedicalReview: true,
+          supplementsAnalyzed: [{ name: 'Vitamina K' }],
+          medicationsAnalyzed: [{ name: 'Varfarina' }],
+          conditionsAnalyzed: [],
+          professionalReview: null,
+          reviewedBy: null,
+          reviewedAt: null,
+          aiDisclaimer: 'não substitui decisão profissional',
+        },
+      ]);
+
+      const res = await service.findByPatient('ws-1', 'pac-1');
+
+      expect(res.patientId).toBe('pac-1');
+      expect(res.analyses).toHaveLength(1);
+      expect(res.analyses[0]).toMatchObject({ id: 'ia-9', overallRiskLevel: 'high' });
+    });
+  });
+
+  describe('addProfessionalReview', () => {
+    const params = { workspaceId: 'ws-1', userId: 'user-1', id: 'ia-1', review: 'Conduta validada.' };
+
+    it('persiste a revisão e registra no audit log', async () => {
+      const analysis: Record<string, unknown> = { id: 'ia-1', workspaceId: 'ws-1', patientId: 'pac-1' };
+      mockRepo.findOne.mockResolvedValueOnce(analysis);
+      mockRepo.save.mockImplementationOnce((d: any) => Promise.resolve(d));
+
+      const res = await service.addProfessionalReview(params);
+
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          professionalReview: 'Conduta validada.',
+          reviewedBy: 'user-1',
+          reviewedAt: expect.any(Date),
+        }),
+      );
+      expect(mockAudit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'UPDATE',
+          resource: 'interaction_analyses',
+          resourceId: 'ia-1',
+          patientId: 'pac-1',
+        }),
+      );
+      expect(res.review).toBe('Conduta validada.');
+    });
+
+    it('recusa análise de outro workspace', async () => {
+      mockRepo.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.addProfessionalReview(params)).rejects.toThrow(
+        'Análise de interações não encontrada',
+      );
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('recusa revisão vazia sem tocar no registro', async () => {
+      mockRepo.findOne.mockResolvedValueOnce({ id: 'ia-1', workspaceId: 'ws-1', patientId: 'pac-1' });
+
+      await expect(
+        service.addProfessionalReview({ ...params, review: '   ' }),
+      ).rejects.toThrow('não pode ser vazia');
+      expect(mockRepo.save).not.toHaveBeenCalled();
+      expect(mockAudit.log).not.toHaveBeenCalled();
+    });
+  });
 });

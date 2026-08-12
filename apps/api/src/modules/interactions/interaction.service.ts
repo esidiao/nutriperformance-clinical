@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AIEngineService, InteractionAnalysisInput } from '../ai/ai-engine.service';
@@ -212,6 +212,78 @@ export class InteractionService {
       aiAnalysis: aiResult,
       requiresMedicalReview: saved.requiresMedicalReview,
       disclaimer: aiResult.disclaimer,
+    };
+  }
+
+  /**
+   * Histórico de análises do paciente. Sempre escopado ao workspace do
+   * chamador — sem isso um patientId de outro tenant devolveria dados clínicos
+   * alheios. `take` limitado: o histórico cresce a cada análise.
+   */
+  async findByPatient(workspaceId: string, patientId: string, limit = 50) {
+    const analyses = await this.analysisRepo.find({
+      where: { workspaceId, patientId },
+      order: { analysisDate: 'DESC' },
+      take: Math.min(200, Math.max(1, limit)),
+    });
+
+    return {
+      patientId,
+      analyses: analyses.map((a) => ({
+        id: a.id,
+        analysisDate: a.analysisDate,
+        overallRiskLevel: a.overallRiskLevel,
+        interactionsFound: a.interactionsFound,
+        requiresMedicalReview: a.requiresMedicalReview,
+        supplementsAnalyzed: a.supplementsAnalyzed,
+        medicationsAnalyzed: a.medicationsAnalyzed,
+        conditionsAnalyzed: a.conditionsAnalyzed,
+        professionalReview: a.professionalReview,
+        reviewedBy: a.reviewedBy,
+        reviewedAt: a.reviewedAt,
+        aiDisclaimer: a.aiDisclaimer,
+      })),
+    };
+  }
+
+  /**
+   * Registra a revisão profissional da análise. É o passo que transforma uma
+   * saída de IA em conduta assumida por um humano, então precisa persistir de
+   * fato e ficar no audit log — antes esta rota só ecoava o corpo recebido.
+   */
+  async addProfessionalReview(params: {
+    workspaceId: string;
+    userId: string;
+    id: string;
+    review: string;
+  }) {
+    const analysis = await this.analysisRepo.findOne({
+      where: { id: params.id, workspaceId: params.workspaceId },
+    });
+    if (!analysis) throw new NotFoundException('Análise de interações não encontrada');
+
+    const review = (params.review ?? '').trim();
+    if (!review) throw new BadRequestException('A revisão profissional não pode ser vazia');
+
+    analysis.professionalReview = review;
+    analysis.reviewedBy = params.userId;
+    analysis.reviewedAt = new Date();
+    const saved = await this.analysisRepo.save(analysis);
+
+    await this.auditService.log({
+      workspaceId: params.workspaceId,
+      userId: params.userId,
+      patientId: analysis.patientId,
+      action: 'UPDATE',
+      resource: 'interaction_analyses',
+      resourceId: saved.id,
+    });
+
+    return {
+      id: saved.id,
+      review: saved.professionalReview,
+      reviewedBy: saved.reviewedBy,
+      reviewedAt: saved.reviewedAt,
     };
   }
 

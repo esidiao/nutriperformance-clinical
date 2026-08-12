@@ -40,10 +40,14 @@ export class SupplementsCatalogService {
 
     const hits = await this.fetchDsld(q, size);
     if (hits.length === 0) {
-      // Fallback: o que já estiver em cache local
+      // Fallback: o que já estiver em cache local. Mesma invariante clínica das
+      // demais bases — item pendente de curadoria não chega ao profissional.
+      // O OR do nome/marca vai entre parênteses: sem eles o AND da
+      // confiabilidade se aplicaria só ao segundo termo do OR.
       return (await this.repo
         .createQueryBuilder('s')
-        .where('s.nome ILIKE :like OR s.marca ILIKE :like', { like: `%${q}%` })
+        .where("s.confiabilidade <> 'pendente'")
+        .andWhere('(s.nome ILIKE :like OR s.marca ILIKE :like)', { like: `%${q}%` })
         .take(size)
         .getMany()).map(toPublic);
     }

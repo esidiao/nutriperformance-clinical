@@ -6,3 +6,24 @@ allowBuilds:
   core-js: set this to true or false
   puppeteer: true
   sharp: set this to true or false
+
+# Correções de vulnerabilidades high/critical em dependências transitivas.
+# (No pnpm 11 os overrides moraram aqui — em package.json eles são ignorados
+# com um WARN, sem erro, então uma correção posta lá não teria efeito nenhum.)
+#
+# Só entram bumps DENTRO do mesmo major já instalado. O que exige troca de
+# major fica de fora de propósito e é upgrade planejado, não override silencioso:
+#   - tar 6 → 7 (puxado por puppeteer; gera PDF de relatório em produção)
+#   - tmp 0.0.x → 0.2.x (mudança de contrato dentro do 0.x)
+#   - jspdf 2 → 4 (exige jspdf-autotable compatível; ver relatório do ciclo)
+overrides:
+  postcss@<8.5.18: ^8.5.18
+  ws@<8.21.0: ^8.21.0
+  form-data@<4.0.6: ^4.0.6
+  lodash@<4.17.24: ^4.17.24
+  picomatch@>=4.0.0 <4.0.4: ^4.0.4
+  js-yaml@>=4.0.0 <4.3.0: ^4.3.0
+  ip-address@<10.3.1: ^10.3.1
+  fast-uri@<3.1.4: ^3.1.4
+  glob@>=10.0.0 <10.5.0: ^10.5.0
+  multer@<2.2.0: ^2.2.0
