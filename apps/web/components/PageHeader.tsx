@@ -22,7 +22,7 @@ export function PageHeader({ title, description, breadcrumbs, action }: PageHead
             <span key={i} className="flex items-center gap-1.5">
               {i > 0 && <ChevronRight className="h-3 w-3 flex-shrink-0" />}
               {crumb.href ? (
-                <Link href={crumb.href} className="hover:text-primary transition-colors">
+                <Link href={crumb.href} className="hover:text-blue-600 transition-colors">
                   {crumb.label}
                 </Link>
               ) : (
