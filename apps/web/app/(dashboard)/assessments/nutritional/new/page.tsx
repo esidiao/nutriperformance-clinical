@@ -185,35 +185,35 @@ export default function NutritionalAssessmentNewPage() {
 
       {/* ─── Real-time sticky panel ───────────────────────────────── */}
       {liveCalc && (
-        <div className="sticky top-14 lg:top-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-blue-600 shadow-lg">
+        <div className="sticky top-14 lg:top-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-brand-600 shadow-lg">
           <div className="flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-1.5">
-              <TrendingUp className="h-4 w-4 text-blue-200" />
-              <span className="text-blue-200 text-xs">IMC</span>
+              <TrendingUp className="h-4 w-4 text-brand-50" />
+              <span className="text-brand-50 text-xs">IMC</span>
               <span className="text-white font-bold text-lg leading-none">{liveCalc.bmi}</span>
-              {bmiInfo && <span className={`text-xs font-medium text-blue-100`}>{bmiInfo.label}</span>}
+              {bmiInfo && <span className={`text-xs font-medium text-brand-50`}>{bmiInfo.label}</span>}
             </div>
-            <div className="w-px h-8 bg-blue-500" />
+            <div className="w-px h-8 bg-brand-500" />
             <div className="flex items-center gap-1.5">
-              <Calculator className="h-4 w-4 text-blue-200" />
-              <span className="text-blue-200 text-xs">TMB</span>
+              <Calculator className="h-4 w-4 text-brand-50" />
+              <span className="text-brand-50 text-xs">TMB</span>
               <span className="text-white font-bold text-lg leading-none">{liveCalc.bmr}</span>
-              <span className="text-blue-300 text-xs">kcal</span>
+              <span className="text-brand-100 text-xs">kcal</span>
             </div>
-            <div className="w-px h-8 bg-blue-500" />
+            <div className="w-px h-8 bg-brand-500" />
             <div className="flex items-center gap-1.5">
-              <Activity className="h-4 w-4 text-blue-200" />
-              <span className="text-blue-200 text-xs">GET</span>
+              <Activity className="h-4 w-4 text-brand-50" />
+              <span className="text-brand-50 text-xs">GET</span>
               <span className="text-white font-bold text-xl leading-none">{liveCalc.tee}</span>
-              <span className="text-blue-300 text-xs">kcal/dia</span>
+              <span className="text-brand-100 text-xs">kcal/dia</span>
             </div>
-            <div className="w-px h-8 bg-blue-500" />
+            <div className="w-px h-8 bg-brand-500" />
             <div className="flex items-center gap-1.5">
-              <span className="text-blue-200 text-xs">Proteína</span>
+              <span className="text-brand-50 text-xs">Proteína</span>
               <span className="text-white font-bold text-lg leading-none">{liveCalc.protein}g</span>
-              <span className="text-blue-300 text-xs">/dia (1,8 g/kg)</span>
+              <span className="text-brand-100 text-xs">/dia (1,8 g/kg)</span>
             </div>
-            <span className="ml-auto text-blue-300 text-xs italic hidden sm:block">Atualização em tempo real</span>
+            <span className="ml-auto text-brand-100 text-xs italic hidden sm:block">Atualização em tempo real</span>
           </div>
         </div>
       )}
@@ -396,21 +396,21 @@ export default function NutritionalAssessmentNewPage() {
         {(streamedAnalysis || isStreaming) && (
           <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300">
+              <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-brand-100">
                 <Brain className="h-4 w-4" />
                 Síntese de Apoio (IA)
                 {isStreaming && (
                   <span className="flex items-center gap-1 text-xs font-normal text-blue-500">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
                     gerando...
                   </span>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <pre className="text-xs text-blue-900 dark:text-blue-200 whitespace-pre-wrap leading-relaxed">
+              <pre className="text-xs text-blue-900 dark:text-brand-50 whitespace-pre-wrap leading-relaxed">
                 {streamedAnalysis}
-                {isStreaming && <span className="inline-block w-0.5 h-3.5 bg-blue-600 animate-pulse ml-0.5 align-text-bottom" />}
+                {isStreaming && <span className="inline-block w-0.5 h-3.5 bg-brand-600 animate-pulse ml-0.5 align-text-bottom" />}
               </pre>
               {!isStreaming && (
                 <p className="text-xs text-gray-400 italic mt-3 border-t pt-2">

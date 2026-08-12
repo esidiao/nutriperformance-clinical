@@ -75,23 +75,23 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 shadow-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 shadow-sm">
               <span className="text-sm font-bold text-white">NP</span>
             </div>
-            <span className="text-base font-bold tracking-tight">NutriPerformance <span className="text-blue-600">Clinical</span></span>
+            <span className="text-base font-bold tracking-tight">NutriPerformance <span className="text-brand-600">Clinical</span></span>
           </div>
           <nav className="hidden items-center gap-7 text-sm font-medium text-gray-600 md:flex">
-            <a href="#recursos" className="hover:text-blue-600">Recursos</a>
-            <a href="#como-funciona" className="hover:text-blue-600">Como funciona</a>
-            <a href="#depoimentos" className="hover:text-blue-600">Depoimentos</a>
-            <a href="#planos" className="hover:text-blue-600">Planos</a>
-            <a href="#seguranca" className="hover:text-blue-600">Segurança</a>
+            <a href="#recursos" className="hover:text-brand-600">Recursos</a>
+            <a href="#como-funciona" className="hover:text-brand-600">Como funciona</a>
+            <a href="#depoimentos" className="hover:text-brand-600">Depoimentos</a>
+            <a href="#planos" className="hover:text-brand-600">Planos</a>
+            <a href="#seguranca" className="hover:text-brand-600">Segurança</a>
           </nav>
           <div className="flex items-center gap-2">
             <Link href="/login" className="hidden rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 sm:inline-flex">
               Entrar
             </Link>
-            <Link href="/login?mode=register" className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700">
+            <Link href="/login?mode=register" className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700">
               Criar conta <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -99,21 +99,21 @@ export default function LandingPage() {
       </header>
 
       {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-100">
+      <section className="relative overflow-hidden bg-gradient-to-br from-brand-50 to-brand-100">
         <div className="mx-auto max-w-6xl px-4 py-20 text-center md:py-28">
-          <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/70 px-4 py-1.5 text-xs font-medium text-blue-700">
+          <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/70 px-4 py-1.5 text-xs font-medium text-brand-700">
             <ShieldCheck className="h-3.5 w-3.5" /> Para profissionais habilitados — CFN · CONFEF
           </div>
           <h1 className="mx-auto max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-5xl">
             Apoio clínico inteligente para{' '}
-            <span className="text-blue-600">nutricionistas e educadores físicos</span>
+            <span className="text-brand-600">nutricionistas e educadores físicos</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-gray-600">
             Avaliações, suplementação com IA, interações, biodisponibilidade, exames,
             prescrições em PDF e relatórios — tudo em uma plataforma única, segura e em conformidade com a LGPD.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/login?mode=register" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-7 py-3 text-base font-semibold text-white shadow-lg transition-colors hover:bg-blue-700 sm:w-auto">
+            <Link href="/login?mode=register" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-7 py-3 text-base font-semibold text-white shadow-lg transition-colors hover:bg-brand-700 sm:w-auto">
               Começar agora <ArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/login" className="inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-7 py-3 text-base font-semibold text-gray-700 transition-colors hover:bg-gray-50 sm:w-auto">
@@ -142,21 +142,24 @@ export default function LandingPage() {
             {/* sidebar fake */}
             <aside className="hidden w-48 flex-shrink-0 border-r border-gray-100 bg-gray-50 p-4 sm:block">
               <div className="mb-4 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-[10px] font-bold text-white">NP</div>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-[10px] font-bold text-white">NP</div>
                 <span className="text-xs font-semibold text-gray-700">Clinical</span>
               </div>
               {['Dashboard', 'Pacientes', 'Avaliações', 'Suplementação', 'Prescrições', 'Relatórios'].map((it, i) => (
-                <div key={it} className={`mb-1 rounded-md px-3 py-2 text-xs ${i === 0 ? 'bg-blue-100 font-semibold text-blue-700' : 'text-gray-500'}`}>{it}</div>
+                <div key={it} className={`mb-1 rounded-md px-3 py-2 text-xs ${i === 0 ? 'bg-brand-100 font-semibold text-brand-700' : 'text-gray-500'}`}>{it}</div>
               ))}
             </aside>
             {/* conteúdo fake */}
             <div className="flex-1 p-5">
               <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {[
-                  { l: 'Pacientes', v: '128', c: 'text-blue-600' },
-                  { l: 'Avaliações', v: '342', c: 'text-emerald-600' },
+                  // Os quatro indicadores são categorias distintas: mantêm matizes
+                  // separados (brand puxa a marca, os demais se afastam dela) em
+                  // vez de dois verdes quase iguais lado a lado.
+                  { l: 'Pacientes', v: '128', c: 'text-brand-600' },
+                  { l: 'Avaliações', v: '342', c: 'text-sky-600' },
                   { l: 'Alertas', v: '7', c: 'text-amber-600' },
-                  { l: 'Tokens', v: '∞', c: 'text-indigo-600' },
+                  { l: 'Tokens', v: '∞', c: 'text-violet-600' },
                 ].map((k) => (
                   <div key={k.l} className="rounded-xl border border-gray-100 bg-white p-3">
                     <p className="text-[10px] uppercase tracking-wide text-gray-500">{k.l}</p>
@@ -168,7 +171,7 @@ export default function LandingPage() {
                 <p className="mb-3 text-xs font-semibold text-gray-600">Evolução de composição corporal</p>
                 <div className="flex h-28 items-end gap-2">
                   {[40, 55, 48, 62, 70, 65, 80, 76, 88].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-blue-500 to-indigo-400" style={{ height: `${h}%` }} />
+                    <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-brand-500 to-brand-400" style={{ height: `${h}%` }} />
                   ))}
                 </div>
               </div>
@@ -187,8 +190,8 @@ export default function LandingPage() {
         <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f) => (
             <div key={f.title} className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
-                <f.icon className="h-5 w-5 text-blue-600" />
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50">
+                <f.icon className="h-5 w-5 text-brand-600" />
               </div>
               <h3 className="text-base font-semibold">{f.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-gray-600">{f.desc}</p>
@@ -207,8 +210,8 @@ export default function LandingPage() {
           <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
             {steps.map((s) => (
               <div key={s.n} className="relative rounded-2xl bg-white p-7 shadow-sm">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white">{s.n}</div>
-                <s.icon className="absolute right-6 top-6 h-6 w-6 text-blue-200" />
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-lg font-bold text-white">{s.n}</div>
+                <s.icon className="absolute right-6 top-6 h-6 w-6 text-brand-200" />
                 <h3 className="text-lg font-semibold">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{s.desc}</p>
               </div>
@@ -226,7 +229,7 @@ export default function LandingPage() {
         <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
           {testimonials.map((t) => (
             <figure key={t.name} className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <Quote className="h-7 w-7 text-blue-200" />
+              <Quote className="h-7 w-7 text-brand-200" />
               <div className="mt-2 flex gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
@@ -234,7 +237,7 @@ export default function LandingPage() {
               </div>
               <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-gray-700">“{t.text}”</blockquote>
               <figcaption className="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
                   {t.name.split(' ').slice(-1)[0][0]}
                 </div>
                 <div>
@@ -256,12 +259,12 @@ export default function LandingPage() {
           </div>
           <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {plans.map((p) => (
-              <div key={p.name} className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${p.highlight ? 'border-blue-600 ring-2 ring-blue-600' : 'border-gray-100'}`}>
+              <div key={p.name} className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${p.highlight ? 'border-brand-600 ring-2 ring-brand-600' : 'border-gray-100'}`}>
                 {p.highlight && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white">Mais popular</span>
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-600 px-3 py-1 text-[11px] font-semibold text-white">Mais popular</span>
                 )}
-                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
-                  <p.icon className="h-5 w-5 text-blue-600" />
+                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50">
+                  <p.icon className="h-5 w-5 text-brand-600" />
                 </div>
                 <h3 className="text-lg font-bold">{p.name}</h3>
                 <p className="text-xs text-gray-500">{p.tagline}</p>
@@ -276,7 +279,7 @@ export default function LandingPage() {
                 </ul>
                 <a
                   href={`mailto:${SALES_EMAIL}?subject=${encodeURIComponent('Interesse no plano ' + p.name + ' — NutriPerformance Clinical')}`}
-                  className={`mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${p.highlight ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                  className={`mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${p.highlight ? 'bg-brand-600 text-white hover:bg-brand-700' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                 >
                   <Mail className="h-4 w-4" /> Falar com vendas
                 </a>
@@ -285,7 +288,7 @@ export default function LandingPage() {
           </div>
           <p className="mt-8 text-center text-sm text-gray-500">
             Prefere experimentar primeiro?{' '}
-            <Link href="/login?mode=register" className="font-semibold text-blue-600 hover:underline">Crie sua conta</Link> e comece agora.
+            <Link href="/login?mode=register" className="font-semibold text-brand-600 hover:underline">Crie sua conta</Link> e comece agora.
           </p>
         </div>
       </section>
@@ -294,7 +297,7 @@ export default function LandingPage() {
       <section id="seguranca" className="mx-auto max-w-6xl px-4 py-20">
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
               <Lock className="h-3.5 w-3.5" /> Privacidade e conformidade
             </div>
             <h2 className="text-3xl font-bold tracking-tight">Dados clínicos protegidos por padrão</h2>
@@ -316,8 +319,8 @@ export default function LandingPage() {
               ))}
             </ul>
           </div>
-          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-8">
-            <ShieldCheck className="h-10 w-10 text-blue-600" />
+          <div className="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-brand-50 p-8">
+            <ShieldCheck className="h-10 w-10 text-brand-600" />
             <p className="mt-4 text-lg font-semibold text-gray-900">Ferramenta de apoio profissional</p>
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               A NutriPerformance Clinical apoia a decisão de profissionais habilitados e
@@ -326,7 +329,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               {['CFN', 'CONFEF', 'LGPD', 'AES-256'].map((b) => (
-                <span key={b} className="rounded-md border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700">{b}</span>
+                <span key={b} className="rounded-md border border-brand-200 bg-white px-3 py-1 text-xs font-semibold text-brand-700">{b}</span>
               ))}
             </div>
           </div>
@@ -334,17 +337,17 @@ export default function LandingPage() {
       </section>
 
       {/* CTA FINAL */}
-      <section className="bg-blue-600">
+      <section className="bg-brand-600">
         <div className="mx-auto max-w-4xl px-4 py-16 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-white">Pronto para elevar sua prática clínica?</h2>
-          <p className="mx-auto mt-3 max-w-xl text-blue-100">
+          <p className="mx-auto mt-3 max-w-xl text-brand-100">
             Crie sua conta profissional e comece a usar avaliações, suplementação com IA e prescrições em PDF hoje mesmo.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/login?mode=register" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white px-7 py-3 text-base font-semibold text-blue-700 shadow-lg transition-colors hover:bg-blue-50 sm:w-auto">
+            <Link href="/login?mode=register" className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white px-7 py-3 text-base font-semibold text-brand-700 shadow-lg transition-colors hover:bg-brand-50 sm:w-auto">
               Criar conta <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/login" className="inline-flex w-full items-center justify-center rounded-lg border border-blue-400 px-7 py-3 text-base font-semibold text-white transition-colors hover:bg-blue-500 sm:w-auto">
+            <Link href="/login" className="inline-flex w-full items-center justify-center rounded-lg border border-brand-400 px-7 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-500 sm:w-auto">
               Entrar
             </Link>
           </div>
@@ -357,7 +360,7 @@ export default function LandingPage() {
           <div className="flex flex-col items-start justify-between gap-8 md:flex-row">
             <div className="max-w-sm">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600">
                   <span className="text-sm font-bold text-white">NP</span>
                 </div>
                 <span className="text-base font-bold">NutriPerformance Clinical</span>
@@ -370,17 +373,17 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm">
               <div className="flex flex-col gap-2">
                 <span className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Plataforma</span>
-                <Link href="/login" className="text-gray-600 hover:text-blue-600">Entrar</Link>
-                <Link href="/login?mode=register" className="text-gray-600 hover:text-blue-600">Criar conta</Link>
-                <a href="#recursos" className="text-gray-600 hover:text-blue-600">Recursos</a>
-                <a href="#planos" className="text-gray-600 hover:text-blue-600">Planos</a>
+                <Link href="/login" className="text-gray-600 hover:text-brand-600">Entrar</Link>
+                <Link href="/login?mode=register" className="text-gray-600 hover:text-brand-600">Criar conta</Link>
+                <a href="#recursos" className="text-gray-600 hover:text-brand-600">Recursos</a>
+                <a href="#planos" className="text-gray-600 hover:text-brand-600">Planos</a>
               </div>
               <div className="flex flex-col gap-2">
                 <span className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Legal</span>
-                <Link href="/legal/privacy" className="text-gray-600 hover:text-blue-600">Privacidade</Link>
-                <Link href="/legal/terms" className="text-gray-600 hover:text-blue-600">Termos de Uso</Link>
-                <Link href="/legal/cookies" className="text-gray-600 hover:text-blue-600">Cookies</Link>
-                <Link href="/legal/dados" className="text-gray-600 hover:text-blue-600">Direitos do Titular</Link>
+                <Link href="/legal/privacy" className="text-gray-600 hover:text-brand-600">Privacidade</Link>
+                <Link href="/legal/terms" className="text-gray-600 hover:text-brand-600">Termos de Uso</Link>
+                <Link href="/legal/cookies" className="text-gray-600 hover:text-brand-600">Cookies</Link>
+                <Link href="/legal/dados" className="text-gray-600 hover:text-brand-600">Direitos do Titular</Link>
               </div>
             </div>
           </div>
