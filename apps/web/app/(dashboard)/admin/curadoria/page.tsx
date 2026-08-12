@@ -22,12 +22,12 @@ const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR'
 
 function Overview() {
   const { data, isLoading } = useQuery({ queryKey: ['curation-overview'], queryFn: () => api.curation.overview() });
-  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>;
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   if (!data) return null;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Database className="h-4 w-4 text-blue-600" /> Alimentos</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Database className="h-4 w-4 text-primary" /> Alimentos</CardTitle></CardHeader>
         <CardContent className="text-sm space-y-2">
           <div className="flex flex-wrap gap-1.5">
             {data.foods.byConfiabilidade.map((c) => (
@@ -40,7 +40,7 @@ function Overview() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><FileStack className="h-4 w-4 text-blue-600" /> Fontes & Importações</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><FileStack className="h-4 w-4 text-primary" /> Fontes & Importações</CardTitle></CardHeader>
         <CardContent className="text-sm space-y-2">
           {data.dataSources.map((s) => (
             <div key={s.nome} className="text-xs border-b last:border-0 pb-1.5">
