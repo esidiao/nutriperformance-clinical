@@ -5,6 +5,7 @@ import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypt
 import { ConfigService } from '@nestjs/config';
 import { Patient } from './patient.entity';
 import { AuditService } from '../audit/audit.service';
+import { clampInt } from '../../common/pagination.util';
 
 // =============================================================
 // LGPD: Dados pessoais de pacientes são criptografados em repouso.
@@ -171,8 +172,10 @@ export class PatientsService {
       requestingIp?: string;
     } = {},
   ) {
-    const page = Math.max(1, params.page ?? 1);
-    const limit = Math.min(100, Math.max(1, params.limit ?? 20));
+    // clampInt e não Math.min/max: `parseInt('abc')` é NaN, `NaN ?? 20` é NaN
+    // (o ?? só cobre null/undefined) e o NaN atravessava até o `take`.
+    const page = clampInt(params.page, 1, 10_000);
+    const limit = clampInt(params.limit, 20, 100);
     const offset = (page - 1) * limit;
 
     const qb = this.patientRepo

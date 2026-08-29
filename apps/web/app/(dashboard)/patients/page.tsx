@@ -176,7 +176,7 @@ export default function PatientsPage() {
                                 {patient.name || patient.internalCode}
                               </span>
                               {patient.internalCode && patient.name && (
-                                <span className="text-[10px] text-gray-400">{patient.internalCode}</span>
+                                <span className="text-[10px] text-gray-500">{patient.internalCode}</span>
                               )}
                               <span className={`text-[10px] px-2 py-0.5 rounded-full ${active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>
                                 {active ? 'Ativo' : 'Inativo'}
@@ -252,7 +252,7 @@ export default function PatientsPage() {
           </>
         )}
 
-        <p className="text-[10px] text-gray-400 text-center border-t pt-4 leading-relaxed">
+        <p className="text-[10px] text-gray-500 text-center border-t pt-4 leading-relaxed">
           Apenas pacientes do seu workspace são exibidos. Todos os acessos são registrados conforme LGPD (Lei 13.709/2018).
         </p>
       </div>

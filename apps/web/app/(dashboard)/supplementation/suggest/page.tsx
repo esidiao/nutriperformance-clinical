@@ -468,7 +468,7 @@ export default function SupplementSuggestPage() {
 
                     <p className="text-xs text-gray-700 dark:text-gray-300 mb-2 leading-relaxed">{sugg.rationale}</p>
 
-                    <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-2">
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-2">
                       <BookOpen className="h-3 w-3" />
                       {sugg.references}
                     </div>

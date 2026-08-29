@@ -27,7 +27,7 @@ function TokenBar({ used, total }: { used: number; total: number }) {
       <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-[10px] text-gray-400">{pct}% do limite mensal utilizado (total: {total.toLocaleString('pt-BR')})</p>
+      <p className="text-[10px] text-gray-500">{pct}% do limite mensal utilizado (total: {total.toLocaleString('pt-BR')})</p>
     </div>
   );
 }
@@ -293,7 +293,7 @@ export default function TokensPage() {
               </Card>
             ))}
           </div>
-          <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+          <p className="text-[10px] text-gray-500 mt-3 leading-relaxed">
             Pagamentos via Mercado Pago. Dados financeiros processados com segurança — não armazenamos dados de cartão. LGPD compliant.
           </p>
         </div>
@@ -325,7 +325,7 @@ export default function TokensPage() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className={`text-sm font-bold ${amount > 0 ? 'text-green-600' : 'text-red-500'}`}>{amount > 0 ? '+' : ''}{amount} tk</p>
-                        {typeof tx.balanceAfter === 'number' && <p className="text-[10px] text-gray-400">saldo: {tx.balanceAfter}</p>}
+                        {typeof tx.balanceAfter === 'number' && <p className="text-[10px] text-gray-500">saldo: {tx.balanceAfter}</p>}
                       </div>
                     </div>
                   );

@@ -442,7 +442,7 @@ export default function PrescriptionNewPage() {
                       <div key={fi} className="rounded-lg border border-gray-100 dark:border-gray-800 p-2 space-y-2">
                         <div className="grid grid-cols-12 gap-2 items-start">
                           <div className="col-span-12 sm:col-span-5">
-                            <Label className="text-[10px] text-gray-400">Alimento / Preparação</Label>
+                            <Label className="text-[10px] text-gray-500">Alimento / Preparação</Label>
                             <FoodAutocomplete
                               value={food.name}
                               onChange={(name) => updateFood(mi, fi, 'name', name)}
@@ -452,12 +452,12 @@ export default function PrescriptionNewPage() {
                             />
                           </div>
                           <div className="col-span-6 sm:col-span-4">
-                            <Label className="text-[10px] text-gray-400">Quantidade / Medida</Label>
+                            <Label className="text-[10px] text-gray-500">Quantidade / Medida</Label>
                             <Input value={food.dose} onChange={(e) => updateFood(mi, fi, 'dose', e.target.value)}
                               placeholder="Ex: 2 unid. / 100g" maxLength={60} className="h-9 text-sm" />
                           </div>
                           <div className="col-span-6 sm:col-span-3">
-                            <Label className="text-[10px] text-gray-400">Obs. / Substituição</Label>
+                            <Label className="text-[10px] text-gray-500">Obs. / Substituição</Label>
                             <Input value={food.notes} onChange={(e) => updateFood(mi, fi, 'notes', e.target.value)}
                               placeholder="Ex: ou 1 scoop whey" maxLength={200} className="h-9 text-sm" />
                           </div>
@@ -465,19 +465,19 @@ export default function PrescriptionNewPage() {
                         {/* Linha de valores nutricionais (opcional) */}
                         <div className="flex items-end gap-2">
                           <div className="flex-1">
-                            <Label className="text-[10px] text-gray-400">Kcal</Label>
+                            <Label className="text-[10px] text-gray-500">Kcal</Label>
                             <Input type="number" min={0} value={food.kcal} onChange={(e) => updateFood(mi, fi, 'kcal', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           <div className="flex-1">
-                            <Label className="text-[10px] text-gray-400">Proteína (g)</Label>
+                            <Label className="text-[10px] text-gray-500">Proteína (g)</Label>
                             <Input type="number" min={0} step="0.1" value={food.prot} onChange={(e) => updateFood(mi, fi, 'prot', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           <div className="flex-1">
-                            <Label className="text-[10px] text-gray-400">Carbo (g)</Label>
+                            <Label className="text-[10px] text-gray-500">Carbo (g)</Label>
                             <Input type="number" min={0} step="0.1" value={food.carb} onChange={(e) => updateFood(mi, fi, 'carb', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           <div className="flex-1">
-                            <Label className="text-[10px] text-gray-400">Gordura (g)</Label>
+                            <Label className="text-[10px] text-gray-500">Gordura (g)</Label>
                             <Input type="number" min={0} step="0.1" value={food.fat} onChange={(e) => updateFood(mi, fi, 'fat', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           {meal.foods.length > 1 && (
@@ -539,7 +539,7 @@ export default function PrescriptionNewPage() {
                     <div className="bg-amber-500" style={{ width: `${macroPct(totals.carb * 4)}%` }} />
                     <div className="bg-rose-500" style={{ width: `${macroPct(totals.fat * 9)}%` }} />
                   </div>
-                  <p className="mt-2 text-[11px] text-gray-400 leading-relaxed">
+                  <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
                     Cálculo automático a partir dos valores por alimento — preenchidos pela base de composição
                     (TACO/USDA) ao buscar, com edição manual livre. <strong>Micronutrientes</strong> serão ampliados
                     nas próximas fases (USDA/TBCA).

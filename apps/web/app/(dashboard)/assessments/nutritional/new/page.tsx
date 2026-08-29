@@ -237,24 +237,24 @@ export default function NutritionalAssessmentNewPage() {
               <Textarea {...register('mainComplaint')} placeholder="Descreva a queixa ou objetivo do paciente" rows={2} />
             </div>
             <div>
-              <Label>Restrições alimentares</Label>
-              <Input {...register('dietaryRestrictions')} placeholder="Ex: vegetariano, sem glúten, alergia à nozes" />
+              <Label htmlFor="dietaryRestrictions">Restrições alimentares</Label>
+              <Input id="dietaryRestrictions" {...register('dietaryRestrictions')} placeholder="Ex: vegetariano, sem glúten, alergia à nozes" />
             </div>
             <div>
-              <Label>Frequência de refeições/dia</Label>
-              <Input {...register('mealFrequency')} type="number" min={1} max={10} placeholder="Ex: 5" />
+              <Label htmlFor="mealFrequency">Frequência de refeições/dia</Label>
+              <Input id="mealFrequency" {...register('mealFrequency')} type="number" min={1} max={10} placeholder="Ex: 5" />
             </div>
             <div>
-              <Label>Ingestão hídrica (mL/dia)</Label>
-              <Input {...register('waterIntakeMl')} type="number" placeholder="Ex: 2000" />
+              <Label htmlFor="waterIntakeMl">Ingestão hídrica (mL/dia)</Label>
+              <Input id="waterIntakeMl" {...register('waterIntakeMl')} type="number" placeholder="Ex: 2000" />
             </div>
             <div>
-              <Label>Hábitos intestinais</Label>
-              <Input {...register('bowelHabits')} placeholder="Ex: regular, obstipado, diarreia ocasional" />
+              <Label htmlFor="bowelHabits">Hábitos intestinais</Label>
+              <Input id="bowelHabits" {...register('bowelHabits')} placeholder="Ex: regular, obstipado, diarreia ocasional" />
             </div>
             <div className="md:col-span-2">
-              <Label>Consumo de álcool</Label>
-              <Input {...register('alcoholConsumption')} placeholder="Ex: não consome / socialmente (1x/semana)" />
+              <Label htmlFor="alcoholConsumption">Consumo de álcool</Label>
+              <Input id="alcoholConsumption" {...register('alcoholConsumption')} placeholder="Ex: não consome / socialmente (1x/semana)" />
             </div>
           </CardContent>
         </Card>
@@ -271,18 +271,18 @@ export default function NutritionalAssessmentNewPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label>Peso (kg) *</Label>
-                <Input {...register('weight')} type="number" step="0.1" placeholder="65.5" />
+                <Label htmlFor="weight">Peso (kg) *</Label>
+                <Input id="weight" {...register('weight')} type="number" step="0.1" placeholder="65.5" />
                 {errors.weight && <p className="text-xs text-red-500 mt-1">{errors.weight.message}</p>}
               </div>
               <div>
-                <Label>Altura (cm) *</Label>
-                <Input {...register('heightCm')} type="number" step="0.1" placeholder="165" />
+                <Label htmlFor="heightCm">Altura (cm) *</Label>
+                <Input id="heightCm" {...register('heightCm')} type="number" step="0.1" placeholder="165" />
                 {errors.heightCm && <p className="text-xs text-red-500 mt-1">{errors.heightCm.message}</p>}
               </div>
               <div>
-                <Label>Idade *</Label>
-                <Input {...register('age')} type="number" placeholder="30" />
+                <Label htmlFor="age">Idade *</Label>
+                <Input id="age" {...register('age')} type="number" placeholder="30" />
               </div>
               <div>
                 <Label>Sexo *</Label>
@@ -349,20 +349,20 @@ export default function NutritionalAssessmentNewPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t dark:border-gray-700">
               <div>
-                <Label>Meta calórica (kcal)</Label>
-                <Input {...register('caloricTarget')} type="number" />
+                <Label htmlFor="caloricTarget">Meta calórica (kcal)</Label>
+                <Input id="caloricTarget" {...register('caloricTarget')} type="number" />
               </div>
               <div>
-                <Label>Proteína alvo (g)</Label>
-                <Input {...register('proteinTargetG')} type="number" step="0.1" />
+                <Label htmlFor="proteinTargetG">Proteína alvo (g)</Label>
+                <Input id="proteinTargetG" {...register('proteinTargetG')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Carboidrato alvo (g)</Label>
-                <Input {...register('carbTargetG')} type="number" step="0.1" />
+                <Label htmlFor="carbTargetG">Carboidrato alvo (g)</Label>
+                <Input id="carbTargetG" {...register('carbTargetG')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Gordura alvo (g)</Label>
-                <Input {...register('fatTargetG')} type="number" step="0.1" />
+                <Label htmlFor="fatTargetG">Gordura alvo (g)</Label>
+                <Input id="fatTargetG" {...register('fatTargetG')} type="number" step="0.1" />
               </div>
             </div>
           </CardContent>

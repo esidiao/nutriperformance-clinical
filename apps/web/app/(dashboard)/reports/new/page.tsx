@@ -186,7 +186,7 @@ export default function ReportNewPage() {
                 className={`text-left p-3 rounded-xl border-2 transition-all hover:-translate-y-0.5 ${selectedType === rt.value ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}>
                 <span className="text-xl mb-1 block">{rt.icon}</span>
                 <p className="font-medium text-xs text-gray-800 dark:text-gray-200">{rt.label}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{rt.description}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{rt.description}</p>
               </button>
             ))}
           </CardContent>

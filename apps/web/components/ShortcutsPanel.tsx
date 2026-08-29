@@ -47,7 +47,7 @@ export function ShortcutsPanel({ open, onClose }: ShortcutsPanelProps) {
           ))}
         </div>
         <div className="px-5 pb-4">
-          <p className="text-[10px] text-gray-400 text-center">
+          <p className="text-[10px] text-gray-500 text-center">
             Atalhos não funcionam quando um campo de texto está em foco
           </p>
         </div>

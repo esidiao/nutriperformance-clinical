@@ -7,16 +7,25 @@ import * as Sentry from '@sentry/node';
 import helmet from 'helmet';
 import * as http from 'http';
 
-// Fallback health server — keeps the port alive while NestJS bootstraps
-// so Railway's health check passes even if the DB takes time to connect.
-function startFallbackServer(port: number | string): http.Server {
+// Servidor de fallback — mantém a porta viva enquanto o NestJS sobe, para que
+// o health check da plataforma não derrube o deploy só porque o banco demorou.
+//
+// `state` distingue "subindo" de "falhou". Enquanto era sempre 200, um bootstrap
+// que estourava deixava este servidor no ar respondendo 200 em /health para
+// sempre: o Render (healthCheckPath: /health) marcava como saudável um serviço
+// que não tem uma única rota da API de pé — a falha ficava invisível.
+function startFallbackServer(port: number | string, state: { failed: boolean }): http.Server {
   const server = http.createServer((req, res) => {
     if (req.url === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'starting', timestamp: new Date().toISOString() }));
+      const code = state.failed ? 503 : 200;
+      res.writeHead(code, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: state.failed ? 'failed' : 'starting',
+        timestamp: new Date().toISOString(),
+      }));
     } else {
       res.writeHead(503, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: 'Application starting...' }));
+      res.end(JSON.stringify({ message: state.failed ? 'Application failed to start' : 'Application starting...' }));
     }
   });
   server.listen(port, () => console.log(`Fallback health server on port ${port}`));
@@ -29,17 +38,20 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3001;
 
-  // Start fallback server immediately so Railway health check passes
-  const fallback = startFallbackServer(port);
+  // Antes do NestFactory: inicializado só depois, uma falha de bootstrap (o
+  // caso que mais interessa reportar) acontecia com o Sentry ainda desligado.
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({ dsn: process.env.SENTRY_DSN });
+  }
+
+  // Sobe o fallback imediatamente para o health check da plataforma passar
+  const bootState = { failed: false };
+  let fallback = startFallbackServer(port, bootState);
 
   try {
     const app = await NestFactory.create(AppModule, {
       rawBody: true,
     });
-
-    if (process.env.SENTRY_DSN) {
-      Sentry.init({ dsn: process.env.SENTRY_DSN });
-    }
 
     app.use(helmet({
       crossOriginEmbedderPolicy: false,
@@ -100,8 +112,14 @@ async function bootstrap() {
     console.log(`NutriPerformance Clinical API rodando na porta ${port}`);
   } catch (err) {
     console.error('Failed to start NestJS app:', err);
-    // Keep fallback server running so container doesn't exit
-    console.log('Keeping fallback health server running...');
+    Sentry.captureException(err);
+    // O container segue de pé (evita crash-loop), mas /health passa a responder
+    // 503 — a plataforma precisa enxergar o serviço como degradado, não OK.
+    bootState.failed = true;
+    // Se a falha foi no `app.listen`, o fallback já tinha sido fechado logo
+    // acima e ninguém estaria escutando a porta: reabre para responder 503.
+    if (!fallback.listening) fallback = startFallbackServer(port, bootState);
+    console.log('Keeping fallback health server running (agora respondendo 503 em /health)...');
   }
 }
 

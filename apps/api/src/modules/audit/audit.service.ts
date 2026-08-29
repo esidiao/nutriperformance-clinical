@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { clampInt, clampOffset } from '../../common/pagination.util';
 import { AuditLog } from './audit-log.entity';
 
 interface LogParams {
@@ -47,8 +48,8 @@ export class AuditService {
     return this.auditRepo.find({
       where: { workspaceId },
       order: { createdAt: 'DESC' },
-      take: limit,
-      skip: offset,
+      take: clampInt(limit, 100, 500),
+      skip: clampOffset(offset),
     });
   }
 

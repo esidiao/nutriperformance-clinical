@@ -69,7 +69,7 @@ export default function AlimentosInternacionalPage() {
             <Card key={f.id}>
               <CardHeader className="pb-1.5">
                 <CardTitle className="text-sm">{f.nome}</CardTitle>
-                {f.grupoAlimentar && <p className="text-[11px] text-gray-400">{f.grupoAlimentar}</p>}
+                {f.grupoAlimentar && <p className="text-[11px] text-gray-500">{f.grupoAlimentar}</p>}
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -77,7 +77,7 @@ export default function AlimentosInternacionalPage() {
                   C {f.carboidratosG ?? '—'}g · G {f.lipidiosG ?? '—'}g · Fibra {f.fibrasG ?? '—'}g · Sódio {f.sodioMg ?? '—'}mg · Ferro {f.ferroMg ?? '—'}mg
                   <span className="text-gray-300"> / 100g</span>
                 </p>
-                <p className="text-[11px] text-gray-400 mt-1.5 flex items-center gap-1.5">
+                <p className="text-[11px] text-gray-500 mt-1.5 flex items-center gap-1.5">
                   <BadgeCheck className="h-3 w-3" /> Fonte: <strong>USDA</strong> · domínio público · confiabilidade {f.confiabilidade}
                 </p>
               </CardContent>

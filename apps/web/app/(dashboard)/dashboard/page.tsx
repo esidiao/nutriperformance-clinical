@@ -74,7 +74,7 @@ function TokenBar({ used, total }: { used: number; total: number }) {
       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-[10px] text-gray-400 mt-1">{pct}% do plano mensal</p>
+      <p className="text-[10px] text-gray-500 mt-1">{pct}% do plano mensal</p>
     </div>
   );
 }
@@ -377,9 +377,9 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-800 truncate">{item.action}</p>
-                    <p className="text-[10px] text-gray-400">{item.patient} · {item.date}</p>
+                    <p className="text-[10px] text-gray-500">{item.patient} · {item.date}</p>
                   </div>
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">-{item.tokens} tk</span>
+                  <span className="text-[10px] text-gray-500 flex-shrink-0">-{item.tokens} tk</span>
                 </div>
               ))
             )}

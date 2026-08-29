@@ -159,7 +159,7 @@ export default function LandingPage() {
                   { l: 'Tokens', v: '∞', c: 'text-indigo-600' },
                 ].map((k) => (
                   <div key={k.l} className="rounded-xl border border-gray-100 bg-white p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-400">{k.l}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-500">{k.l}</p>
                     <p className={`text-xl font-bold ${k.c}`}>{k.v}</p>
                   </div>
                 ))}

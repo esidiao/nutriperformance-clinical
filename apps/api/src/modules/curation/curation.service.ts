@@ -97,7 +97,10 @@ export class CurationService {
       // Alimento liberado → re-indexa em background (não bloqueia a resposta)
       const texto = buildFoodChunkText({ ...food, ...changes } as any);
       this.ragService
-        .indexChunk(food.fonte, id, 'alta', texto, { nome: food.nomePadronizado })
+        // `finalConf`, não 'alta': o curador pode liberar um alimento como
+        // 'media'/'baixa', e a constante fazia o chunk contradizer a decisão
+        // que acabou de ser gravada em foods.confiabilidade.
+        .indexChunk(food.fonte, id, finalConf, texto, { nome: food.nomePadronizado })
         .catch((e: any) => this.logger.warn(
           `Falha ao re-indexar alimento liberado no RAG (id=${id}): ${e?.message ?? e}`,
         ));

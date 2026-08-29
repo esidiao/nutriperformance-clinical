@@ -49,7 +49,7 @@ function Overview() {
             </div>
           ))}
           {data.recentImports.length > 0 && (
-            <p className="text-[11px] text-gray-400 pt-1">Última importação: +{data.recentImports[0].linhas_inseridas} / ~{data.recentImports[0].linhas_atualizadas} / ✗{data.recentImports[0].linhas_rejeitadas}</p>
+            <p className="text-[11px] text-gray-500 pt-1">Última importação: +{data.recentImports[0].linhas_inseridas} / ~{data.recentImports[0].linhas_atualizadas} / ✗{data.recentImports[0].linhas_rejeitadas}</p>
           )}
         </CardContent>
       </Card>
@@ -90,7 +90,7 @@ function FoodsReview() {
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {items.map((f: any) => (
             <div key={f.id} className="py-2 flex items-center gap-2 flex-wrap">
-              <span className="text-sm flex-1 min-w-[180px]">{f.nome} <span className="text-[10px] text-gray-400">{f.fonte?.toUpperCase()}</span></span>
+              <span className="text-sm flex-1 min-w-[180px]">{f.nome} <span className="text-[10px] text-gray-500">{f.fonte?.toUpperCase()}</span></span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${CONF_BADGE[f.confiabilidade] ?? 'bg-gray-100'}`}>{f.confiabilidade}</span>
               <select defaultValue={f.confiabilidade} onChange={(e) => mut.mutate({ id: f.id, dto: { confiabilidade: e.target.value } })}
                 aria-label={`Confiabilidade de ${f.nome}`} className="h-7 text-xs rounded border px-1.5 dark:bg-gray-800">

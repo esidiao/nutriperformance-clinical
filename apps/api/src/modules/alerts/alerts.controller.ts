@@ -19,9 +19,14 @@ export class AlertsController {
   @ApiOperation({ summary: 'Alertas clínicos do paciente' })
   async getAlerts(
     @Param('patientId') patientId: string,
+    @Req() req: any,
     @Query('includeResolved') includeResolved = false,
   ) {
-    return this.alertsService.getPatientAlerts(patientId, includeResolved === true || includeResolved === 'true' as any);
+    return this.alertsService.getPatientAlerts(
+      req.user.workspaceId,
+      patientId,
+      includeResolved === true || (includeResolved as any) === 'true',
+    );
   }
 
   @Patch(':alertId/resolve')
@@ -34,7 +39,7 @@ export class AlertsController {
   ) {
     // Frontend envia `notes`; antes a controller lia `note` (singular) e a
     // nota de resolução era perdida silenciosamente. Corrigido aqui.
-    await this.alertsService.resolveAlert(alertId, req.user.id, dto.notes);
+    await this.alertsService.resolveAlert(req.user.workspaceId, alertId, req.user.id, dto.notes);
     return { resolved: true, alertId };
   }
 }

@@ -257,16 +257,16 @@ export default function PhysicalAssessmentNewPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label>Peso (kg) *</Label>
-                <Input {...register('weightKg')} type="number" step="0.1" placeholder="70.0" />
+                <Label htmlFor="weightKg">Peso (kg) *</Label>
+                <Input id="weightKg" {...register('weightKg')} type="number" step="0.1" placeholder="70.0" />
               </div>
               <div>
-                <Label>Altura (cm) *</Label>
-                <Input {...register('heightCm')} type="number" step="0.1" placeholder="170" />
+                <Label htmlFor="heightCm">Altura (cm) *</Label>
+                <Input id="heightCm" {...register('heightCm')} type="number" step="0.1" placeholder="170" />
               </div>
               <div>
-                <Label>Idade (anos)</Label>
-                <Input {...register('age')} type="number" min={1} max={120} placeholder="30" />
+                <Label htmlFor="age">Idade (anos)</Label>
+                <Input id="age" {...register('age')} type="number" min={1} max={120} placeholder="30" />
               </div>
               <div>
                 <Label>Sexo</Label>
@@ -290,20 +290,20 @@ export default function PhysicalAssessmentNewPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label>% Gordura corporal</Label>
-                <Input {...register('bodyFatPct')} type="number" step="0.1" placeholder="22.0" />
+                <Label htmlFor="bodyFatPct">% Gordura corporal</Label>
+                <Input id="bodyFatPct" {...register('bodyFatPct')} type="number" step="0.1" placeholder="22.0" />
               </div>
               <div>
-                <Label>Massa magra (kg)</Label>
-                <Input {...register('leanMassKg')} type="number" step="0.1" />
+                <Label htmlFor="leanMassKg">Massa magra (kg)</Label>
+                <Input id="leanMassKg" {...register('leanMassKg')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Massa muscular (kg)</Label>
-                <Input {...register('muscleMassKg')} type="number" step="0.1" />
+                <Label htmlFor="muscleMassKg">Massa muscular (kg)</Label>
+                <Input id="muscleMassKg" {...register('muscleMassKg')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Massa óssea (kg)</Label>
-                <Input {...register('boneMassKg')} type="number" step="0.1" />
+                <Label htmlFor="boneMassKg">Massa óssea (kg)</Label>
+                <Input id="boneMassKg" {...register('boneMassKg')} type="number" step="0.1" />
               </div>
             </div>
 
@@ -371,7 +371,7 @@ export default function PhysicalAssessmentNewPage() {
 
             {sfFat && (
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] text-gray-400 italic">
+                <p className="text-[11px] text-gray-500 italic">
                   Estimativa de apoio — validar pelo Profissional de Educação Física (CREF/CONFEF).
                 </p>
                 <Button type="button" variant="outline" size="sm" className="text-xs"
@@ -391,32 +391,32 @@ export default function PhysicalAssessmentNewPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label>Cintura</Label>
-                <Input {...register('waistCm')} type="number" step="0.1" />
+                <Label htmlFor="waistCm">Cintura</Label>
+                <Input id="waistCm" {...register('waistCm')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Quadril</Label>
-                <Input {...register('hipCm')} type="number" step="0.1" />
+                <Label htmlFor="hipCm">Quadril</Label>
+                <Input id="hipCm" {...register('hipCm')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Pescoço</Label>
-                <Input {...register('neckCm')} type="number" step="0.1" />
+                <Label htmlFor="neckCm">Pescoço</Label>
+                <Input id="neckCm" {...register('neckCm')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Tórax</Label>
-                <Input {...register('chestCm')} type="number" step="0.1" />
+                <Label htmlFor="chestCm">Tórax</Label>
+                <Input id="chestCm" {...register('chestCm')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Braço D (relaxado)</Label>
-                <Input {...register('rightArmCm')} type="number" step="0.1" />
+                <Label htmlFor="rightArmCm">Braço D (relaxado)</Label>
+                <Input id="rightArmCm" {...register('rightArmCm')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Coxa D</Label>
-                <Input {...register('rightThighCm')} type="number" step="0.1" />
+                <Label htmlFor="rightThighCm">Coxa D</Label>
+                <Input id="rightThighCm" {...register('rightThighCm')} type="number" step="0.1" />
               </div>
               <div>
-                <Label>Panturrilha D</Label>
-                <Input {...register('rightCalfCm')} type="number" step="0.1" />
+                <Label htmlFor="rightCalfCm">Panturrilha D</Label>
+                <Input id="rightCalfCm" {...register('rightCalfCm')} type="number" step="0.1" />
               </div>
             </div>
 
@@ -496,16 +496,16 @@ export default function PhysicalAssessmentNewPage() {
               </select>
             </div>
             <div>
-              <Label>Frequência semanal</Label>
-              <Input {...register('weeklyFrequency')} type="number" min={0} max={14} placeholder="5" />
+              <Label htmlFor="weeklyFrequency">Frequência semanal</Label>
+              <Input id="weeklyFrequency" {...register('weeklyFrequency')} type="number" min={0} max={14} placeholder="5" />
             </div>
             <div>
-              <Label>Duração da sessão (min)</Label>
-              <Input {...register('sessionDurationMin')} type="number" placeholder="60" />
+              <Label htmlFor="sessionDurationMin">Duração da sessão (min)</Label>
+              <Input id="sessionDurationMin" {...register('sessionDurationMin')} type="number" placeholder="60" />
             </div>
             <div>
-              <Label>Modalidade esportiva</Label>
-              <Input {...register('sportModality')} placeholder="Ex: Musculação, Corrida, Natação" />
+              <Label htmlFor="sportModality">Modalidade esportiva</Label>
+              <Input id="sportModality" {...register('sportModality')} placeholder="Ex: Musculação, Corrida, Natação" />
             </div>
             <div>
               <Label>Intensidade do treino</Label>
@@ -518,12 +518,12 @@ export default function PhysicalAssessmentNewPage() {
               </select>
             </div>
             <div>
-              <Label>FC repouso (bpm)</Label>
-              <Input {...register('restingHeartRate')} type="number" placeholder="62" />
+              <Label htmlFor="restingHeartRate">FC repouso (bpm)</Label>
+              <Input id="restingHeartRate" {...register('restingHeartRate')} type="number" placeholder="62" />
             </div>
             <div>
-              <Label>Pressão arterial</Label>
-              <Input {...register('bloodPressure')} placeholder="120/80 mmHg" />
+              <Label htmlFor="bloodPressure">Pressão arterial</Label>
+              <Input id="bloodPressure" {...register('bloodPressure')} placeholder="120/80 mmHg" />
             </div>
           </CardContent>
         </Card>
@@ -541,16 +541,16 @@ export default function PhysicalAssessmentNewPage() {
               </select>
             </div>
             <div>
-              <Label>Peso alvo (kg)</Label>
-              <Input {...register('targetWeightKg')} type="number" step="0.1" />
+              <Label htmlFor="targetWeightKg">Peso alvo (kg)</Label>
+              <Input id="targetWeightKg" {...register('targetWeightKg')} type="number" step="0.1" />
             </div>
             <div>
-              <Label>% Gordura alvo</Label>
-              <Input {...register('targetBodyFatPct')} type="number" step="0.1" />
+              <Label htmlFor="targetBodyFatPct">% Gordura alvo</Label>
+              <Input id="targetBodyFatPct" {...register('targetBodyFatPct')} type="number" step="0.1" />
             </div>
             <div>
-              <Label>Data alvo</Label>
-              <Input {...register('targetDate')} type="date" />
+              <Label htmlFor="targetDate">Data alvo</Label>
+              <Input id="targetDate" {...register('targetDate')} type="date" />
             </div>
             <div className="md:col-span-2">
               <Label>Observações profissionais</Label>

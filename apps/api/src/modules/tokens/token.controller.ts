@@ -20,10 +20,11 @@ export class TokenController {
   @ApiOperation({ summary: 'Histórico de transações de tokens' })
   async getHistory(
     @Req() req: any,
-    @Query('limit') limit = 50,
-    @Query('offset') offset = 0,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.tokenService.getHistory(req.user.workspaceId, +limit, +offset);
+    // O serviço faz o clamp (teto de 200 e fallback para valor não numérico).
+    return this.tokenService.getHistory(req.user.workspaceId, Number(limit), Number(offset));
   }
 
   @Get('costs')

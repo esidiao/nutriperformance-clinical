@@ -51,7 +51,10 @@ export class ProductsService {
       alertaNutricional: p.alertaNutricional, alergenos: p.alergenos,
     });
     this.ragService
-      .indexChunk('openfoodfacts', p.codigoBarras, 'media', texto, { ean: p.codigoBarras })
+      // Confiabilidade do próprio registro; 'media' é só o default do Open Food
+      // Facts. Fixá-la aqui reindexava como 'media' até o que a curadoria já
+      // tinha reclassificado.
+      .indexChunk('openfoodfacts', p.codigoBarras, p.confiabilidade ?? 'media', texto, { ean: p.codigoBarras })
       .catch((e) => this.logger.warn(`Falha ao indexar produto no RAG (${p.codigoBarras}): ${e?.message}`));
   }
 

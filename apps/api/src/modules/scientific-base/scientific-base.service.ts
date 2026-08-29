@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { clampInt, clampOffset } from '../../common/pagination.util';
 
 export interface ScientificBaseHealth {
   category: string;
@@ -87,9 +88,11 @@ export class ScientificBaseService {
   }
 
   async listByCategory(category: string, limit = 200, offset = 0): Promise<ScientificReference[]> {
-    // Limite defensivo: evita retornar lista ilimitada de referências por categoria.
-    const safeLimit = Math.min(500, Math.max(1, limit));
-    const safeOffset = Math.max(0, offset);
+    // Limite defensivo: evita lista ilimitada de referências por categoria.
+    // Via clampInt porque `Math.max(1, NaN)` é NaN — `?limit=abc` produzia
+    // `LIMIT NaN` e um 500 do Postgres em vez de cair no padrão.
+    const safeLimit = clampInt(limit, 200, 500);
+    const safeOffset = clampOffset(offset);
     const rows = await this.dataSource.query(
       `SELECT id, category, title, authors, journal, publication_year,
               evidence_level, doi, conclusions

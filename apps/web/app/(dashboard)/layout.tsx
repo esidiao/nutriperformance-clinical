@@ -152,7 +152,7 @@ function Sidebar({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">{user.name}</p>
-                <p className="text-[10px] text-gray-400 truncate">{user.email}</p>
+                <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
               </div>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium flex-shrink-0">
                 {user.plan}
@@ -165,7 +165,7 @@ function Sidebar({
         <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-2 mb-1">
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-2 mb-1">
                 {group.label}
               </p>
               <div className="space-y-0.5">

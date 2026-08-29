@@ -227,7 +227,7 @@ export default function ProdutosPage() {
               )}
 
               {/* Proveniência (ODbL) */}
-              <p className="text-[11px] text-gray-400 border-t pt-2 flex items-center gap-1.5">
+              <p className="text-[11px] text-gray-500 border-t pt-2 flex items-center gap-1.5">
                 <BadgeCheck className="h-3 w-3" />
                 Fonte: <strong>Open Food Facts</strong> ({product.licenca}) · Confiabilidade: {product.confiabilidade}
                 {product.origem === 'openfoodfacts' && ' · recém-importado'}

@@ -104,7 +104,7 @@ export function FoodAutocomplete({
                   <BadgeCheck className="h-2.5 w-2.5" /> {f.fonte.toUpperCase()}
                 </span>
               </div>
-              <div className="text-[10px] text-gray-400 mt-0.5">
+              <div className="text-[10px] text-gray-500 mt-0.5">
                 {f.energiaKcal != null ? `${Math.round(f.energiaKcal)} kcal` : '—'} · P {f.proteinasG ?? '—'}g · C {f.carboidratosG ?? '—'}g · G {f.lipidiosG ?? '—'}g
                 <span className="text-gray-300"> / {Math.round(f.porcaoPadraoG)}g</span>
               </div>

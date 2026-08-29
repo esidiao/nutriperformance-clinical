@@ -137,7 +137,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           ) : (
             Object.entries(grouped).map(([group, items]) => (
               <div key={group}>
-                <div className="px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                <div className="px-4 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
                   {group === 'Recentes' && <Clock className="h-3 w-3" />}
                   {group}
                 </div>
@@ -175,7 +175,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2.5 border-t dark:border-gray-700 flex items-center gap-4 text-[10px] text-gray-400">
+        <div className="px-4 py-2.5 border-t dark:border-gray-700 flex items-center gap-4 text-[10px] text-gray-500">
           <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">↑↓</kbd> navegar</span>
           <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">Enter</kbd> selecionar</span>
           <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">Esc</kbd> fechar</span>

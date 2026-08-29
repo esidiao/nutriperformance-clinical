@@ -61,7 +61,7 @@ function StepIndicator({ current }: { current: number }) {
                 <p className={`text-xs font-semibold leading-tight ${active ? 'text-blue-600' : done ? 'text-green-600' : 'text-gray-400'}`}>
                   {step.label}
                 </p>
-                <p className="text-[10px] text-gray-400 leading-tight">{step.description}</p>
+                <p className="text-[10px] text-gray-500 leading-tight">{step.description}</p>
               </div>
             </div>
             {i < STEPS.length - 1 && (
@@ -323,7 +323,7 @@ export default function PatientNewPage() {
               </div>
               <div>
                 <Label>Medicamentos em uso</Label>
-                <p className="text-[11px] text-gray-400 mb-1.5">Usados nas análises de interações e biodisponibilidade.</p>
+                <p className="text-[11px] text-gray-500 mb-1.5">Usados nas análises de interações e biodisponibilidade.</p>
                 {form.medications.length > 0 && (
                   <div className="space-y-1.5 mb-2">
                     {form.medications.map((m, i) => (
@@ -348,7 +348,7 @@ export default function PatientNewPage() {
               </div>
               <div>
                 <Label>Condições clínicas</Label>
-                <p className="text-[11px] text-gray-400 mb-1.5">Comorbidades e condições relevantes (ex.: hipertensão, diabetes).</p>
+                <p className="text-[11px] text-gray-500 mb-1.5">Comorbidades e condições relevantes (ex.: hipertensão, diabetes).</p>
                 {form.clinicalConditions.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {form.clinicalConditions.map((c, i) => (

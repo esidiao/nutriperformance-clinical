@@ -60,7 +60,7 @@ export function RiskScoreCard({ input, compact = false, showDetails = true }: Ri
             style={{ width: `${result.score}%` }}
           />
         </div>
-        <div className="flex justify-between text-[10px] text-gray-400">
+        <div className="flex justify-between text-[10px] text-gray-500">
           <span>0 — Mínimo</span>
           <span className={`font-semibold ${result.color}`}>{result.label}</span>
           <span>100 — Máximo</span>
@@ -127,7 +127,7 @@ export function RiskScoreCard({ input, compact = false, showDetails = true }: Ri
             </div>
           )}
 
-          <p className="text-[10px] text-gray-400 italic border-t dark:border-gray-700 pt-2">
+          <p className="text-[10px] text-gray-500 italic border-t dark:border-gray-700 pt-2">
             Score de apoio clínico · Não substitui avaliação médica individualizada · Requer validação do profissional responsável
           </p>
         </>

@@ -151,7 +151,7 @@ export default function ComparadorPage() {
                   })}
                 </tbody>
               </table>
-              <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1.5 border-t pt-2">
+              <p className="text-[11px] text-gray-500 mt-3 flex items-center gap-1.5 border-t pt-2">
                 <BadgeCheck className="h-3 w-3" /> Fonte: {foods.map((f) => f.fonte?.toUpperCase()).filter((v, i, a) => a.indexOf(v) === i).join(', ')} · valores por 100g
               </p>
             </CardContent>

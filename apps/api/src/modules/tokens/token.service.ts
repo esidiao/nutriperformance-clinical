@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Workspace } from '../workspaces/workspace.entity';
+import { clampInt, clampOffset } from '../../common/pagination.util';
 import { TokenTransaction } from './token-transaction.entity';
 import { TokenCost } from './token-cost.entity';
 
@@ -132,8 +133,10 @@ export class TokenService {
     return this.txRepo.find({
       where: { workspaceId },
       order: { createdAt: 'DESC' },
-      take: limit,
-      skip: offset,
+      // Sem teto, `?limit=999999` devolvia o histórico inteiro do workspace
+      // numa requisição; `?limit=abc` virava `take: NaN` (erro do Postgres).
+      take: clampInt(limit, 50, 200),
+      skip: clampOffset(offset),
     });
   }
 

@@ -109,7 +109,7 @@ export default function SuplementosBasePage() {
                     </ul>
                   </div>
                 )}
-                <p className="text-[11px] text-gray-400 border-t pt-1.5 flex items-center gap-1.5">
+                <p className="text-[11px] text-gray-500 border-t pt-1.5 flex items-center gap-1.5">
                   <BadgeCheck className="h-3 w-3" /> Fonte: <strong>NIH DSLD</strong> ({s.licenca}) · {s.pais}
                 </p>
               </CardContent>

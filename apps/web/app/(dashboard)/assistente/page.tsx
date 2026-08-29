@@ -90,7 +90,7 @@ export default function AssistentePage() {
                     <p className={`text-sm whitespace-pre-wrap leading-relaxed ${t.role === 'user' ? 'text-white' : 'text-gray-800 dark:text-gray-200'}`}>{t.text}</p>
                     {t.sources && t.sources.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                        <p className="text-[10px] font-semibold text-gray-400 mb-1 flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Fontes</p>
+                        <p className="text-[10px] font-semibold text-gray-500 mb-1 flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Fontes</p>
                         <div className="flex flex-wrap gap-1">
                           {t.sources.map((s, j) => (
                             <span key={j} className={`text-[10px] px-1.5 py-0.5 rounded-full ${CONF_BADGE[s.confiabilidade] ?? 'bg-gray-100 text-gray-500'}`}>
@@ -101,7 +101,7 @@ export default function AssistentePage() {
                       </div>
                     )}
                     {t.tokens != null && t.tokens > 0 && (
-                      <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-0.5">{t.tokens} <Coins className="h-2.5 w-2.5" /></p>
+                      <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-0.5">{t.tokens} <Coins className="h-2.5 w-2.5" /></p>
                     )}
                   </CardContent>
                 </Card>

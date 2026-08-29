@@ -102,14 +102,14 @@ function ClinicalContextCard({
         <CardTitle className="text-sm flex items-center gap-2">
           <Stethoscope className="h-4 w-4 text-teal-600" /> Contexto Clínico
         </CardTitle>
-        <p className="text-[11px] text-gray-400">Medicamentos em uso e condições clínicas — usados nas análises de interações e biodisponibilidade.</p>
+        <p className="text-[11px] text-gray-500">Medicamentos em uso e condições clínicas — usados nas análises de interações e biodisponibilidade.</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Medicamentos */}
         <div>
           <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medicamentos em uso</label>
           <div className="mt-1.5 space-y-1.5">
-            {meds.length === 0 && <p className="text-[11px] text-gray-400">Nenhum medicamento registrado.</p>}
+            {meds.length === 0 && <p className="text-[11px] text-gray-500">Nenhum medicamento registrado.</p>}
             {meds.map((m, i) => (
               <div key={i} className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">
                 <span className="font-medium text-gray-800 dark:text-gray-200">{m.name}</span>
@@ -135,7 +135,7 @@ function ClinicalContextCard({
         <div>
           <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Condições clínicas</label>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {conditions.length === 0 && <p className="text-[11px] text-gray-400">Nenhuma condição registrada.</p>}
+            {conditions.length === 0 && <p className="text-[11px] text-gray-500">Nenhuma condição registrada.</p>}
             {conditions.map((c, i) => (
               <span key={i} className="inline-flex items-center gap-1 text-xs bg-teal-50 text-teal-800 border border-teal-200 rounded-full px-2.5 py-1">
                 {c}
@@ -374,7 +374,7 @@ export default function PatientPage() {
                   ))}
                 </div>
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  {quickBmi ? <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5 text-blue-600" /> IMC: <strong className="text-blue-700 dark:text-blue-400">{quickBmi}</strong></span> : <span className="text-[11px] text-gray-400">Informe peso e altura para o IMC.</span>}
+                  {quickBmi ? <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5 text-blue-600" /> IMC: <strong className="text-blue-700 dark:text-blue-400">{quickBmi}</strong></span> : <span className="text-[11px] text-gray-500">Informe peso e altura para o IMC.</span>}
                   <Button size="sm" disabled={savingPhys} className="h-8 text-xs flex items-center gap-1.5" onClick={handleSaveQuickPhysical}>
                     {savingPhys ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Registrar avaliação física
                   </Button>
@@ -449,7 +449,7 @@ export default function PatientPage() {
                     <span className="font-semibold text-sm">{s.name ?? s.supplementName ?? 'Suplemento'}</span>
                     <span className="text-xs text-gray-500">{[s.dose, s.frequency].filter(Boolean).join(' · ')}</span>
                   </div>
-                  <span className="text-[10px] text-gray-400">{fmtDate(s.createdAt)}</span>
+                  <span className="text-[10px] text-gray-500">{fmtDate(s.createdAt)}</span>
                 </CardContent></Card>
               ))}
           </TabsContent>
@@ -463,7 +463,7 @@ export default function PatientPage() {
                 <Card key={it.id ?? i}><CardContent className="py-3 px-4">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-semibold text-sm">{it.title ?? it.summary ?? 'Análise de interações'}</span>
-                    <span className="text-[10px] text-gray-400">{fmtDate(it.createdAt)}</span>
+                    <span className="text-[10px] text-gray-500">{fmtDate(it.createdAt)}</span>
                   </div>
                 </CardContent></Card>
               ))}

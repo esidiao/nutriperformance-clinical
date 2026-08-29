@@ -47,7 +47,7 @@ export class RagSyncService {
       const foods = await this.dataSource.query(
         `SELECT f.id, f.nome_padronizado, f.grupo_alimentar, f.porcao_padrao_g, f.energia_kcal, f.proteinas_g,
                 f.carboidratos_g, f.lipidios_g, f.fibras_g, f.sodio_mg, f.ferro_mg, f.calcio_mg, f.potassio_mg,
-                f.magnesio_mg, f.zinco_mg, f.fonte
+                f.magnesio_mg, f.zinco_mg, f.fonte, f.confiabilidade
          FROM foods f
          LEFT JOIN rag_chunks r ON r.fonte = f.fonte AND r.fonte_ref = f.id::text
          WHERE r.id IS NULL AND f.ativo = true AND f.confiabilidade <> 'pendente'
@@ -67,7 +67,12 @@ export class RagSyncService {
           fibrasG: f.fibras_g, sodioMg: f.sodio_mg, ferroMg: f.ferro_mg, calcioMg: f.calcio_mg, potassioMg: f.potassio_mg,
           magnesioMg: f.magnesio_mg, zincoMg: f.zinco_mg, fonte: f.fonte,
         });
-        try { await this.ragService.indexChunk(f.fonte, f.id, 'alta', texto, { nome: f.nome_padronizado }); ok++; }
+        // A confiabilidade vem do alimento. Antes era a constante 'alta': o filtro
+        // da query é `<> 'pendente'`, então alimentos 'media'/'baixa' entravam no
+        // RAG carimbados como alta e o prompt do assistente exibia
+        // "[FONTE · confiabilidade alta]" para dado que a curadoria não classificou
+        // assim — proveniência falsa em resposta clínica.
+        try { await this.ragService.indexChunk(f.fonte, f.id, f.confiabilidade, texto, { nome: f.nome_padronizado }); ok++; }
         catch (e: any) { this.logger.warn(`RAG sync falhou para ${f.id}: ${e?.message}`); }
         await new Promise((r) => setTimeout(r, 250));
       }

@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClinicalAlert } from './clinical-alert.entity';
+import { clampInt } from '../../common/pagination.util';
 
 type AlertSeverity = 'info' | 'warning' | 'danger' | 'critical';
 
@@ -202,24 +203,40 @@ export class AlertsService {
     return triggeredAlerts;
   }
 
-  async getPatientAlerts(patientId: string, includeResolved = false, limit = 200) {
+  /**
+   * Alertas de um paciente. O `workspaceId` NÃO é opcional: o alerta é gravado
+   * com workspace_id, e sem esse filtro qualquer profissional autenticado lia
+   * os alertas clínicos de um paciente de outro workspace só sabendo o UUID.
+   */
+  async getPatientAlerts(workspaceId: string, patientId: string, includeResolved = false, limit = 200) {
     return this.alertRepo.find({
       where: {
+        workspaceId,
         patientId,
         ...(includeResolved ? {} : { isResolved: false }),
       },
       order: { createdAt: 'DESC' },
-      take: Math.min(500, Math.max(1, limit)),
+      take: clampInt(limit, 200, 500),
     });
   }
 
-  async resolveAlert(alertId: string, resolvedBy: string, note?: string) {
-    await this.alertRepo.update(alertId, {
-      isResolved: true,
-      resolvedBy,
-      resolvedAt: new Date(),
-      resolutionNote: note,
-    });
+  /**
+   * Marca o alerta como resolvido dentro do workspace do usuário. Devolve 404
+   * quando o alerta não existe OU pertence a outro workspace — antes o update
+   * era por id puro (resolvia alerta alheio) e a controller respondia
+   * `{ resolved: true }` mesmo quando nenhuma linha era afetada.
+   */
+  async resolveAlert(workspaceId: string, alertId: string, resolvedBy: string, note?: string) {
+    const res = await this.alertRepo.update(
+      { id: alertId, workspaceId },
+      {
+        isResolved: true,
+        resolvedBy,
+        resolvedAt: new Date(),
+        resolutionNote: note,
+      },
+    );
+    if (!res.affected) throw new NotFoundException('Alerta não encontrado');
   }
 
   async evaluateSupplementation(
