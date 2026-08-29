@@ -13,11 +13,18 @@ allowBuilds:
 #
 # Só entram bumps DENTRO do mesmo major já instalado. O que exige troca de
 # major fica de fora de propósito e é upgrade planejado, não override silencioso:
-#   - tmp 0.0.x → 0.2.x (mudança de contrato dentro do 0.x; só @nestjs/cli, dev)
-#   - jspdf 2 → 4 (exige jspdf-autotable compatível; ver relatório do ciclo)
-#   - sharp 0.34 → 0.35 (0.x: minor é quebra; é o sharp interno do next)
 #   - extract-zip: o advisory pede >=2.0.2, mas a última release publicada é a
-#     2.0.1 — não há correção disponível (puxado por puppeteer)
+#     2.0.1 — não há correção disponível (puxado por puppeteer). É o único
+#     high que sobra, e não sobra por escolha.
+#
+# Em 2026-08-29 os três majors que ficavam de fora foram feitos e VERIFICADOS,
+# não apenas bumpados (ver relatório do ciclo):
+#   - jspdf 2.5.2 → 4.2.1 + jspdf-autotable 3.8 → 5.0: a prescrição renderizada
+#     saiu byte-a-byte idêntica à da versão anterior (só /Producer e
+#     /CreationDate mudam). Levou 2 critical + 6 high embora.
+#   - tmp 0.0.33 → 0.2.7: `nest build` roda igual (é dev-only, @nestjs/cli).
+#   - sharp 0.34.5 → 0.35.4: decode → resize → encode webp exercitado direto,
+#     que é o que o otimizador de imagem do Next faz.
 #
 # `tar` saiu desta lista em 2026-08-29: o único caminho até ele era
 # bcrypt > @mapbox/node-pre-gyp > tar, e o bcrypt foi REMOVIDO da API — não
@@ -38,3 +45,5 @@ overrides:
   brace-expansion@>=1.0.0 <1.1.18: ^1.1.18
   brace-expansion@>=2.0.0 <2.1.4: ^2.1.4
   js-yaml@>=3.0.0 <3.15.1: ^3.15.1
+  tmp@<0.2.6: ^0.2.6
+  sharp@<0.35.0: ^0.35.0
