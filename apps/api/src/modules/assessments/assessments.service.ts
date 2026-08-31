@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NutritionalAssessment } from './nutritional-assessment.entity';
 import { PhysicalAssessment } from './physical-assessment.entity';
-import { AIEngineService as AiEngineService } from '../ai/ai-engine.service';
+import { AudioIntakeDto } from './dto/audio-intake.dto';
+import { AIEngineService as AiEngineService, AudioIntakeResult } from '../ai/ai-engine.service';
 import { TokenService } from '../tokens/token.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -112,6 +113,55 @@ export class AssessmentsService {
     });
 
     return { summary: result.content, tokensConsumed: COST };
+  }
+
+  // ── Anamnese por áudio ───────────────────────────────────────────────────
+
+  /**
+   * Transcreve a gravação da consulta e devolve os campos da anamnese.
+   *
+   * Não persiste nada: o profissional revisa e confirma os campos na tela antes
+   * de salvar a avaliação. O áudio também não é armazenado — só trafega em
+   * memória até a chamada ao Gemini.
+   */
+  async transcribeAudioIntake(
+    workspaceId: string,
+    userId: string,
+    kind: 'nutritional' | 'physical',
+    dto: AudioIntakeDto,
+  ): Promise<AudioIntakeResult & { tokensConsumed: number }> {
+    const COST = 15;
+
+    // Portão de saldo antes da chamada paga: sem isso o Gemini seria cobrado
+    // do nosso lado mesmo quando o workspace não tem tokens para pagar.
+    const { available } = await this.tokenService.getBalance(workspaceId);
+    if (available < COST) {
+      throw new BadRequestException(
+        `Saldo insuficiente para transcrever a consulta. Disponível: ${available} tokens. Necessário: ${COST} tokens.`,
+      );
+    }
+
+    const result = await this.aiEngine.transcribeAudioIntake(
+      dto.audioBase64,
+      dto.mimeType,
+      kind,
+    );
+
+    await this.tokenService.consume({
+      workspaceId,
+      userId,
+      operation: `${kind}_audio_intake`,
+      cost: COST,
+    });
+
+    this.auditService.log({
+      userId,
+      workspaceId,
+      action: 'CREATE',
+      resource: `${kind}_audio_intake`,
+    });
+
+    return { ...result, tokensConsumed: COST };
   }
 
   // ── Physical ─────────────────────────────────────────────────────────────
