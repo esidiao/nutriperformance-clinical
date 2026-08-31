@@ -5,7 +5,7 @@ import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import * as Sentry from '@sentry/node';
 import helmet from 'helmet';
-import { json, urlencoded } from 'express';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import * as http from 'http';
 
 // Servidor de fallback — mantém a porta viva enquanto o NestJS sobe, para que
@@ -50,7 +50,7 @@ async function bootstrap() {
   let fallback = startFallbackServer(port, bootState);
 
   try {
-    const app = await NestFactory.create(AppModule, {
+    const app = await NestFactory.create<NestExpressApplication>(AppModule, {
       rawBody: true,
     });
 
@@ -61,8 +61,12 @@ async function bootstrap() {
 
     // A anamnese por áudio envia a gravação da consulta em base64; o teto padrão
     // do Express (100 kB) rejeitaria qualquer gravação com mais de alguns segundos.
-    app.use(json({ limit: '25mb' }));
-    app.use(urlencoded({ limit: '25mb', extended: true }));
+    //
+    // Via useBodyParser e não `import { json } from 'express'`: express não é
+    // dependência declarada de apps/api (vem transitivo do platform-express), e
+    // o pnpm do Dockerfile não a resolveria — quebraria só em produção.
+    app.useBodyParser('json', { limit: '25mb' });
+    app.useBodyParser('urlencoded', { limit: '25mb', extended: true });
 
     app.useGlobalFilters(new GlobalExceptionFilter());
 
