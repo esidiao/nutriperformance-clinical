@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import * as Sentry from '@sentry/node';
 import helmet from 'helmet';
+import { json, urlencoded } from 'express';
 import * as http from 'http';
 
 // Servidor de fallback — mantém a porta viva enquanto o NestJS sobe, para que
@@ -57,6 +58,11 @@ async function bootstrap() {
       crossOriginEmbedderPolicy: false,
       contentSecurityPolicy: false,
     }));
+
+    // A anamnese por áudio envia a gravação da consulta em base64; o teto padrão
+    // do Express (100 kB) rejeitaria qualquer gravação com mais de alguns segundos.
+    app.use(json({ limit: '25mb' }));
+    app.use(urlencoded({ limit: '25mb', extended: true }));
 
     app.useGlobalFilters(new GlobalExceptionFilter());
 

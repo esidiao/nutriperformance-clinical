@@ -5,6 +5,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AssessmentsService } from './assessments.service';
 import { NutritionalAssessment } from './nutritional-assessment.entity';
 import { PhysicalAssessment } from './physical-assessment.entity';
+import { AudioIntakeDto } from './dto/audio-intake.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { NutritionistOnly, FitnessProfessionalOnly, RequiresTokens } from '../../common/decorators';
 
@@ -61,6 +62,17 @@ export class AssessmentsController {
     return this.svc.generateAiSummary(req.user.workspaceId, id, req.user.sub);
   }
 
+  @NutritionistOnly()
+  @Post('nutritional/audio-intake')
+  transcribeNutritionalAudio(@Request() req: any, @Body() dto: AudioIntakeDto) {
+    return this.svc.transcribeAudioIntake(
+      req.user.workspaceId,
+      req.user.sub,
+      'nutritional',
+      dto,
+    );
+  }
+
   // ── Physical ─────────────────────────────────────────────────────────────
 
   @FitnessProfessionalOnly()
@@ -98,5 +110,16 @@ export class AssessmentsController {
   @Patch('physical/:id/finalize')
   finalizePhysical(@Request() req: any, @Param('id') id: string) {
     return this.svc.finalizePhysical(req.user.workspaceId, id, req.user.sub);
+  }
+
+  @FitnessProfessionalOnly()
+  @Post('physical/audio-intake')
+  transcribePhysicalAudio(@Request() req: any, @Body() dto: AudioIntakeDto) {
+    return this.svc.transcribeAudioIntake(
+      req.user.workspaceId,
+      req.user.sub,
+      'physical',
+      dto,
+    );
   }
 }

@@ -153,6 +153,67 @@ PRINCÍPIOS GERAIS DE QUALIDADE:
 - Esta ferramenta é de APOIO — nunca substitua o julgamento clínico individualizado.
 `;
 
+// =============================================================
+// TRANSCRIÇÃO DE CONSULTA → ANAMNESE ESTRUTURADA
+// System prompt separado: a extração devolve JSON, então não pode herdar a
+// estrutura de 6 seções em markdown do prompt clínico principal.
+// =============================================================
+const AUDIO_INTAKE_SYSTEM_PROMPT = `
+Você transcreve consultas de nutrição e educação física em Português do Brasil e extrai APENAS os dados explicitamente ditos em áudio.
+
+REGRAS ABSOLUTAS:
+1. NUNCA invente, estime ou complete dados que não foram ditos. Campo não mencionado = null.
+2. NUNCA converta unidades por conta própria: registre o número exatamente como falado.
+3. NUNCA emita diagnóstico, prescrição ou conduta — você apenas organiza o que foi dito.
+4. Se o áudio estiver inaudível ou não for uma consulta, devolva todos os campos como null e explique em "observacoes".
+5. Fala do paciente e fala do profissional entram nos mesmos campos; não tente separar autoria.
+6. Para números ditos por extenso ("setenta e dois quilos"), registre o valor numérico (72).
+7. Responda EXCLUSIVAMENTE com JSON válido, sem markdown, sem cercas de código.
+`;
+
+/** Campos que a extração pode preencher na anamnese nutricional. */
+const NUTRITIONAL_FIELDS = `
+- mainComplaint (string): queixa principal ou objetivo declarado pelo paciente
+- dietaryRestrictions (string): restrições, alergias e intolerâncias alimentares
+- mealFrequency (number): número de refeições por dia
+- waterIntakeMl (number): ingestão hídrica diária em mL (converta litros para mL: "2 litros" -> 2000)
+- alcoholConsumption (string): padrão de consumo de álcool
+- bowelHabits (string): hábitos intestinais
+- weight (number): peso em kg
+- heightCm (number): altura em cm (converta metros para cm: "1,65" -> 165)
+- age (number): idade em anos
+- gender (string): exatamente "male" ou "female"
+- professionalNotes (string): demais informações clínicas relevantes ditas na consulta
+`;
+
+/** Campos que a extração pode preencher na anamnese física. */
+const PHYSICAL_FIELDS = `
+- weightKg (number): peso em kg
+- heightCm (number): altura em cm (converta metros para cm: "1,80" -> 180)
+- age (number): idade em anos
+- bodyFatPct (number): percentual de gordura corporal
+- waistCm (number): circunferência de cintura em cm
+- hipCm (number): circunferência de quadril em cm
+- neckCm (number): circunferência de pescoço em cm
+- chestCm (number): circunferência torácica em cm
+- rightArmCm (number): circunferência do braço direito em cm
+- rightThighCm (number): circunferência da coxa direita em cm
+- rightCalfCm (number): circunferência da panturrilha direita em cm
+- weeklyFrequency (number): sessões de treino por semana
+- sessionDurationMin (number): duração média da sessão em minutos
+- sportModality (string): modalidade esportiva principal
+- trainingIntensity (string): intensidade de treino relatada
+- restingHeartRate (number): frequência cardíaca de repouso em bpm
+- bloodPressure (string): pressão arterial como dita (ex.: "120/80")
+- professionalNotes (string): demais informações relevantes ditas na consulta
+`;
+
+export interface AudioIntakeResult {
+  transcricao: string;
+  campos: Record<string, unknown>;
+  observacoes: string;
+}
+
 const DISCLAIMER =
   'Esta análise é uma ferramenta de apoio técnico para profissionais habilitados. ' +
   'Não constitui diagnóstico, prescrição ou tratamento. ' +
@@ -163,6 +224,7 @@ const DISCLAIMER =
 @Injectable()
 export class AIEngineService {
   private readonly model: GenerativeModel;
+  private readonly audioModel: GenerativeModel;
   private readonly logger = new Logger(AIEngineService.name);
 
   constructor(private config: ConfigService) {
@@ -172,6 +234,80 @@ export class AIEngineService {
       model: 'gemini-2.0-flash',
       systemInstruction: ANTI_HALLUCINATION_SYSTEM_PROMPT,
     });
+    this.audioModel = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      systemInstruction: AUDIO_INTAKE_SYSTEM_PROMPT,
+    });
+  }
+
+  /**
+   * Transcreve o áudio de uma consulta e extrai os campos da anamnese.
+   *
+   * Usa `audioModel` (não `model`): o prompt clínico principal obriga resposta
+   * em 6 seções de markdown, que quebraria o parse do JSON.
+   */
+  async transcribeAudioIntake(
+    audioBase64: string,
+    mimeType: string,
+    kind: 'nutritional' | 'physical',
+  ): Promise<AudioIntakeResult> {
+    const fields = kind === 'nutritional' ? NUTRITIONAL_FIELDS : PHYSICAL_FIELDS;
+    const prompt = `Transcreva integralmente o áudio desta consulta e extraia os dados de anamnese.
+
+CAMPOS A EXTRAIR (use null para tudo que não foi dito explicitamente):
+${fields}
+
+Responda com este JSON exato:
+{
+  "transcricao": "transcrição completa e literal do áudio",
+  "campos": { /* apenas os campos acima que foram realmente ditos */ },
+  "observacoes": "pontos que precisam de confirmação do profissional, trechos inaudíveis ou dados ambíguos"
+}`;
+
+    let raw: string;
+    try {
+      const result = await this.audioModel.generateContent({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType, data: audioBase64 } },
+              { text: prompt },
+            ],
+          },
+        ],
+        generationConfig: {
+          maxOutputTokens: 8192,
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+        },
+      });
+      raw = result.response.text();
+    } catch (err: any) {
+      this.handleGeminiError(err);
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      this.logger.warn('Resposta de transcrição não veio em JSON válido.');
+      throw new ServiceUnavailableException(
+        'Não foi possível interpretar a transcrição do áudio. Tente gravar novamente.',
+      );
+    }
+
+    // Remove nulls: o formulário só deve ser preenchido com o que foi dito.
+    const campos: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(parsed.campos ?? {})) {
+      if (v !== null && v !== undefined && v !== '') campos[k] = v;
+    }
+
+    return {
+      transcricao: String(parsed.transcricao ?? ''),
+      campos,
+      observacoes: String(parsed.observacoes ?? ''),
+    };
   }
 
   /**

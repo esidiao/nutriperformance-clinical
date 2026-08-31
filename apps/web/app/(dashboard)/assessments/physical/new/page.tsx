@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, Coins, Activity, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
+import { AudioIntakeRecorder } from '@/components/AudioIntakeRecorder';
 
 const schema = z.object({
   patientId: z.string().optional(),
@@ -144,6 +145,16 @@ export default function PhysicalAssessmentNewPage() {
   // Estado local das dobras cutâneas (calculadora de % de gordura)
   const [sf, setSf] = useState({ s1: '', s2: '', s3: '' });
 
+  // Preenche apenas os campos do schema que a transcrição extraiu; o resto do
+  // formulário e o que o profissional já digitou permanecem intactos.
+  const applyExtractedFields = (fields: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(fields)) {
+      if (key in schema.shape) {
+        setValue(key as keyof FormData, value as never, { shouldValidate: true });
+      }
+    }
+  };
+
   const wW = watch('weightKg');
   const wH = watch('heightCm');
   const wWaist = watch('waistCm');
@@ -248,6 +259,8 @@ export default function PhysicalAssessmentNewPage() {
           O sistema organiza os dados e gera análise de apoio — sem substituir o julgamento profissional.
         </AlertDescription>
       </Alert>
+
+      <AudioIntakeRecorder kind="physical" onFieldsExtracted={applyExtractedFields} />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 

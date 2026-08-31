@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, Coins, Calculator, Brain, TrendingUp, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
+import { AudioIntakeRecorder } from '@/components/AudioIntakeRecorder';
 
 const schema = z.object({
   patientId: z.string().optional(),
@@ -79,6 +80,16 @@ export default function NutritionalAssessmentNewPage() {
     resolver: zodResolver(schema),
     defaultValues: { bmrFormula: 'mifflin', gender: 'female', activityLevel: 'moderately_active' },
   });
+
+  // Preenche apenas os campos do schema que a transcrição extraiu; o resto do
+  // formulário e o que o profissional já digitou permanecem intactos.
+  const applyExtractedFields = (fields: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(fields)) {
+      if (key in schema.shape) {
+        setValue(key as keyof FormData, value as never, { shouldValidate: true });
+      }
+    }
+  };
 
   const w = watch('weight');
   const h = watch('heightCm');
@@ -225,6 +236,8 @@ export default function NutritionalAssessmentNewPage() {
           Conforme Resolução CFN 599/2018 e CFN 600/2018.
         </AlertDescription>
       </Alert>
+
+      <AudioIntakeRecorder kind="nutritional" onFieldsExtracted={applyExtractedFields} />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 

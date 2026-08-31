@@ -142,6 +142,17 @@ export const api = {
     updateNutritional: (id: string, dto: any) => api.patch<any>(`/assessments/nutritional/${id}`, dto),
     finalizeNutritional: (id: string) => api.patch<any>(`/assessments/nutritional/${id}/finalize`),
     aiSummary: (id: string) => api.post<any>(`/assessments/nutritional/${id}/ai-summary`),
+    // Transcrição de consulta gravada. Payload grande + Gemini processando o
+    // áudio inteiro: o teto padrão de 30s do cliente não cobre.
+    audioIntake: (
+      kind: 'nutritional' | 'physical',
+      body: { audioBase64: string; mimeType: string },
+    ) => request<{
+      transcricao: string;
+      campos: Record<string, unknown>;
+      observacoes: string;
+      tokensConsumed: number;
+    }>('POST', `/assessments/${kind}/audio-intake`, body, 180_000),
     createPhysical: (dto: any) => api.post<any>('/assessments/physical', dto),
     listPhysical: (patientId: string) => api.get<any[]>(`/assessments/physical/patient/${patientId}`),
     getPhysical: (id: string) => api.get<any>(`/assessments/physical/${id}`),
