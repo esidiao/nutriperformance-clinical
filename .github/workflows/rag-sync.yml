@@ -45,16 +45,20 @@ jobs:
           API_URL: ${{ secrets.API_URL }}
         run: |
           set -euo pipefail
-          for attempt in 1 2 3 4 5 6; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "${API_URL}/health" || echo 000)
-            if [ "$code" = "200" ]; then
-              echo "API respondeu 200 na tentativa ${attempt}."
+          # Não basta o 200: durante o boot o fallback de main.ts responde
+          # /health com 200 e {"status":"starting"}. Checar só o código dava a
+          # instância por pronta cedo demais e o POST seguinte tomava 503
+          # ("Application starting..."). Só "status":"ok" vem do Nest de pé.
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            corpo=$(curl -s --max-time 90 "${API_URL}/health" || echo '')
+            if printf '%s' "$corpo" | grep -q '"status":"ok"'; then
+              echo "API pronta na tentativa ${attempt}: ${corpo}"
               exit 0
             fi
-            echo "Tentativa ${attempt}: HTTP ${code} — aguardando cold start..."
+            echo "Tentativa ${attempt}: ainda não pronta — ${corpo:-sem resposta}"
             sleep 15
           done
-          echo "::error::A API não respondeu 200 em /health após 6 tentativas"
+          echo "::error::A API não ficou pronta (status ok) após 10 tentativas"
           exit 1
 
       - name: Disparar sync do RAG
