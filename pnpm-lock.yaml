@@ -88,9 +88,6 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.0
         version: 9.0.3
-      mercadopago:
-        specifier: ^3.0.0
-        version: 3.0.0
       passport-jwt:
         specifier: ^4.0.0
         version: 4.0.1
@@ -3465,10 +3462,6 @@ packages:
   memfs@3.5.3:
     resolution: {integrity: sha512-UERzLsxzllchadvbPs5aolHh65ISpKpM+ccLbOJ8/vvpBKmAWf+la7dXFy7Mr0ySHbdHrFv5kGFCUHHe6GFEmw==}
     engines: {node: '>= 4.0.0'}
-
-  mercadopago@3.0.0:
-    resolution: {integrity: sha512-Fc7WR3+1G2siMNaPG/JB5rZHsE0LMqjZnl0AaM5gFJ61+HGbXBTebJaEMLTQ/175N8tTbTMPnZ/isPnVKQn2zg==}
-    engines: {node: '>=18'}
 
   merge-descriptors@1.0.3:
     resolution: {integrity: sha512-gaNvAS7TZ897/rVaZ0nMtAyxNyi/pdbjbAwUpFQpN70GqnVfOiXpeUUMKRBmzXaSQ8DdTX4/0ms62r2K+hE6mQ==}
@@ -8538,10 +8531,6 @@ snapshots:
   memfs@3.5.3:
     dependencies:
       fs-monkey: 1.1.0
-
-  mercadopago@3.0.0:
-    dependencies:
-      uuid: 9.0.1
 
   merge-descriptors@1.0.3: {}
 

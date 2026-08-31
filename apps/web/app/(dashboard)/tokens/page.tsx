@@ -1,16 +1,14 @@
 'use client';
 
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
 import {
   Coins, TrendingUp, ArrowDownCircle, ArrowUpCircle, Zap,
-  AlertTriangle, ShoppingCart,
+  AlertTriangle,
 } from 'lucide-react';
 
 // ─── Token progress bar ───────────────────────────────────────────────────────
@@ -77,59 +75,8 @@ const mockTransactions = [
   { date: '17/05/2026', operation: 'Análise de interações — PAC-004', amount: -15, balance: -25, module: 'interactions' },
 ];
 
-interface TokenPackage {
-  id: string;
-  name: string;
-  tokens: number;
-  priceBrl: number;
-  isSubscription: boolean;
-  billingPeriod?: string;
-  features: string[];
-  highlight?: boolean;
-}
-
-const packages: TokenPackage[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    tokens: 200,
-    priceBrl: 49.9,
-    isSubscription: false,
-    features: ['200 tokens únicos', 'Sem expiração em 90 dias', 'Suporte por email'],
-  },
-  {
-    id: 'individual_pro',
-    name: 'Profissional',
-    tokens: 600,
-    priceBrl: 129.9,
-    isSubscription: true,
-    billingPeriod: 'mês',
-    highlight: true,
-    features: ['600 tokens/mês', 'Acúmulo de até 200 tokens', 'Suporte prioritário', 'Base científica atualizada'],
-  },
-  {
-    id: 'clinic',
-    name: 'Clínica',
-    tokens: 2000,
-    priceBrl: 349.9,
-    isSubscription: true,
-    billingPeriod: 'mês',
-    features: ['2.000 tokens/mês', 'Até 5 profissionais', 'Painel admin', 'Relatório com logo da clínica'],
-  },
-  {
-    id: 'institutional',
-    name: 'Institucional',
-    tokens: 10000,
-    priceBrl: 1199.9,
-    isSubscription: true,
-    billingPeriod: 'mês',
-    features: ['10.000 tokens/mês', 'Usuários ilimitados', 'Multi-workspace', 'SLA garantido', 'Onboarding dedicado'],
-  },
-];
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TokensPage() {
-  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
 
   const balanceQ = useQuery({ queryKey: ['tokenBalance'], queryFn: () => api.tokens.balance() });
   const historyQ = useQuery({ queryKey: ['tokenHistory'], queryFn: () => api.tokens.history() });
@@ -196,9 +143,9 @@ export default function TokensPage() {
               {!isUnlimited && !balanceQ.isLoading && !balanceQ.isError && (
                 <p className="text-xs text-gray-500">Disponível: <strong>{available.toLocaleString('pt-BR')}</strong> tokens (reservados: {(currentBalance - available).toLocaleString('pt-BR')})</p>
               )}
-              <Button size="sm" className="flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4" /> Comprar tokens adicionais
-              </Button>
+              <p className="text-xs text-gray-500">
+                Plataforma em fase de testes — os tokens são creditados pelo administrador.
+              </p>
             </CardContent>
           </Card>
 
@@ -239,64 +186,6 @@ export default function TokensPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Plans */}
-        <div>
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-4">Planos Disponíveis</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {packages.map((pkg) => (
-              <Card
-                key={pkg.id}
-                onClick={() => setSelectedPackage(pkg.id)}
-                className={`
-                  cursor-pointer transition-all hover:-translate-y-0.5
-                  ${pkg.highlight ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'hover:border-gray-300'}
-                  ${selectedPackage === pkg.id ? 'ring-2 ring-blue-500' : ''}
-                `}
-              >
-                {pkg.highlight && (
-                  <div className="bg-blue-600 text-white text-center text-[10px] py-1 rounded-t-xl font-bold tracking-wider">
-                    MAIS POPULAR
-                  </div>
-                )}
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{pkg.name}</CardTitle>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-gray-900">
-                      R${pkg.priceBrl.toFixed(2).replace('.', ',')}
-                    </span>
-                    {pkg.billingPeriod && (
-                      <span className="text-xs text-gray-400">/{pkg.billingPeriod}</span>
-                    )}
-                  </div>
-                  <p className="text-sm font-semibold text-blue-600">
-                    {pkg.tokens.toLocaleString('pt-BR')} tokens{pkg.isSubscription ? '/mês' : ''}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-1.5 mb-4">
-                    {pkg.features.map((f) => (
-                      <li key={f} className="text-xs text-gray-600 flex items-start gap-1.5">
-                        <span className="text-green-500 mt-0.5 flex-shrink-0">✓</span>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className={`w-full ${pkg.highlight ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                    variant={pkg.highlight ? 'default' : 'outline'}
-                    size="sm"
-                  >
-                    {pkg.isSubscription ? 'Assinar plano' : 'Comprar pacote'}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <p className="text-[10px] text-gray-500 mt-3 leading-relaxed">
-            Pagamentos via Mercado Pago. Dados financeiros processados com segurança — não armazenamos dados de cartão. LGPD compliant.
-          </p>
-        </div>
 
         {/* Transaction history */}
         <Card>

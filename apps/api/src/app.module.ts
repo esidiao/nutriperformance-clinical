@@ -39,7 +39,6 @@ import { SupplementationModule } from './modules/supplementation/supplementation
 import { LaboratoryModule } from './modules/laboratory/laboratory.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { ReportsModule } from './modules/reports/reports.module';
-import { BillingModule } from './modules/billing/billing.module';
 import { ScientificBaseModule } from './modules/scientific-base/scientific-base.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -120,7 +119,6 @@ import { HealthController } from './health.controller';
     LaboratoryModule,
     GoalsModule,
     ReportsModule,
-    BillingModule,
     ScientificBaseModule,
     AdminModule,
     DashboardModule,

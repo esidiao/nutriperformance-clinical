@@ -1,6 +1,8 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { AdminOnly } from '../../common/decorators';
 import { TokenService } from './token.service';
 
 @ApiTags('tokens')
@@ -25,6 +27,32 @@ export class TokenController {
   ) {
     // O serviço faz o clamp (teto de 200 e fallback para valor não numérico).
     return this.tokenService.getHistory(req.user.workspaceId, Number(limit), Number(offset));
+  }
+
+  // Único caminho de crédito de tokens desde a remoção do checkout. Sem esta
+  // rota o saldo só desce: qualquer operação de IA fica bloqueada para sempre
+  // assim que o saldo inicial acaba.
+  @Post('admin/adjust')
+  @UseGuards(RolesGuard)
+  @AdminOnly()
+  @ApiOperation({ summary: 'Creditar ou debitar tokens de um workspace (admin)' })
+  async adminAdjust(
+    @Req() req: any,
+    @Body() body: { workspaceId?: string; amount?: number; reason?: string },
+  ) {
+    const amount = Number(body?.amount);
+    if (!body?.workspaceId || !Number.isFinite(amount) || amount === 0) {
+      throw new BadRequestException('Informe workspaceId e um amount diferente de zero');
+    }
+    if (!body?.reason?.trim()) {
+      throw new BadRequestException('Informe o motivo do ajuste');
+    }
+    return this.tokenService.adminAdjust({
+      workspaceId: body.workspaceId,
+      amount,
+      reason: body.reason.trim(),
+      adminUserId: req.user.userId ?? req.user.id,
+    });
   }
 
   @Get('costs')

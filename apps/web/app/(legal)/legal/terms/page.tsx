@@ -107,14 +107,13 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-base font-bold text-gray-900 mb-3 pb-2 border-b border-gray-200">
-            5. Tokens e Pagamentos
+            5. Tokens
           </h2>
           <ul className="list-disc pl-5 space-y-1 text-xs">
             <li>Tokens são a unidade de consumo da plataforma — cada análise de IA consome tokens conforme tabela disponível em <a href="/tokens" className="text-blue-600 hover:underline">/tokens</a></li>
-            <li>Tokens de planos mensais expiram ao final do ciclo, exceto os de acumulação permitida</li>
-            <li>Não há reembolso de tokens já consumidos em análises realizadas</li>
-            <li>Cancelamento do plano pode ser feito a qualquer momento, com efeito no próximo ciclo</li>
-            <li>Cobranças são processadas por Mercado Pago com proteção PCI DSS</li>
+            <li>A plataforma encontra-se em fase de testes: não há cobrança, cadastro de meio de pagamento ou plano contratado</li>
+            <li>Os tokens são creditados pela administração da plataforma, sem custo para o usuário</li>
+            <li>Condições comerciais serão definidas e comunicadas antes de qualquer cobrança</li>
           </ul>
         </section>
 
