@@ -39,6 +39,7 @@ import { SupplementationModule } from './modules/supplementation/supplementation
 import { MealPlansModule } from './modules/meal-plans/meal-plans.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { ChargesModule } from './modules/charges/charges.module';
+import { Charge } from './modules/charges/charge.entity';
 import { Appointment } from './modules/appointments/appointment.entity';
 import { MealPlan } from './modules/meal-plans/meal-plan.entity';
 import { MealPlanItem } from './modules/meal-plans/meal-plan-item.entity';
@@ -88,7 +89,7 @@ import { HealthController } from './health.controller';
             ClinicalAlert, AuditLog,
             NutritionalAssessment, PhysicalAssessment,
             PatientSupplementation, LaboratoryExam, PatientGoal,
-            MealPlan, MealPlanItem, Appointment,
+            MealPlan, MealPlanItem, Appointment, Charge,
             Food, IndustrializedProduct, SupplementCatalog,
           ],
           synchronize: !isProduction,
