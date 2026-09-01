@@ -161,6 +161,20 @@ export const api = {
   },
 
   // Supplementation
+  // Planos alimentares
+  mealPlans: {
+    list: (patientId: string) => api.get<any[]>(`/meal-plans/patient/${patientId}`),
+    get: (id: string) => api.get<any>(`/meal-plans/${id}`),
+    create: (dto: any) => api.post<any>('/meal-plans', dto),
+    update: (id: string, dto: any) => api.patch<any>(`/meal-plans/${id}`, dto),
+    remove: (id: string) => api.delete<any>(`/meal-plans/${id}`),
+    duplicate: (id: string, nome?: string) =>
+      api.post<any>(`/meal-plans/${id}/duplicate`, { nome }),
+    addItem: (id: string, dto: any) => api.post<any>(`/meal-plans/${id}/items`, dto),
+    removeItem: (id: string, itemId: string) =>
+      api.delete<any>(`/meal-plans/${id}/items/${itemId}`),
+  },
+
   supplementation: {
     list: (patientId: string) => api.get<any[]>(`/supplementation/patient/${patientId}`),
     create: (dto: any) => api.post<any>('/supplementation', dto),
