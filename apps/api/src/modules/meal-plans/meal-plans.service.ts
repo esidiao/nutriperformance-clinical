@@ -5,6 +5,7 @@ import { MealPlan } from './meal-plan.entity';
 import { MealPlanItem } from './meal-plan-item.entity';
 import { Food } from '../foods/food.entity';
 import { AuditService } from '../audit/audit.service';
+import { montarListaCompras, ListaCompras } from './lista-compras';
 
 export const REFEICOES = [
   'cafe_manha', 'lanche_manha', 'almoco', 'lanche_tarde',
@@ -75,6 +76,50 @@ export class MealPlansService {
     }).filter((g) => g.itens.length > 0);
 
     return { ...plan, refeicoes, totais: this.somar(itens) };
+  }
+
+  /**
+   * Lista de compras do plano.
+   *
+   * Calculada na leitura, nunca gravada: uma lista persistida envelheceria no
+   * instante em que a profissional trocasse um alimento, e o paciente
+   * compraria o que não vai comer.
+   *
+   * `dias` vem do intervalo do plano quando ele tem início e fim; sem isso, 7.
+   * O teto de 90 evita que um plano com data_fim errada gere uma lista de
+   * compras para um ano.
+   */
+  async listaCompras(workspaceId: string, id: string, diasSolicitados?: number): Promise<ListaCompras> {
+    const plan = await this.planRepo.findOne({ where: { id, workspaceId, isActive: true } });
+    if (!plan) throw new NotFoundException('Plano alimentar não encontrado');
+
+    let dias = Number(diasSolicitados);
+    if (!Number.isFinite(dias) || dias <= 0) {
+      if (plan.dataInicio && plan.dataFim) {
+        const ms = new Date(plan.dataFim).getTime() - new Date(plan.dataInicio).getTime();
+        dias = Math.floor(ms / 864e5) + 1; // inclusivo: de 1 a 7 são 7 dias
+      } else {
+        dias = 7;
+      }
+    }
+    if (!Number.isInteger(dias)) throw new BadRequestException('Dias deve ser um número inteiro');
+    if (dias > 90) throw new BadRequestException('Máximo de 90 dias por lista');
+
+    const itens = await this.itemRepo.find({ where: { mealPlanId: id, workspaceId } });
+
+    // Uma consulta só para os grupos, não uma por item.
+    const ids = [...new Set(itens.map((i) => i.foodId).filter(Boolean))] as string[];
+    const grupoPorFoodId = new Map<string, string | null>();
+    if (ids.length) {
+      const foods = await this.foodRepo.find({ where: ids.map((fid) => ({ id: fid })) });
+      // Sem `as any`: se a propriedade for renomeada, isto tem que quebrar no
+      // compilador. Silenciado, o grupo viria undefined e TODO alimento cairia
+      // na seção "Outros" — a lista continuaria sendo gerada, só que inútil, e
+      // nenhum erro apareceria em lugar nenhum.
+      for (const f of foods) grupoPorFoodId.set(f.id, f.grupoAlimentar ?? null);
+    }
+
+    return montarListaCompras(itens, grupoPorFoodId, dias);
   }
 
   async update(

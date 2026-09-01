@@ -9,6 +9,7 @@ import {
 import { api } from '@/lib/api-client';
 import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
+import { ListaCompras } from '@/components/ListaCompras';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -415,6 +416,9 @@ export default function MealPlanPage() {
           Arraste um alimento entre refeições para reposicionar. Os valores nutricionais
           acompanham o item — nada é recalculado no caminho.
         </p>
+
+        {/* Depois do cardápio, não antes: a lista é consequência do plano. */}
+        <ListaCompras planoId={planId} />
       </div>
     </div>
   );

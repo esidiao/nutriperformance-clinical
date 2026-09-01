@@ -212,6 +212,8 @@ export const api = {
   mealPlans: {
     list: (patientId: string) => api.get<any[]>(`/meal-plans/patient/${patientId}`),
     get: (id: string) => api.get<any>(`/meal-plans/${id}`),
+    listaCompras: (id: string, dias?: number) =>
+      api.get<any>(`/meal-plans/${id}/lista-compras${dias ? `?dias=${dias}` : ''}`),
     create: (dto: any) => api.post<any>('/meal-plans', dto),
     update: (id: string, dto: any) => api.patch<any>(`/meal-plans/${id}`, dto),
     remove: (id: string) => api.delete<any>(`/meal-plans/${id}`),

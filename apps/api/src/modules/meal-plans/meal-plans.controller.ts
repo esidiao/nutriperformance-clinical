@@ -1,7 +1,7 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Body, Request, UseGuards,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, Request, UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { MealPlansService } from './meal-plans.service';
 import { MealPlan } from './meal-plan.entity';
 import { MealPlanItem } from './meal-plan-item.entity';
@@ -32,6 +32,18 @@ export class MealPlansController {
   @ApiOperation({ summary: 'Planos alimentares de um paciente' })
   findByPatient(@Request() req: any, @Param('patientId') patientId: string) {
     return this.svc.findByPatient(req.user.workspaceId, patientId);
+  }
+
+  // Antes de :id nao, porque a rota e :id/lista-compras — nao conflita.
+  @NutritionistOnly()
+  @Get(':id/lista-compras')
+  @ApiOperation({ summary: 'Lista de compras derivada do plano' })
+  @ApiQuery({
+    name: 'dias', required: false,
+    description: 'Dias a comprar. Padrão: intervalo do plano, ou 7.',
+  })
+  listaCompras(@Request() req: any, @Param('id') id: string, @Query('dias') dias?: string) {
+    return this.svc.listaCompras(req.user.workspaceId, id, dias ? Number(dias) : undefined);
   }
 
   @NutritionistOnly()
