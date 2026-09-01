@@ -38,6 +38,7 @@ import { AssessmentsModule } from './modules/assessments/assessments.module';
 import { SupplementationModule } from './modules/supplementation/supplementation.module';
 import { MealPlansModule } from './modules/meal-plans/meal-plans.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { ChargesModule } from './modules/charges/charges.module';
 import { Appointment } from './modules/appointments/appointment.entity';
 import { MealPlan } from './modules/meal-plans/meal-plan.entity';
 import { MealPlanItem } from './modules/meal-plans/meal-plan-item.entity';
@@ -124,6 +125,7 @@ import { HealthController } from './health.controller';
     SupplementationModule,
     MealPlansModule,
     AppointmentsModule,
+    ChargesModule,
     LaboratoryModule,
     GoalsModule,
     ReportsModule,

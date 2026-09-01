@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Search, Users, LayoutDashboard, FlaskConical, TrendingUp,
   FileText, Pill, GitMerge, Dna, Microscope, Target, Coins,
-  Settings, ShieldCheck, X, Clock, ArrowRight, UtensilsCrossed, CalendarDays,
+  Settings, ShieldCheck, X, Clock, ArrowRight, UtensilsCrossed, CalendarDays, Wallet,
 } from 'lucide-react';
 
 interface CommandItem {
@@ -22,6 +22,7 @@ const COMMANDS: CommandItem[] = [
   { id: 'dashboard',    label: 'Dashboard',                  href: '/dashboard',                        icon: LayoutDashboard, group: 'Navegação' },
   { id: 'patients',     label: 'Pacientes',                  href: '/patients',                         icon: Users,           group: 'Navegação' },
   { id: 'agenda',       label: 'Agenda',                     href: '/agenda',                           icon: CalendarDays,    group: 'Navegação', keywords: ['consulta', 'horario', 'marcar', 'calendario'] },
+  { id: 'financeiro',   label: 'Financeiro',                   href: '/financeiro',                       icon: Wallet,          group: 'Navegação', keywords: ['pagamento', 'recebimento', 'cobranca', 'caixa', 'receber', 'faturamento'] },
   { id: 'meal-plans',   label: 'Planos Alimentares',         href: '/meal-plans',                       icon: UtensilsCrossed, group: 'Navegação', keywords: ['plano', 'cardapio', 'dieta', 'refeicao'] },
   { id: 'new-patient',  label: 'Novo Paciente',              href: '/patients/new',                     icon: Users,           group: 'Ações',    keywords: ['cadastrar', 'adicionar'] },
   { id: 'nutr-assess',  label: 'Nova Avaliação Nutricional', href: '/assessments/nutritional/new',      icon: FlaskConical,    group: 'Ações',    keywords: ['avaliacao', 'nutricional'] },

@@ -186,6 +186,28 @@ export const api = {
       ),
   },
 
+  // Financeiro — registro de recebimento. Nao ha meio de pagamento aqui:
+  // nenhuma rota cobra, integra gateway ou toca dado de cartao.
+  charges: {
+    list: (params: {
+      status?: string; patientId?: string; de?: string; ate?: string;
+    } = {}) => {
+      const q = new URLSearchParams(
+        Object.entries(params).filter(([, v]) => v) as [string, string][],
+      ).toString();
+      return api.get<any[]>(`/charges${q ? `?${q}` : ''}`);
+    },
+    resumo: (mes?: string) => api.get<any>(`/charges/resumo${mes ? `?mes=${mes}` : ''}`),
+    get: (id: string) => api.get<any>(`/charges/${id}`),
+    create: (dto: any) => api.post<any>('/charges', dto),
+    update: (id: string, dto: any) => api.patch<any>(`/charges/${id}`, dto),
+    pagar: (id: string, dto: any) => api.patch<any>(`/charges/${id}/pagar`, dto),
+    isentar: (id: string, motivo?: string) =>
+      api.patch<any>(`/charges/${id}/isentar`, { motivo }),
+    cancelar: (id: string, motivo: string) =>
+      api.patch<any>(`/charges/${id}/cancelar`, { motivo }),
+  },
+
   // Planos alimentares
   mealPlans: {
     list: (patientId: string) => api.get<any[]>(`/meal-plans/patient/${patientId}`),

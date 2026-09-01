@@ -9,7 +9,7 @@ import {
   Pill, GitMerge, Microscope, Target, FileText,
   Coins, Settings, ShieldCheck, LogOut,
   TrendingUp, Menu, X, Keyboard, ClipboardList, Barcode, Scale,
-  Sparkles, Database, Globe, Wand2, Atom, UtensilsCrossed, CalendarDays,
+  Sparkles, Database, Globe, Wand2, Atom, UtensilsCrossed, CalendarDays, Wallet,
 } from 'lucide-react';
 import { AuthGuard } from '@/components/AuthGuard';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -61,6 +61,7 @@ const NAV_GROUPS = [
   {
     label: 'Gestão',
     items: [
+      { href: '/financeiro', label: 'Financeiro', icon: Wallet },
       { href: '/prescriptions/new', label: 'Prescrições', icon: ClipboardList },
       { href: '/reports/new', label: 'Relatórios', icon: FileText },
       { href: '/tokens', label: 'Tokens', icon: Coins },
