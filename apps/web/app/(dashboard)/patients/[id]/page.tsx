@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/PageHeader';
+import { EvolucaoAntropometrica } from '@/components/EvolucaoAntropometrica';
 import {
   Activity, Pill, FlaskConical, Target,
   ShieldAlert, User, Calendar, GitMerge, Plus, Dumbbell,
@@ -397,6 +398,21 @@ export default function PatientPage() {
           {/* ASSESSMENTS */}
           <TabsContent value="assessments" className="space-y-4">
             <EthicsDisclaimer />
+
+            {/* A curva vem antes da lista: o que interessa na consulta de
+                retorno é para onde o paciente está indo, não cada registro. */}
+            {!physQ.isLoading && (physQ.data?.length ?? 0) > 0 && (
+              <EvolucaoAntropometrica
+                historico={(physQ.data ?? []).map((a: any) => ({
+                  data: a.assessmentDate ?? a.createdAt,
+                  weightKg: a.weightKg,
+                  bmi: a.bmi,
+                  bodyFatPct: a.bodyFatPct,
+                  waistCm: a.waistCm,
+                }))}
+              />
+            )}
+
             {(nutriQ.isLoading || physQ.isLoading) ? <Empty text="Carregando avaliações..." /> :
               assessments.length === 0 ? <Empty text="Nenhuma avaliação registrada. Use os botões Nutricional / Física acima." /> :
               assessments.map((a, i) => (

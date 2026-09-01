@@ -35,6 +35,13 @@
     --input: 220 13% 91%;
     --ring: 164 68% 34%;
 
+    /* Gráficos. Hex e não HSL porque o Recharts recebe a cor direto no SVG.
+       Cada valor foi validado contra a superfície onde de fato renderiza:
+       faixa de luminosidade, piso de croma e contraste mínimo de 3:1. */
+    --chart-series: #19917C;   /* série única, sobre card branco */
+    --chart-grid: #E5E9E8;     /* malha em fio de cabelo, sólida */
+    --chart-axis: #8A9391;     /* eixos e rótulos, recessivos */
+
     /* Radius levemente maior = visual mais moderno */
     --radius: 0.625rem;
   }
@@ -65,6 +72,12 @@
     --border: 218 18% 18%;
     --input: 218 18% 18%;
     --ring: 164 56% 46%;
+
+    /* Passo próprio para a superfície escura, não o mesmo hex clareado:
+       o teal do tema claro fica fora da faixa de luminosidade no escuro. */
+    --chart-series: #1FA88E;
+    --chart-grid: #23282E;
+    --chart-axis: #7C8894;
   }
 }
 
