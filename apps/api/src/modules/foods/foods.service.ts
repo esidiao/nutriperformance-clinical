@@ -22,26 +22,54 @@ const USDA_SEARCH = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 // Acentos entram no mesmo problema: quem digita "feijao" não acha "Feijão".
 // Resolvido sem depender da extensão `unaccent` (ausente neste banco): o termo
 // é normalizado e cada vogal vira uma classe com suas variantes acentuadas.
+// O trema entra porque a TACO foi gravada na ortografia anterior ao Acordo de
+// 1990: a base diz "Lingüiça", e ninguém digita assim hoje.
 const VARIANTES: Record<string, string> = {
-  a: 'aáàâã', e: 'eéèê', i: 'iíìî', o: 'oóòôõ', u: 'uúùû', c: 'cç', n: 'nñ',
+  a: 'aáàâãä', e: 'eéèêë', i: 'iíìîï', o: 'oóòôõö', u: 'uúùûü', c: 'cç', n: 'nñ',
 };
+
+// Particípios de preparo aparecem nos dois gêneros conforme o alimento
+// ("acém, moído" x "carne moída"). Quem digita não sabe qual a tabela usou, e
+// exigir o gênero certo derrubava a busca. A lista é fechada de propósito: só
+// termos de preparo, para não confundir palavras onde o gênero muda o
+// significado.
+const PARTICIPIOS = new Set([
+  'cru', 'crua', 'cozido', 'cozida', 'assado', 'assada', 'frito', 'frita',
+  'grelhado', 'grelhada', 'refogado', 'refogada', 'moido', 'moida',
+  'torrado', 'torrada', 'salgado', 'salgada', 'congelado', 'congelada',
+  'enlatado', 'enlatada', 'desnatado', 'desnatada', 'defumado', 'defumada',
+  'temperado', 'temperada', 'recheado', 'recheada', 'empanado', 'empanada',
+]);
 
 const semAcento = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-/** Converte um termo em regex que casa com e sem acento. Escapa o resto. */
-export function termoParaRegex(termo: string): string {
-  return semAcento(termo)
-    .toLowerCase()
+const escapar = (s: string) =>
+  s
     .split('')
     .map((ch) => {
       const classe = VARIANTES[ch];
       if (classe) return `[${classe}]`;
-      // Só letras e dígitos passam cru; qualquer outro caractere é escapado,
+      // Só letras e dígitos passam crus; qualquer outro caractere é escapado,
       // para que um `%` ou `(` digitado não vire metacaractere de regex.
       return /[a-z0-9]/.test(ch) ? ch : `\\${ch}`;
     })
     .join('');
+
+/** Converte um termo em regex que casa com e sem acento. Escapa o resto. */
+export function termoParaRegex(termo: string): string {
+  const base = semAcento(termo).toLowerCase();
+
+  // "cru" e "crua" não trocam a vogal final: uma acrescenta letra à outra.
+  if (base === 'cru' || base === 'crua') return `${escapar('cru')}a?`;
+
+  // Demais particípios de preparo: a vogal final aceita os dois gêneros, para
+  // que "moída" encontre "moído" e vice-versa.
+  if (PARTICIPIOS.has(base) && /[oa]$/.test(base)) {
+    return `${escapar(base.slice(0, -1))}[oa]`;
+  }
+
+  return escapar(base);
 }
 
 // Conectores que a profissional digita mas a TACO não usa: ela grava

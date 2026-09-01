@@ -84,6 +84,37 @@ describe('busca de alimentos — termos e acentos', () => {
     });
   });
 
+  describe('flexão de gênero nos particípios de preparo', () => {
+    it('acha "moído" digitando "moída" e vice-versa', () => {
+      expect(casa('Carne, bovina, acém, moído, cru', 'moída')).toBe(true);
+      expect(casa('Carne moída caseira', 'moído')).toBe(true);
+    });
+
+    it('vale para os demais preparos', () => {
+      expect(casa('Abóbora, moranga, refogada', 'refogado')).toBe(true);
+      expect(casa('Carne, bovina, costela, assada', 'assado')).toBe(true);
+      expect(casa('Frango, coxa, sem pele, cozida', 'cozido')).toBe(true);
+      expect(casa('Lingüiça, porco, frita', 'frito')).toBe(true);
+    });
+
+    it('trata cru e crua, que acrescentam letra em vez de trocar', () => {
+      expect(casa('Mandioca, crua', 'cru')).toBe(true);
+      expect(casa('Abacate, cru', 'crua')).toBe(true);
+    });
+
+    it('não flexiona palavra fora da lista de preparo', () => {
+      // "banano" não deve encontrar "banana" — gênero aqui não é preparo
+      expect(casa('Banana, prata, crua', 'banano')).toBe(false);
+    });
+  });
+
+  describe('ortografia antiga da tabela', () => {
+    it('acha "Lingüiça" (com trema) digitando "linguiça"', () => {
+      expect(casa('Lingüiça, porco, crua', 'linguiça')).toBe(true);
+      expect(casa('Lingüiça, frango, grelhada', 'linguica')).toBe(true);
+    });
+  });
+
   describe('consultas reais — as que falhavam antes', () => {
     const CASOS: Array<[string, string]> = [
       ['Feijão, carioca, cozido', 'feijão carioca'],
