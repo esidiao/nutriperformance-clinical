@@ -40,6 +40,8 @@ import { MealPlansModule } from './modules/meal-plans/meal-plans.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { ChargesModule } from './modules/charges/charges.module';
 import { Charge } from './modules/charges/charge.entity';
+import { PreConsultModule } from './modules/pre-consult/pre-consult.module';
+import { PreConsultForm } from './modules/pre-consult/pre-consult-form.entity';
 import { Appointment } from './modules/appointments/appointment.entity';
 import { MealPlan } from './modules/meal-plans/meal-plan.entity';
 import { MealPlanItem } from './modules/meal-plans/meal-plan-item.entity';
@@ -89,7 +91,7 @@ import { HealthController } from './health.controller';
             ClinicalAlert, AuditLog,
             NutritionalAssessment, PhysicalAssessment,
             PatientSupplementation, LaboratoryExam, PatientGoal,
-            MealPlan, MealPlanItem, Appointment, Charge,
+            MealPlan, MealPlanItem, Appointment, Charge, PreConsultForm,
             Food, IndustrializedProduct, SupplementCatalog,
           ],
           synchronize: !isProduction,
@@ -127,6 +129,7 @@ import { HealthController } from './health.controller';
     MealPlansModule,
     AppointmentsModule,
     ChargesModule,
+    PreConsultModule,
     LaboratoryModule,
     GoalsModule,
     ReportsModule,

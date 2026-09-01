@@ -186,6 +186,17 @@ export const api = {
       ),
   },
 
+  // Anamnese pre-consulta. A rota PUBLICA (/publico/anamnese/:token) nao passa
+  // por aqui de proposito: este cliente anexa o token do Supabase, e a pagina
+  // do paciente nao tem sessao.
+  preConsult: {
+    list: (patientId?: string) =>
+      api.get<any[]>(`/pre-consult${patientId ? `?patientId=${patientId}` : ''}`),
+    get: (id: string) => api.get<any>(`/pre-consult/${id}`),
+    create: (dto: any) => api.post<any>('/pre-consult', dto),
+    cancelar: (id: string) => api.patch<any>(`/pre-consult/${id}/cancelar`, {}),
+  },
+
   // Financeiro — registro de recebimento. Nao ha meio de pagamento aqui:
   // nenhuma rota cobra, integra gateway ou toca dado de cartao.
   charges: {

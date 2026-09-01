@@ -2,28 +2,28 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-// Protected route prefixes — any path starting with these requires an active session
-const PROTECTED_PREFIXES = [
-  '/dashboard',
-  '/patients',
-  '/assessments',
-  '/supplementation',
-  '/laboratory',
-  '/interactions',
-  '/bioavailability',
-  '/goals',
-  '/prescriptions',
-  '/reports',
-  '/tokens',
-  '/settings',
-  '/admin',
+// Rotas PÚBLICAS. Tudo que não estiver aqui exige sessão.
+//
+// A lista era ao contrário — enumerava o que proteger — e o efeito era que
+// toda página nova nascia desprotegida até alguém lembrar de acrescentá-la.
+// /agenda, /meal-plans e /financeiro tinham ficado de fora exatamente assim:
+// a API recusava os dados, mas a casca da página abria para quem não estava
+// logado e não havia redirecionamento para o login. Invertido, esquecer de
+// listar passa a pecar para o lado seguro — a página pede login à toa, em vez
+// de abrir sem pedir.
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/auth',            // login, register, reset-password e callback
+  '/legal',           // privacidade, termos, cookies, dados
+  '/responder',       // anamnese pré-consulta: o paciente não tem conta
 ];
 
 // Admin-only prefixes — require role === 'admin' in addition to a valid session
 const ADMIN_PREFIXES = ['/admin'];
 
-function isProtected(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
+function isPublic(pathname: string): boolean {
+  if (pathname === '/') return true; // raiz decide para onde mandar
+  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
 function isAdminOnly(pathname: string): boolean {
@@ -112,7 +112,7 @@ export async function middleware(request: NextRequest) {
   );
 
   // ── Route protection ─────────────────────────────────────────────────────────
-  if (!isProtected(pathname)) {
+  if (isPublic(pathname)) {
     return response;
   }
 
