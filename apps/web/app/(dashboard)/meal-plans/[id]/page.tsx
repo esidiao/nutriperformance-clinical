@@ -126,7 +126,14 @@ function AddItemForm({ refeicao, planId, onDone }: {
     <div className="space-y-2 p-2.5 bg-accent/40 rounded-lg border border-border">
       <FoodAutocomplete
         value={nome}
-        onChange={(v) => { setNome(v); setFood(null); }}
+        onChange={(v) => {
+          setNome(v);
+          // O FoodAutocomplete dispara onSelect e, na sequência, onChange com o
+          // nome escolhido. Limpar aqui sem comparar apagava o alimento recém
+          // selecionado: o item ia para o plano como texto livre, sem valores
+          // nutricionais e sem somar aos totais.
+          setFood((atual) => (atual && atual.nome === v ? atual : null));
+        }}
         onSelect={(f) => {
           setFood(f);
           setNome(f.nome);
