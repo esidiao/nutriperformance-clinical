@@ -9,7 +9,7 @@ import {
   Pill, GitMerge, Microscope, Target, FileText,
   Coins, Settings, ShieldCheck, LogOut,
   TrendingUp, Menu, X, Keyboard, ClipboardList, Barcode, Scale,
-  Sparkles, Database, Globe, Wand2, Atom, UtensilsCrossed,
+  Sparkles, Database, Globe, Wand2, Atom, UtensilsCrossed, CalendarDays,
 } from 'lucide-react';
 import { AuthGuard } from '@/components/AuthGuard';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -31,6 +31,7 @@ const NAV_GROUPS = [
   {
     label: 'Clínico',
     items: [
+      { href: '/agenda', label: 'Agenda', icon: CalendarDays },
       { href: '/patients', label: 'Pacientes', icon: Users },
       { href: '/meal-plans', label: 'Planos Alimentares', icon: UtensilsCrossed },
       { href: '/goals', label: 'Metas', icon: Target },

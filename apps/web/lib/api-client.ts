@@ -166,6 +166,26 @@ export const api = {
   },
 
   // Supplementation
+  // Agenda de consultas
+  appointments: {
+    list: (params: { de?: string; ate?: string; patientId?: string } = {}) => {
+      const q = new URLSearchParams(
+        Object.entries(params).filter(([, v]) => v) as [string, string][],
+      ).toString();
+      return api.get<any[]>(`/appointments${q ? `?${q}` : ''}`);
+    },
+    get: (id: string) => api.get<any>(`/appointments/${id}`),
+    create: (dto: any) => api.post<any>('/appointments', dto),
+    update: (id: string, dto: any) => api.patch<any>(`/appointments/${id}`, dto),
+    mudarStatus: (id: string, status: string, motivo?: string) =>
+      api.patch<any>(`/appointments/${id}/status`, { status, motivo }),
+    horariosLivres: (dia: string, duracaoMin?: number) =>
+      api.get<string[]>(
+        `/appointments/horarios-livres?dia=${encodeURIComponent(dia)}`
+        + (duracaoMin ? `&duracaoMin=${duracaoMin}` : ''),
+      ),
+  },
+
   // Planos alimentares
   mealPlans: {
     list: (patientId: string) => api.get<any[]>(`/meal-plans/patient/${patientId}`),
