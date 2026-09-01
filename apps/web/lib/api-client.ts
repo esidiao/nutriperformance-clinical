@@ -1,8 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-const supabase = createClient(
+// Precisa ser o mesmo cliente do login e do AuthGuard (@supabase/ssr, sessão em
+// cookie). Com o createClient de @supabase/supabase-js, a sessão era procurada
+// no localStorage: o login funcionava, mas getSession() aqui devolvia null e
+// TODA chamada autenticada morria em "Não autenticado" — o app inteiro, não só
+// uma tela.
+const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
