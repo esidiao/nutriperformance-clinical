@@ -9,6 +9,67 @@ import { buildFoodChunkText } from '../rag/rag-chunk.util';
 
 const USDA_SEARCH = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 
+// ─── Busca por termos ────────────────────────────────────────────────────────
+//
+// Os nomes da TACO são invertidos e separados por vírgula ("Feijão, carioca,
+// cozido"). Uma busca por `ILIKE '%frase inteira%'` exige a frase contígua e
+// por isso não encontra "feijão carioca" — o alimento existe e fica
+// inalcançável. Medido em 20 consultas escritas como a profissional digita:
+// nenhuma retornava resultado.
+//
+// A correção é exigir todos os termos, em qualquer ordem e posição.
+//
+// Acentos entram no mesmo problema: quem digita "feijao" não acha "Feijão".
+// Resolvido sem depender da extensão `unaccent` (ausente neste banco): o termo
+// é normalizado e cada vogal vira uma classe com suas variantes acentuadas.
+const VARIANTES: Record<string, string> = {
+  a: 'aáàâã', e: 'eéèê', i: 'iíìî', o: 'oóòôõ', u: 'uúùû', c: 'cç', n: 'nñ',
+};
+
+const semAcento = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/** Converte um termo em regex que casa com e sem acento. Escapa o resto. */
+export function termoParaRegex(termo: string): string {
+  return semAcento(termo)
+    .toLowerCase()
+    .split('')
+    .map((ch) => {
+      const classe = VARIANTES[ch];
+      if (classe) return `[${classe}]`;
+      // Só letras e dígitos passam cru; qualquer outro caractere é escapado,
+      // para que um `%` ou `(` digitado não vire metacaractere de regex.
+      return /[a-z0-9]/.test(ch) ? ch : `\\${ch}`;
+    })
+    .join('');
+}
+
+// Conectores que a profissional digita mas a TACO não usa: ela grava
+// "Frango, peito, sem pele, cru", sem o "de" de "peito de frango". Exigir
+// esses termos derrubava a busca inteira por uma palavra que não carrega
+// significado nenhum.
+const CONECTORES = new Set([
+  'de', 'da', 'do', 'das', 'dos', 'em', 'no', 'na', 'nos', 'nas',
+  'ao', 'aos', 'com', 'sem', 'para', 'por', 'ou',
+]);
+
+/** Termos úteis da consulta: sem conectores, sem monossílabos, no máximo 6. */
+export function extrairTermos(query: string): string[] {
+  const termos = query
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => semAcento(t).length >= 2)
+    .filter((t) => !CONECTORES.has(semAcento(t).toLowerCase()));
+
+  // Se a consulta era só conectores ("com", "de"), devolver vazio deixaria a
+  // busca muda; melhor tentar com o que foi digitado.
+  if (termos.length === 0) {
+    return query.trim().split(/\s+/).filter((t) => semAcento(t).length >= 2).slice(0, 6);
+  }
+  return termos.slice(0, 6);
+}
+
 // DTO público — expõe apenas o necessário ao cliente, sempre com proveniência.
 function toPublic(f: Food) {
   return {
@@ -114,23 +175,35 @@ export class FoodsService {
   async search(query: string, limit = 20) {
     const q = (query ?? '').trim();
     if (q.length < 2) return [];
-    const take = Math.min(50, Math.max(1, limit));
 
-    const rows = await this.repo
+    const termos = extrairTermos(q);
+    if (termos.length === 0) return [];
+
+    const take = Math.min(50, Math.max(1, limit));
+    const qb = this.repo
       .createQueryBuilder('f')
       .where('f.ativo = true')
-      .andWhere("f.confiabilidade <> 'pendente'")
-      .andWhere(
-        '(f.nome_padronizado ILIKE :like OR EXISTS (SELECT 1 FROM unnest(f.nomes_populares) np WHERE np ILIKE :like))',
-        { like: `%${q}%` },
-      )
-      .orderBy(
-        // prioriza prefixo exato
-        "CASE WHEN f.nome_padronizado ILIKE :prefix THEN 0 ELSE 1 END",
-        'ASC',
-      )
+      .andWhere("f.confiabilidade <> 'pendente'");
+
+    // Todos os termos precisam aparecer — no nome padronizado OU entre os nomes
+    // populares. Assim "feijão carioca" encontra "Feijão, carioca, cozido", e
+    // "carioca feijão" também.
+    termos.forEach((termo, i) => {
+      const p = `t${i}`;
+      qb.andWhere(
+        `(f.nome_padronizado ~* :${p}
+          OR EXISTS (SELECT 1 FROM unnest(f.nomes_populares) np WHERE np ~* :${p}))`,
+        { [p]: termoParaRegex(termo) },
+      );
+    });
+
+    const rows = await qb
+      // Quem começa pelo primeiro termo digitado vem antes: buscando "arroz",
+      // "Arroz, integral" deve preceder "Baião de dois, arroz e feijão".
+      .orderBy(`CASE WHEN f.nome_padronizado ~* :inicio THEN 0 ELSE 1 END`, 'ASC')
+      .addOrderBy('LENGTH(f.nome_padronizado)', 'ASC')
       .addOrderBy('f.nome_padronizado', 'ASC')
-      .setParameter('prefix', `${q}%`)
+      .setParameter('inicio', `^${termoParaRegex(termos[0])}`)
       .take(take)
       .getMany();
 
