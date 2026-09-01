@@ -88,8 +88,12 @@ export async function middleware(request: NextRequest) {
     'https://*.supabase.co',
     'https://supabase.io',
     'wss://*.supabase.co',
-    'https://nutriperformance-api.onrender.com',
-    ...(apiOrigin && apiOrigin !== 'https://nutriperformance-api.onrender.com' ? [apiOrigin] : []),
+    // Host real da API em produção. Já esteve como `nutriperformance-api`, que
+    // NÃO existe: o CSP só não quebrava porque NEXT_PUBLIC_API_URL entrava na
+    // linha de baixo. Sem essa env, o connect-src liberava apenas um host morto
+    // e toda chamada à API virava violação de CSP.
+    'https://nutriperformance-clinical.onrender.com',
+    ...(apiOrigin && apiOrigin !== 'https://nutriperformance-clinical.onrender.com' ? [apiOrigin] : []),
   ].join(' ');
 
   response.headers.set(
