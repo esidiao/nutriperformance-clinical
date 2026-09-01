@@ -1,6 +1,14 @@
 services:
   - type: web
-    name: nutriperformance-api
+    # ATENCAO: o servico em producao foi criado a mao pelo painel do Render, nao
+    # a partir deste blueprint. Este arquivo documenta a configuracao esperada;
+    # a fonte de verdade e o painel. O nome precisa bater com o servico real
+    # (https://nutriperformance-clinical.onrender.com) — ja esteve como
+    # `nutriperformance-api`, host que nunca existiu, e essa divergencia levou a
+    # um diagnostico errado de "servico suspenso" durante um deploy que estava
+    # perfeito. Se um dia este blueprint for sincronizado, mudar `name` faz o
+    # Render CRIAR um servico novo em vez de renomear o existente.
+    name: nutriperformance-clinical
     runtime: docker
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
