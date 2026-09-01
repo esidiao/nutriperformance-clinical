@@ -37,6 +37,8 @@ import { BioavailabilityModule } from './modules/bioavailability/bioavailability
 import { AssessmentsModule } from './modules/assessments/assessments.module';
 import { SupplementationModule } from './modules/supplementation/supplementation.module';
 import { MealPlansModule } from './modules/meal-plans/meal-plans.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { Appointment } from './modules/appointments/appointment.entity';
 import { MealPlan } from './modules/meal-plans/meal-plan.entity';
 import { MealPlanItem } from './modules/meal-plans/meal-plan-item.entity';
 import { LaboratoryModule } from './modules/laboratory/laboratory.module';
@@ -85,7 +87,7 @@ import { HealthController } from './health.controller';
             ClinicalAlert, AuditLog,
             NutritionalAssessment, PhysicalAssessment,
             PatientSupplementation, LaboratoryExam, PatientGoal,
-            MealPlan, MealPlanItem,
+            MealPlan, MealPlanItem, Appointment,
             Food, IndustrializedProduct, SupplementCatalog,
           ],
           synchronize: !isProduction,
@@ -121,6 +123,7 @@ import { HealthController } from './health.controller';
     AssessmentsModule,
     SupplementationModule,
     MealPlansModule,
+    AppointmentsModule,
     LaboratoryModule,
     GoalsModule,
     ReportsModule,
