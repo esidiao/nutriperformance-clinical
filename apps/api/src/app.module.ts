@@ -36,6 +36,9 @@ import { InteractionsModule } from './modules/interactions/interactions.module';
 import { BioavailabilityModule } from './modules/bioavailability/bioavailability.module';
 import { AssessmentsModule } from './modules/assessments/assessments.module';
 import { SupplementationModule } from './modules/supplementation/supplementation.module';
+import { MealPlansModule } from './modules/meal-plans/meal-plans.module';
+import { MealPlan } from './modules/meal-plans/meal-plan.entity';
+import { MealPlanItem } from './modules/meal-plans/meal-plan-item.entity';
 import { LaboratoryModule } from './modules/laboratory/laboratory.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -82,6 +85,7 @@ import { HealthController } from './health.controller';
             ClinicalAlert, AuditLog,
             NutritionalAssessment, PhysicalAssessment,
             PatientSupplementation, LaboratoryExam, PatientGoal,
+            MealPlan, MealPlanItem,
             Food, IndustrializedProduct, SupplementCatalog,
           ],
           synchronize: !isProduction,
@@ -116,6 +120,7 @@ import { HealthController } from './health.controller';
     BioavailabilityModule,
     AssessmentsModule,
     SupplementationModule,
+    MealPlansModule,
     LaboratoryModule,
     GoalsModule,
     ReportsModule,
