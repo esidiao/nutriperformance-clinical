@@ -11,6 +11,8 @@
  * e streamar imagens de 8 MB por ela seria o primeiro lugar a cair.
  */
 
+import { createHash } from 'node:crypto';
+
 export interface StorageConfig {
   url: string;
   serviceKey: string;
@@ -83,16 +85,32 @@ const EXTENSOES: Record<string, string> = {
 export const TIPOS_ACEITOS = Object.keys(EXTENSOES);
 
 /**
- * Caminho da foto no bucket.
+ * Prefixo por paciente, opaco.
  *
- * Começa pelo workspace para que uma política de Storage por prefixo continue
- * possível no futuro, e termina num id aleatório — nome previsível num bucket
- * privado ainda é pista para quem tenta adivinhar caminhos.
+ * Deriva de workspace + paciente, então continua agrupando as fotos de uma
+ * mesma pessoa numa pasta — o que serve para expurgo por prefixo quando houver
+ * política de retenção — mas NÃO revela os identificadores.
+ *
+ * Isso não é purismo. A URL assinada carrega o caminho do objeto, e ela é
+ * entregue na superfície pública. Com os ids crus no caminho, todo link de
+ * foto exibiria o workspaceId e o patientId — exatamente o que o resto do
+ * módulo se esforça para não devolver. Descobri isso na verificação contra
+ * produção, não em teste: os testes de unidade rodam sem storage e nunca
+ * chegam a montar uma URL assinada.
+ */
+function prefixoDoPaciente(workspaceId: string, patientId: string): string {
+  return createHash('sha256').update(`${workspaceId}:${patientId}`).digest('hex').slice(0, 32);
+}
+
+/**
+ * Caminho da foto no bucket. Termina no id do registro — nome previsível num
+ * bucket privado ainda é pista para quem tenta adivinhar caminhos, e o id é
+ * um UUID.
  */
 export function caminhoDaFoto(
   workspaceId: string, patientId: string, entryId: string, mime: string,
 ): string {
   const ext = EXTENSOES[mime];
   if (!ext) throw new Error(`Tipo de imagem não aceito: ${mime}`);
-  return `diario/${workspaceId}/${patientId}/${entryId}.${ext}`;
+  return `diario/${prefixoDoPaciente(workspaceId, patientId)}/${entryId}.${ext}`;
 }

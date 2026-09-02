@@ -247,9 +247,26 @@ describe('FoodDiaryService', () => {
 });
 
 describe('storage', () => {
-  it('caminho isola por workspace e paciente', () => {
+  it('agrupa por paciente sem revelar os identificadores', () => {
+    // A URL assinada carrega o caminho do objeto e é entregue na superfície
+    // pública. Com os ids crus ali, todo link de foto exibiria workspaceId e
+    // patientId — o oposto do que o resto do módulo garante.
     const c = caminhoDaFoto('ws-1', 'p-1', 'e-1', 'image/jpeg');
-    expect(c).toBe('diario/ws-1/p-1/e-1.jpg');
+    expect(c).not.toContain('ws-1');
+    expect(c).not.toContain('p-1');
+    expect(c).toMatch(/^diario\/[0-9a-f]{32}\/e-1\.jpg$/);
+  });
+
+  it('mesmo paciente cai sempre na mesma pasta', () => {
+    // Agrupar importa: expurgo por prefixo quando houver retencao.
+    expect(caminhoDaFoto('ws-1', 'p-1', 'e-1', 'image/png'))
+      .toContain(caminhoDaFoto('ws-1', 'p-1', 'e-9', 'image/png').split('/')[1]);
+  });
+
+  it('pacientes diferentes caem em pastas diferentes', () => {
+    const a = caminhoDaFoto('ws-1', 'p-1', 'e-1', 'image/png').split('/')[1];
+    const b = caminhoDaFoto('ws-1', 'p-2', 'e-1', 'image/png').split('/')[1];
+    expect(a).not.toBe(b);
   });
 
   it('recusa mime desconhecido', () => {

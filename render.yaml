@@ -76,6 +76,13 @@ services:
       - key: GEMINI_API_KEY
         sync: false
 
+      # Bucket PRIVADO das fotos do diario alimentar. Estava declarada no .env
+      # local mas nunca no Render: o modulo subiu, a rota respondeu, e so na
+      # primeira foto a API devolveu 503. Sem ela o diario aceita texto e
+      # recusa imagem — falha parcial, silenciosa ate alguem tentar.
+      - key: SUPABASE_STORAGE_BUCKET
+        sync: false
+
       # Segredo compartilhado com o workflow .github/workflows/rag-sync.yml,
       # que autentica POST /assistant/sync. Sem ele a rota fica FECHADA (o
       # CronSecretGuard falha fechado) — o sync simplesmente não roda.
