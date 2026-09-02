@@ -1,3 +1,7 @@
+// ATENCAO ao interpretar o resultado: este script le o cache de schema do
+// PostgREST, que pode levar ate ~1 minuto para refletir um ALTER TABLE. Coluna
+// ausente aqui NAO prova que a migracao nao rodou — reconfira antes de
+// concluir. Ja me fez duvidar de uma migracao que tinha sido aplicada.
 import { readFileSync } from 'node:fs';
 function carregarEnv(c) {
   for (const l of readFileSync(c, 'utf8').split(/\r?\n/)) {
