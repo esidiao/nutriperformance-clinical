@@ -11,6 +11,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
 import { ListaCompras } from '@/components/ListaCompras';
 import { SalvarComoModelo } from '@/components/ModelosDePlano';
+import { SupervisaoDoTrabalho } from '@/components/Supervisao';
+import { usePapel } from '@/lib/usePapel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -284,6 +286,7 @@ export default function MealPlanPage() {
   const planId = String(params.id);
   const patientId = search.get('patient') ?? '';
   const qc = useQueryClient();
+  const { souEstudante } = usePapel();
 
   const [arrastando, setArrastando] = useState<Item | null>(null);
 
@@ -420,6 +423,10 @@ export default function MealPlanPage() {
 
         {/* Depois do cardápio, não antes: a lista é consequência do plano. */}
         <ListaCompras planoId={planId} />
+
+        {/* Antes do "salvar como modelo": a situação da supervisão é o que
+            decide se este plano pode chegar ao paciente. */}
+        <SupervisaoDoTrabalho recurso="meal_plan" recursoId={planId} souEstudante={souEstudante} />
 
         <SalvarComoModelo planoId={planId} nomeAtual={plano.nome} />
       </div>

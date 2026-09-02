@@ -79,7 +79,7 @@ export class MealPlansController {
   @Patch(':id')
   @ApiOperation({ summary: 'Atualizar plano alimentar' })
   update(@Request() req: any, @Param('id') id: string, @Body() dto: Partial<MealPlan>) {
-    return this.svc.update(req.user.workspaceId, req.user.sub, id, dto);
+    return this.svc.update(req.user.workspaceId, req.user.sub, id, dto, req.user.role);
   }
 
   @NutritionistOnly()

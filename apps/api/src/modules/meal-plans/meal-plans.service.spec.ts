@@ -7,6 +7,7 @@ import { MealPlan } from './meal-plan.entity';
 import { MealPlanItem } from './meal-plan-item.entity';
 import { Food } from '../foods/food.entity';
 import { AuditService } from '../audit/audit.service';
+import { SupervisionService } from '../supervision/supervision.service';
 
 const WS = 'ws-1';
 const USER = 'user-1';
@@ -29,6 +30,7 @@ describe('MealPlansService', () => {
   let foodRepo: any;
   let audit: any;
   let dataSource: any;
+  let supervision: any;
 
   beforeEach(async () => {
     planRepo = {
@@ -56,6 +58,10 @@ describe('MealPlansService', () => {
     };
     dataSource = { transaction: jest.fn(async (fn: any) => fn(mgr)) };
 
+    // Por padrão libera: os testes de plano não são sobre supervisão. Os que
+    // são sobrescrevem este mock.
+    supervision = { aprovacaoValida: jest.fn(async () => ({ liberado: true })) };
+
     const mod = await Test.createTestingModule({
       providers: [
         MealPlansService,
@@ -64,6 +70,7 @@ describe('MealPlansService', () => {
         { provide: getRepositoryToken(Food), useValue: foodRepo },
         { provide: AuditService, useValue: audit },
         { provide: DataSource, useValue: dataSource },
+        { provide: SupervisionService, useValue: supervision },
       ],
     }).compile();
 
@@ -356,6 +363,55 @@ describe('MealPlansService', () => {
         await expect(svc.aplicarModelo(WS, USER, 'plan-1', { patientId: 'p' }))
           .rejects.toThrow(NotFoundException);
       });
+    });
+  });
+
+  // ── Supervisão (lacuna 15) ────────────────────────────────────────────────
+  describe('publicação sob supervisão', () => {
+    const rascunho = { ...planoAtivo, isDraft: true, updatedAt: new Date() };
+
+    beforeEach(() => planRepo.findOne.mockResolvedValue(rascunho));
+
+    it('estagiário SEM aprovação não tira do rascunho', async () => {
+      // Sem este bloqueio o fluxo inteiro seria decorativo: haveria pedido,
+      // parecer e registro, e o plano chegaria ao paciente do mesmo jeito.
+      supervision.aprovacaoValida.mockResolvedValue({
+        liberado: false, motivo: 'Aguardando a revisão do supervisor.',
+      });
+      await expect(
+        svc.update(WS, USER, PLAN, { isDraft: false } as any, 'supervised_student'),
+      ).rejects.toThrow(/Aguardando a revisão/);
+      expect(planRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('estagiário COM aprovação publica', async () => {
+      supervision.aprovacaoValida.mockResolvedValue({ liberado: true });
+      planRepo.findOneOrFail.mockResolvedValue({ id: PLAN, isDraft: false });
+      await svc.update(WS, USER, PLAN, { isDraft: false } as any, 'supervised_student');
+      expect(planRepo.update).toHaveBeenCalled();
+    });
+
+    it('profissional habilitado não passa por supervisão', async () => {
+      planRepo.findOneOrFail.mockResolvedValue({ id: PLAN, isDraft: false });
+      await svc.update(WS, USER, PLAN, { isDraft: false } as any, 'nutritionist');
+      expect(supervision.aprovacaoValida).not.toHaveBeenCalled();
+      expect(planRepo.update).toHaveBeenCalled();
+    });
+
+    it('estagiário EDITA livremente — só a entrega é travada', async () => {
+      // Travar a edição seria inútil: o estagiário precisa trabalhar. O momento
+      // que importa é quando o plano deixa de ser exercício.
+      planRepo.findOneOrFail.mockResolvedValue({ id: PLAN });
+      await svc.update(WS, USER, PLAN, { nome: 'Novo nome' } as any, 'supervised_student');
+      expect(supervision.aprovacaoValida).not.toHaveBeenCalled();
+      expect(planRepo.update).toHaveBeenCalled();
+    });
+
+    it('plano já publicado não reexige aprovação', async () => {
+      planRepo.findOne.mockResolvedValue({ ...planoAtivo, isDraft: false });
+      planRepo.findOneOrFail.mockResolvedValue({ id: PLAN });
+      await svc.update(WS, USER, PLAN, { isDraft: false } as any, 'supervised_student');
+      expect(supervision.aprovacaoValida).not.toHaveBeenCalled();
     });
   });
 });

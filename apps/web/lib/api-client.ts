@@ -267,6 +267,21 @@ export const api = {
   },
 
   // Laboratory
+  // Supervisao de estagiario — lacuna 15.
+  supervision: {
+    list: (params: { status?: string; estudanteId?: string } = {}) => {
+      const q = new URLSearchParams(
+        Object.entries(params).filter(([, v]) => v) as [string, string][],
+      ).toString();
+      return api.get<any[]>(`/supervision${q ? `?${q}` : ''}`);
+    },
+    doRecurso: (recurso: string, recursoId: string) =>
+      api.get<any>(`/supervision/recurso/${recurso}/${recursoId}`),
+    solicitar: (dto: any) => api.post<any>('/supervision', dto),
+    decidir: (id: string, dto: any) => api.patch<any>(`/supervision/${id}/decidir`, dto),
+    pendentes: () => api.get<any>('/supervision/pendentes/contagem'),
+  },
+
   laboratory: {
     list: (patientId: string) => api.get<any[]>(`/laboratory/patient/${patientId}`),
     latest: (patientId: string) => api.get<any>(`/laboratory/patient/${patientId}/latest`),

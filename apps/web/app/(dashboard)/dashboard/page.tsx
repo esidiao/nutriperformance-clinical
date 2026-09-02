@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
+import { FilaDeSupervisao } from '@/components/Supervisao';
 import { OnboardingBanner } from '@/components/OnboardingBanner';
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner';
 
@@ -220,6 +221,11 @@ export default function DashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Trabalho de estagiário parado esperando revisão trava o atendimento de
+          alguém — por isso fica no alto, não escondido numa aba. O componente
+          não renderiza nada quando a fila está vazia. */}
+      <FilaDeSupervisao />
 
       {/* Ethical banner */}
       <Alert className="border-primary/20 bg-primary/5">

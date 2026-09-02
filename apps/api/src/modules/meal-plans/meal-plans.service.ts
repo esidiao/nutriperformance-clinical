@@ -6,6 +6,7 @@ import { MealPlanItem } from './meal-plan-item.entity';
 import { Food } from '../foods/food.entity';
 import { AuditService } from '../audit/audit.service';
 import { montarListaCompras, ListaCompras } from './lista-compras';
+import { SupervisionService, PAPEL_ESTUDANTE } from '../supervision/supervision.service';
 
 export const REFEICOES = [
   'cafe_manha', 'lanche_manha', 'almoco', 'lanche_tarde',
@@ -31,6 +32,7 @@ export class MealPlansService {
     @InjectRepository(Food) private readonly foodRepo: Repository<Food>,
     private readonly auditService: AuditService,
     private readonly dataSource: DataSource,
+    private readonly supervisionService: SupervisionService,
   ) {}
 
   // ── Planos ────────────────────────────────────────────────────────────────
@@ -122,11 +124,32 @@ export class MealPlansService {
     return montarListaCompras(itens, grupoPorFoodId, dias);
   }
 
+  /**
+   * Atualiza o plano.
+   *
+   * `papel` entra aqui por causa da supervisão: tirar o rascunho é o momento em
+   * que o plano deixa de ser exercício e vira prescrição entregue. É o único
+   * ponto onde a aprovação do supervisor precisa ser exigida — travar a edição
+   * seria inútil (o estagiário precisa trabalhar) e travar depois seria tarde.
+   */
   async update(
-    workspaceId: string, userId: string, id: string, dto: Partial<MealPlan>,
+    workspaceId: string, userId: string, id: string, dto: Partial<MealPlan>, papel?: string,
   ): Promise<MealPlan> {
     const plan = await this.planRepo.findOne({ where: { id, workspaceId, isActive: true } });
     if (!plan) throw new NotFoundException('Plano alimentar não encontrado');
+
+    const publicando = dto.isDraft === false && plan.isDraft === true;
+    if (publicando && papel === PAPEL_ESTUDANTE) {
+      const { liberado, motivo } = await this.supervisionService.aprovacaoValida(
+        workspaceId, 'meal_plan', id, plan.updatedAt,
+      );
+      if (!liberado) {
+        throw new BadRequestException(
+          `${motivo} Um plano alimentar sob supervisão só chega ao paciente depois da `
+          + 'aprovação de quem responde pelo atendimento.',
+        );
+      }
+    }
 
     // Campos de identidade não são editáveis por payload
     const { id: _i, workspaceId: _w, createdBy: _c, patientId: _p, ...mutaveis } = dto as any;
