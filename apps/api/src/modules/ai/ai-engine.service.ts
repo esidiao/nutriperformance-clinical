@@ -239,7 +239,7 @@ export class AIEngineService {
      * aviso — e trocar por variável de ambiente é mais rápido que esperar um
      * build quando a IA inteira está fora do ar.
      */
-    const nomeModelo = this.config.get<string>('GEMINI_MODEL') ?? 'gemini-2.0-flash';
+    const nomeModelo = this.config.get<string>('GEMINI_MODEL') ?? 'gemini-2.5-flash';
     this.logger.log(`Modelo de IA em uso: ${nomeModelo}`);
 
     const genAI = new GoogleGenerativeAI(apiKey);
