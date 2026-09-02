@@ -388,8 +388,38 @@ Responda com este JSON exato:
    * evitando vazamento de stack trace (500) quando a GEMINI_API_KEY está inválida/expirada
    * ou o serviço externo está indisponível.
    */
+  /**
+   * Traduz a falha do Gemini em algo acionável.
+   *
+   * Antes, QUALQUER erro virava "tente novamente em instantes" — inclusive
+   * chave inválida e cota estourada, que não melhoram com tentativa nenhuma. A
+   * profissional ficava clicando de novo para sempre, e quem fosse investigar
+   * não tinha por onde começar. As mensagens abaixo separam o que passa
+   * sozinho do que precisa de alguém.
+   */
   private handleGeminiError(err: any): never {
-    this.logger.error(`Falha na chamada ao Gemini: ${err?.message ?? err}`);
+    const status = err?.status ?? err?.response?.status;
+    const detalhe = String(err?.message ?? err ?? '');
+    this.logger.error(`Falha na chamada ao Gemini (status=${status ?? '?'}): ${detalhe}`);
+
+    if (status === 401 || status === 403 || /API key|credential|permission/i.test(detalhe)) {
+      throw new ServiceUnavailableException(
+        'A credencial do serviço de IA foi recusada. Isto não se resolve tentando de novo — '
+        + 'avise o suporte para revisar a configuração.',
+      );
+    }
+    if (status === 429 || /quota|rate limit|exhausted/i.test(detalhe)) {
+      throw new ServiceUnavailableException(
+        'A cota do serviço de IA foi atingida. Tente mais tarde ou avise o suporte.',
+      );
+    }
+    if (status === 400 || /invalid|unsupported|not supported/i.test(detalhe)) {
+      throw new ServiceUnavailableException(
+        'O serviço de IA recusou o conteúdo enviado. Verifique se o arquivo está legível '
+        + 'e no formato esperado — tentar de novo com o mesmo arquivo dará o mesmo resultado.',
+      );
+    }
+
     throw new ServiceUnavailableException(
       'Serviço de análise por IA temporariamente indisponível. Tente novamente em instantes.',
     );
