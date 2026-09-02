@@ -9,7 +9,7 @@ import { FoodDiaryLink, FoodDiaryEntry } from './food-diary.entities';
 import { AuditService } from '../audit/audit.service';
 import {
   lerConfig, urlDeEnvio, urlDeLeitura, remover, caminhoDaFoto, TIPOS_ACEITOS,
-} from './storage';
+} from '../../common/storage';
 
 export const REFEICOES = [
   'cafe_manha', 'lanche_manha', 'almoco', 'lanche_tarde', 'jantar', 'ceia',

@@ -280,6 +280,16 @@ export const api = {
     revogar: (id: string) => api.patch<any>(`/patient-portal/links/${id}/revogar`, {}),
   },
 
+  // Fotos de evolucao corporal — lacuna 11. Nao ha rota publica: paciente nao
+  // envia nem ve foto corporal por link.
+  progressPhotos: {
+    list: (patientId: string) => api.get<any[]>(`/progress-photos/patient/${patientId}`),
+    criar: (dto: any) => api.post<any>('/progress-photos', dto),
+    anotar: (id: string, observacao: string) =>
+      api.patch<any>(`/progress-photos/${id}/observacao`, { observacao }),
+    remover: (id: string) => api.delete<any>(`/progress-photos/${id}`),
+  },
+
   // Supervisao de estagiario — lacuna 15.
   supervision: {
     list: (params: { status?: string; estudanteId?: string } = {}) => {

@@ -99,7 +99,7 @@ const EXTENSOES: Record<string, string> = {
 export const TIPOS_ACEITOS = Object.keys(EXTENSOES);
 
 /**
- * Prefixo por paciente, opaco.
+ * Prefixo por paciente dentro de uma pasta, opaco.
  *
  * Deriva de workspace + paciente, então continua agrupando as fotos de uma
  * mesma pessoa numa pasta — o que serve para expurgo por prefixo quando houver
@@ -123,8 +123,9 @@ function prefixoDoPaciente(workspaceId: string, patientId: string): string {
  */
 export function caminhoDaFoto(
   workspaceId: string, patientId: string, entryId: string, mime: string,
+  pasta = 'diario',
 ): string {
   const ext = EXTENSOES[mime];
   if (!ext) throw new Error(`Tipo de imagem não aceito: ${mime}`);
-  return `diario/${prefixoDoPaciente(workspaceId, patientId)}/${entryId}.${ext}`;
+  return `${pasta}/${prefixoDoPaciente(workspaceId, patientId)}/${entryId}.${ext}`;
 }

@@ -69,6 +69,25 @@ jobs:
           # sobrou trabalho — melhor falhar visivel que dar por concluido.
           restam=$(printf '%s' "$corpo" | grep -o '"restam":[0-9]*' | grep -o '[0-9]*$')
           if [ "${restam:-0}" != "0" ]; then
-            echo "Ainda restam ${restam} fotos alem da retencao — rode novamente."
+            echo "Ainda restam ${restam} fotos do diario alem da retencao — rode novamente."
             exit 1
           fi
+
+      - name: Expurgar fotos de evolucao corporal
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Mesma retencao de 12 meses. Rota separada porque a regra difere: no
+          # diario so a foto sai e o texto fica; aqui o registro inteiro sai —
+          # registro de foto sem a foto e so um carimbo de que existiu imagem.
+          SIMULAR="${{ github.event.inputs.simular }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then SIMULAR="false"; fi
+
+          resposta=$(curl -s -w '
+%{http_code}' --max-time 180 -X POST             -H "x-cron-secret: ${CRON_SECRET}"             "${API_URL}/progress-photos/expurgo?simular=${SIMULAR}")
+          codigo=$(printf '%s' "$resposta" | tail -n1)
+          corpo=$(printf '%s' "$resposta" | sed '$d')
+          echo "HTTP ${codigo}"
+          echo "$corpo"
+          [ "$codigo" = "200" ] || [ "$codigo" = "201" ] || exit 1

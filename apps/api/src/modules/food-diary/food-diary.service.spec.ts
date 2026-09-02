@@ -4,8 +4,8 @@ import { BadRequestException, NotFoundException, GoneException } from '@nestjs/c
 import { FoodDiaryService, hashToken, gerarToken } from './food-diary.service';
 import { FoodDiaryLink, FoodDiaryEntry } from './food-diary.entities';
 import { AuditService } from '../audit/audit.service';
-import { caminhoDaFoto, TIPOS_ACEITOS, VALIDADE_DOWNLOAD_S, VALIDADE_UPLOAD_S } from './storage';
-import * as storage from './storage';
+import { caminhoDaFoto, TIPOS_ACEITOS, VALIDADE_DOWNLOAD_S, VALIDADE_UPLOAD_S } from '../../common/storage';
+import * as storage from '../../common/storage';
 import { MESES_RETENCAO_FOTO } from './food-diary.service';
 
 const WS = 'ws-1';
