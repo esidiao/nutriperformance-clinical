@@ -215,10 +215,12 @@ export class ProgressPhotosService {
     }
 
     await this.repo.delete(alvos.map((a) => a.id));
+    // Mesma correção do diário: user_id, workspace_id e resource_id são uuid,
+    // e os textos que estavam aqui derrubavam o INSERT. Sendo fire-and-forget,
+    // ninguém via — e o expurgo de foto corporal ficava sem registro algum.
     this.auditService.log({
-      userId: 'retencao-automatica', workspaceId: 'sistema',
       action: 'DELETE', resource: 'progress_photos',
-      resourceId: `${alvos.length} registros`,
+      changes: { executadoPor: 'retencao-automatica', registros: alvos.length, corte },
     });
 
     const restam = await this.repo.count({

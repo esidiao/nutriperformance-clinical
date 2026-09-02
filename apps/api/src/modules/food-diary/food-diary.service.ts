@@ -292,12 +292,17 @@ export class FoodDiaryService {
       await this.entryRepo.update(entry.id, { fotoPath: caminho });
     }
 
+    // Não há usuário logado aqui — quem enviou foi o paciente pelo link. O
+    // userId fica nulo (a coluna é uuid) e a origem vai no changes. Antes ia
+    // 'paciente-via-link' como uuid, o INSERT falhava, e nada do que entra pelo
+    // link público era auditado: justamente o caminho onde o rastro mais vale.
     this.auditService.log({
-      userId: 'paciente-via-link',
       workspaceId: link.workspaceId,
+      patientId: link.patientId,
       action: 'CREATE',
       resource: 'food_diary_entries',
       resourceId: entry.id,
+      changes: { origem: 'paciente-via-link' },
     });
 
     return { id: entry.id, envio };
@@ -371,12 +376,15 @@ export class FoodDiaryService {
       { fotoPath: null, fotoRemovidaEm: agora },
     );
 
+    // Sem userId/workspaceId: as três colunas são uuid, e passar
+    // 'retencao-automatica' / 'sistema' / '12 registros' fazia o INSERT falhar
+    // inteiro. Como o log é fire-and-forget, o erro virava um warn e o expurgo
+    // — a operação que apaga foto de paciente — não deixava rastro nenhum.
+    // Quem executou vai no changes, que é jsonb e aceita texto.
     this.auditService.log({
-      userId: 'retencao-automatica',
-      workspaceId: 'sistema',
       action: 'DELETE',
       resource: 'food_diary_entries.foto',
-      resourceId: `${alvos.length} registros`,
+      changes: { executadoPor: 'retencao-automatica', registros: alvos.length, corte },
     });
 
     const restam = await this.entryRepo.count({

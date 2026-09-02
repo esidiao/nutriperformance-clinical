@@ -172,7 +172,13 @@ export class AdminController {
          FROM audit_logs l
          -- audit_logs.user_id guarda o UID do Supabase (req.user.sub),
          -- que corresponde a users.auth_id — não a users.id.
-         LEFT JOIN users u ON u.auth_id = l.user_id
+         --
+         -- O ::text não é enfeite: audit_logs.user_id é uuid e users.auth_id é
+         -- text, então o "=" cru não existe no Postgres e a rota devolvia 500
+         -- em TODA chamada. A conversão vai no lado uuid de propósito —
+         -- auth_id::uuid quebraria em qualquer linha que não seja um UUID
+         -- válido, e sendo text a coluna não garante que sejam.
+         LEFT JOIN users u ON u.auth_id = l.user_id::text
          ${where}
          ORDER BY l.created_at DESC
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,

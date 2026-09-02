@@ -186,10 +186,13 @@ describe('FoodDiaryService', () => {
     });
 
     it('registra que veio de fora, não de um usuário logado', async () => {
+      // A origem vai no changes, não no userId: user_id é uuid em produção e o
+      // texto derrubava o INSERT — nada vindo do link público era auditado.
       await svc.registrarPublico(TOKEN, { refeicao: 'almoco', descricao: 'x' });
       expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
-        userId: 'paciente-via-link',
+        changes: expect.objectContaining({ origem: 'paciente-via-link' }),
       }));
+      expect(audit.log.mock.calls[0][0].userId).toBeUndefined();
     });
 
     it('link revogado não registra nada', async () => {

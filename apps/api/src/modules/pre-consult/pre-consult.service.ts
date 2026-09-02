@@ -174,13 +174,16 @@ export class PreConsultService {
 
     // Autoria do paciente, não de um usuário do sistema: o registro precisa
     // dizer que veio de fora, pelo link, e não de alguém logado.
+    //
+    // Isso vai no changes, não no userId: a coluna é uuid, e o texto que estava
+    // aqui derrubava o INSERT inteiro — a resposta do paciente não era auditada.
     this.auditService.log({
-      userId: 'paciente-via-link',
       workspaceId: form.workspaceId,
+      patientId: form.patientId,
       action: 'UPDATE',
       resource: 'pre_consult_forms',
       resourceId: form.id,
-      changes: { status: 'respondido' },
+      changes: { status: 'respondido', origem: 'paciente-via-link' },
     });
 
     return { ok: true };

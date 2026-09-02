@@ -186,11 +186,14 @@ describe('PreConsultService', () => {
     });
 
     it('registra que veio de fora, não de um usuário logado', async () => {
+      // A origem vai no changes, não no userId: user_id é uuid em produção e o
+      // texto derrubava o INSERT — a resposta do paciente não era auditada.
       repo.findOne.mockResolvedValue(form());
       await svc.responderPublico('t'.repeat(43), validas);
       expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
-        userId: 'paciente-via-link',
+        changes: expect.objectContaining({ origem: 'paciente-via-link' }),
       }));
+      expect(audit.log.mock.calls[0][0].userId).toBeUndefined();
     });
   });
 
