@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/PageHeader';
 import { EvolucaoAntropometrica } from '@/components/EvolucaoAntropometrica';
 import { AnamnesePreConsulta } from '@/components/AnamnesePreConsulta';
+import { DiarioAlimentar } from '@/components/DiarioAlimentar';
 import {
   Activity, Pill, FlaskConical, Target,
   ShieldAlert, User, Calendar, GitMerge, Plus, Dumbbell,
@@ -348,6 +349,7 @@ export default function PatientPage() {
           <TabsContent value="overview" className="space-y-5">
             <EthicsDisclaimer />
             <AnamnesePreConsulta patientId={patientId} />
+            <DiarioAlimentar patientId={patientId} />
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: 'Avaliações', value: assessments.length, color: 'text-purple-600', bg: 'bg-purple-50' },

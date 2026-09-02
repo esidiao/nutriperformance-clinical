@@ -16,6 +16,7 @@ const PUBLIC_PREFIXES = [
   '/auth',            // login, register, reset-password e callback
   '/legal',           // privacidade, termos, cookies, dados
   '/responder',       // anamnese pré-consulta: o paciente não tem conta
+  '/diario',          // diário alimentar: idem — o acesso é o token do link
 ];
 
 // Admin-only prefixes — require role === 'admin' in addition to a valid session

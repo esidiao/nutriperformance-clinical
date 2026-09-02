@@ -197,6 +197,24 @@ export const api = {
     cancelar: (id: string) => api.patch<any>(`/pre-consult/${id}/cancelar`, {}),
   },
 
+  // Diario alimentar. A rota PUBLICA (/publico/diario/:token) nao passa por
+  // aqui: este cliente anexa o token do Supabase e a pagina do paciente nao
+  // tem sessao.
+  foodDiary: {
+    links: (patientId?: string) =>
+      api.get<any[]>(`/food-diary/links${patientId ? `?patientId=${patientId}` : ''}`),
+    criarLink: (dto: any) => api.post<any>('/food-diary/links', dto),
+    revogarLink: (id: string) => api.patch<any>(`/food-diary/links/${id}/revogar`, {}),
+    registros: (patientId: string, params: { de?: string; ate?: string } = {}) => {
+      const q = new URLSearchParams(
+        Object.entries(params).filter(([, v]) => v) as [string, string][],
+      ).toString();
+      return api.get<any>(`/food-diary/patient/${patientId}${q ? `?${q}` : ''}`);
+    },
+    comentar: (id: string, comentario: string) =>
+      api.patch<any>(`/food-diary/entries/${id}/comentario`, { comentario }),
+  },
+
   // Financeiro — registro de recebimento. Nao ha meio de pagamento aqui:
   // nenhuma rota cobra, integra gateway ou toca dado de cartao.
   charges: {
