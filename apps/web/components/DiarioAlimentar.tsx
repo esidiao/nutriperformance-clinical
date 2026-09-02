@@ -170,9 +170,15 @@ export function DiarioAlimentar({ patientId }: { patientId: string }) {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={r.fotoUrl} alt={`Foto do ${ROTULO_REFEICAO[r.refeicao] ?? 'registro'}`}
                          className="h-20 w-20 object-cover rounded shrink-0" />
-                  ) : r.fotoPathAusente ? (
-                    <div className="h-20 w-20 rounded bg-muted flex items-center justify-center shrink-0">
-                      <ImageOff className="h-5 w-5 text-muted-foreground" />
+                  ) : r.fotoRemovidaEm ? (
+                    /* Foto apagada pela retenção de 12 meses. Precisa ser
+                       distinguível de "nunca enviou foto" — senão a
+                       profissional conclui que o paciente não mandou nada. */
+                    <div className="h-20 w-20 rounded bg-muted flex flex-col items-center justify-center gap-1 shrink-0 text-center px-1">
+                      <ImageOff className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-[9px] leading-tight text-muted-foreground">
+                        foto expirada
+                      </span>
                     </div>
                   ) : null}
                   <div className="min-w-0 flex-1">
@@ -224,6 +230,7 @@ export function DiarioAlimentar({ patientId }: { patientId: string }) {
             escreva para ele por engano, achando que é um canal de conversa. */}
         <p className="text-[11px] text-muted-foreground border-t pt-3">
           As anotações são suas e ficam no prontuário — o paciente não as vê pelo link.
+          As fotos são apagadas após 12 meses; o registro em texto permanece.
         </p>
       </CardContent>
     </Card>

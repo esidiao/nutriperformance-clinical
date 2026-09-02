@@ -7,6 +7,7 @@ import { FoodDiaryService } from './food-diary.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ClinicalStaff, Public } from '../../common/decorators';
+import { CronSecretGuard } from '../../common/guards/cron-secret.guard';
 
 /** Lado da profissional: gera o link e acompanha o diário. */
 @ApiTags('food-diary')
@@ -59,6 +60,35 @@ export class FoodDiaryController {
   @ApiOperation({ summary: 'Comentar um registro' })
   comentar(@Request() req: any, @Param('id') id: string, @Body() body: { comentario: string }) {
     return this.svc.comentar(req.user.workspaceId, req.user.sub, id, body?.comentario);
+  }
+}
+
+/**
+ * Expurgo de fotos pela retenção de 12 meses.
+ *
+ * Rota separada e disparada por agendador externo, como o sync do RAG: o
+ * @Cron in-process não roda porque a instância do plano gratuito hiberna.
+ *
+ * `@Public()` é obrigatório para escapar do JwtAuthGuard global — guards de
+ * rota rodam depois dos globais. O CronSecretGuard vira a única barreira e
+ * falha fechado: sem CRON_SECRET no ambiente, ninguém passa.
+ */
+@ApiTags('food-diary-retencao')
+@Controller('food-diary')
+export class FoodDiaryRetencaoController {
+  constructor(private readonly svc: FoodDiaryService) {}
+
+  @Public()
+  @UseGuards(CronSecretGuard)
+  @Post('expurgo')
+  @ApiOperation({ summary: 'Apagar fotos além da retenção (job agendado)' })
+  @ApiQuery({ name: 'simular', required: false, description: 'true = só relata, não apaga' })
+  @ApiQuery({ name: 'meses', required: false })
+  expurgar(@Query('simular') simular?: string, @Query('meses') meses?: string) {
+    return this.svc.expurgarFotosAntigas({
+      simular: simular === 'true',
+      meses: meses ? Number(meses) : undefined,
+    });
   }
 }
 

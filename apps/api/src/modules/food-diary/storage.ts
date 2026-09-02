@@ -68,11 +68,25 @@ export async function urlDeLeitura(c: StorageConfig, caminho: string): Promise<s
   return `${c.url}/storage/v1${corpo.signedURL}`;
 }
 
-export async function remover(c: StorageConfig, caminho: string): Promise<boolean> {
-  const r = await fetch(`${c.url}/storage/v1/object/${c.bucket}/${caminho}`, {
-    method: 'DELETE', headers: cabecalhos(c),
+/**
+ * Remove objetos do bucket.
+ *
+ * Usa DELETE no bucket com os caminhos no corpo, e nao DELETE no objeto: a
+ * segunda forma devolve HTTP 400 nesta versao do Storage. Descobri isso
+ * limpando dado de teste — a chamada "funcionava" sem apagar nada, e um
+ * expurgo que apaga a linha e deixa a foto e pior que expurgo nenhum, porque
+ * some o unico ponteiro para o arquivo que ficou.
+ *
+ * Devolve quantos objetos o servidor confirmou remover.
+ */
+export async function remover(c: StorageConfig, caminhos: string[]): Promise<number> {
+  if (!caminhos.length) return 0;
+  const r = await fetch(`${c.url}/storage/v1/object/${c.bucket}`, {
+    method: 'DELETE', headers: cabecalhos(c), body: JSON.stringify({ prefixes: caminhos }),
   });
-  return r.ok;
+  if (!r.ok) return 0;
+  const corpo = await r.json().catch(() => []);
+  return Array.isArray(corpo) ? corpo.length : 0;
 }
 
 const EXTENSOES: Record<string, string> = {

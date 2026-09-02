@@ -5,6 +5,8 @@ import { FoodDiaryService, hashToken, gerarToken } from './food-diary.service';
 import { FoodDiaryLink, FoodDiaryEntry } from './food-diary.entities';
 import { AuditService } from '../audit/audit.service';
 import { caminhoDaFoto, TIPOS_ACEITOS, VALIDADE_DOWNLOAD_S, VALIDADE_UPLOAD_S } from './storage';
+import * as storage from './storage';
+import { MESES_RETENCAO_FOTO } from './food-diary.service';
 
 const WS = 'ws-1';
 const USER = 'user-1';
@@ -244,7 +246,99 @@ describe('FoodDiaryService', () => {
       expect(r.registros[0].fotoPath).toBeUndefined();
     });
   });
+
+  // ── Retenção ──────────────────────────────────────────────────────────────
+  describe('expurgarFotosAntigas', () => {
+    const antiga = (n = 3) => entry({
+      id: `e-${n}`, fotoPath: `diario/abc/e-${n}.png`,
+      createdAt: new Date(Date.now() - 400 * 864e5),
+    });
+
+    beforeEach(() => {
+      process.env.SUPABASE_URL = 'https://exemplo.supabase.co';
+      process.env.SUPABASE_SERVICE_ROLE_KEY = 'chave';
+      process.env.SUPABASE_STORAGE_BUCKET = 'bucket';
+      jest.restoreAllMocks();
+    });
+
+    it('a retenção é de 12 meses', () => {
+      expect(MESES_RETENCAO_FOTO).toBe(12);
+    });
+
+    it('simular não apaga nada', async () => {
+      entryRepo.find.mockResolvedValue([antiga()]);
+      const remover = jest.spyOn(storage, 'remover');
+      const r = await svc.expurgarFotosAntigas({ simular: true });
+      expect(r.simulado).toBe(true);
+      expect(r.encontradas).toBe(1);
+      expect(remover).not.toHaveBeenCalled();
+      expect(entryRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('apaga do Storage ANTES de limpar o banco', async () => {
+      // Invertido, a linha perderia o caminho e o arquivo ficaria orfao para
+      // sempre — sem nada no sistema sabendo que ele existe.
+      const ordem: string[] = [];
+      jest.spyOn(storage, 'remover').mockImplementation(async () => { ordem.push('storage'); return 1; });
+      entryRepo.find.mockResolvedValue([antiga()]);
+      entryRepo.update.mockImplementation(async () => { ordem.push('banco'); });
+      entryRepo.count.mockResolvedValue(0);
+
+      await svc.expurgarFotosAntigas({});
+      expect(ordem).toEqual(['storage', 'banco']);
+    });
+
+    it('mantém o registro e marca a data do expurgo', async () => {
+      jest.spyOn(storage, 'remover').mockResolvedValue(1);
+      entryRepo.find.mockResolvedValue([antiga()]);
+      entryRepo.count.mockResolvedValue(0);
+
+      await svc.expurgarFotosAntigas({});
+      const [, mudancas] = entryRepo.update.mock.calls[0];
+      expect(mudancas.fotoPath).toBeNull();
+      expect(mudancas.fotoRemovidaEm).toBeInstanceOf(Date);
+      // A linha continua: descricao e horario sao historico clinico.
+      expect(mudancas).not.toHaveProperty('descricao');
+    });
+
+    it('Storage não confirmando, o banco não é tocado', async () => {
+      jest.spyOn(storage, 'remover').mockResolvedValue(0);
+      entryRepo.find.mockResolvedValue([antiga()]);
+      const r = await svc.expurgarFotosAntigas({});
+      expect(entryRepo.update).not.toHaveBeenCalled();
+      expect(r.removidas).toBe(0);
+      expect(r.erro).toMatch(/não confirmou/);
+    });
+
+    it('sem storage configurado, falha sem alterar nada', async () => {
+      delete process.env.SUPABASE_URL;
+      entryRepo.find.mockResolvedValue([antiga()]);
+      await expect(svc.expurgarFotosAntigas({})).rejects.toThrow(/não executado/);
+      expect(entryRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('nada antigo devolve zero sem chamar o Storage', async () => {
+      entryRepo.find.mockResolvedValue([]);
+      const remover = jest.spyOn(storage, 'remover');
+      const r = await svc.expurgarFotosAntigas({});
+      expect(r.encontradas).toBe(0);
+      expect(remover).not.toHaveBeenCalled();
+    });
+
+    it('recusa retenção menor que um mês', async () => {
+      await expect(svc.expurgarFotosAntigas({ meses: 0 })).rejects.toThrow(BadRequestException);
+    });
+
+    it('informa quantas ainda restam, para o job saber se repete', async () => {
+      jest.spyOn(storage, 'remover').mockResolvedValue(1);
+      entryRepo.find.mockResolvedValue([antiga()]);
+      entryRepo.count.mockResolvedValue(37);
+      const r = await svc.expurgarFotosAntigas({});
+      expect(r.restam).toBe(37);
+    });
+  });
 });
+
 
 describe('storage', () => {
   it('agrupa por paciente sem revelar os identificadores', () => {

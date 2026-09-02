@@ -74,6 +74,20 @@ export class FoodDiaryEntry {
    */
   @Column({ name: 'comentario', type: 'text', nullable: true }) comentario: string | null;
 
+  /**
+   * Quando a foto foi apagada pela retenção de 12 meses.
+   *
+   * O REGISTRO permanece; só a imagem sai. A descrição, a refeição e o horário
+   * são histórico clínico e continuam servindo ao acompanhamento anos depois —
+   * a foto é a parte pesada e mais sensível, e é ela que a retenção alcança.
+   *
+   * Marcar em vez de simplesmente zerar `fotoPath` importa: sem isso, "sem
+   * foto" e "foto expurgada" ficariam indistinguíveis, e a profissional
+   * concluiria que o paciente nunca enviou imagem.
+   */
+  @Column({ name: 'foto_removida_em', type: 'timestamptz', nullable: true })
+  fotoRemovidaEm: Date | null;
+
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
 }

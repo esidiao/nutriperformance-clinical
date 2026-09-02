@@ -3,12 +3,12 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, LessThan, Not, IsNull } from 'typeorm';
 import { randomBytes, createHash } from 'node:crypto';
 import { FoodDiaryLink, FoodDiaryEntry } from './food-diary.entities';
 import { AuditService } from '../audit/audit.service';
 import {
-  lerConfig, urlDeEnvio, urlDeLeitura, caminhoDaFoto, TIPOS_ACEITOS,
+  lerConfig, urlDeEnvio, urlDeLeitura, remover, caminhoDaFoto, TIPOS_ACEITOS,
 } from './storage';
 
 export const REFEICOES = [
@@ -21,6 +21,12 @@ const MAX_DESCRICAO = 2000;
 
 /** Teto de registros por dia, por link. Evita que um link vire depósito. */
 const MAX_POR_DIA = 20;
+
+/** Retenção das fotos, decidida em 01/09/2026. */
+export const MESES_RETENCAO_FOTO = 12;
+
+/** Fotos por execução do expurgo. Lote pequeno cabe no tempo de resposta. */
+const LOTE_EXPURGO = 200;
 
 export const gerarToken = () => randomBytes(32).toString('base64url');
 export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
@@ -275,5 +281,91 @@ export class FoodDiaryService {
     });
 
     return { id: entry.id, envio };
+  }
+  // ── Retenção ──────────────────────────────────────────────────────────────
+
+  /**
+   * Apaga as fotos com mais de 12 meses. Mantém o registro.
+   *
+   * O relógio é `createdAt`, não `tomadaEm`: retenção mede há quanto tempo nós
+   * guardamos o dado, não quando a pessoa comeu. Alguém que registre hoje uma
+   * refeição de dois anos atrás não deve ter a foto apagada no mesmo dia.
+   *
+   * A ordem importa. Apaga do STORAGE primeiro e só então limpa o banco: se a
+   * remoção do arquivo falhar, o ponteiro continua lá e a próxima execução
+   * tenta de novo. Invertido, a linha perderia o caminho e o arquivo ficaria
+   * órfão para sempre — sem nada no sistema que soubesse da existência dele.
+   *
+   * `simular` permite ver o que seria apagado antes de apagar. A primeira
+   * execução de um expurgo em produção não deveria ser às cegas.
+   */
+  async expurgarFotosAntigas(opcoes: { simular?: boolean; meses?: number } = {}) {
+    const meses = Number(opcoes.meses ?? MESES_RETENCAO_FOTO);
+    if (!Number.isFinite(meses) || meses < 1) {
+      throw new BadRequestException('Meses de retenção deve ser 1 ou mais');
+    }
+
+    const corte = new Date();
+    corte.setMonth(corte.getMonth() - meses);
+
+    const alvos = await this.entryRepo.find({
+      where: { createdAt: LessThan(corte), fotoPath: Not(IsNull()) },
+      order: { createdAt: 'ASC' },
+      take: LOTE_EXPURGO,
+    });
+
+    if (!alvos.length) {
+      return { corte, encontradas: 0, removidas: 0, simulado: !!opcoes.simular, restam: 0 };
+    }
+
+    if (opcoes.simular) {
+      return {
+        corte, encontradas: alvos.length, removidas: 0, simulado: true,
+        maisAntiga: alvos[0].createdAt, restam: alvos.length,
+      };
+    }
+
+    const cfg = lerConfig();
+    if (!cfg) {
+      throw new ServiceUnavailableException(
+        'Armazenamento não configurado — expurgo não executado. Nada foi alterado.',
+      );
+    }
+
+    const caminhos = alvos.map((a) => a.fotoPath!).filter(Boolean);
+    const removidasNoStorage = await remover(cfg, caminhos);
+
+    // Só limpa o banco se o Storage confirmou. Falha parcial deixa tudo para a
+    // próxima execução, que é idempotente.
+    if (removidasNoStorage === 0) {
+      return {
+        corte, encontradas: alvos.length, removidas: 0, simulado: false,
+        erro: 'O armazenamento não confirmou nenhuma remoção. Nada foi alterado no banco.',
+        restam: alvos.length,
+      };
+    }
+
+    const agora = new Date();
+    await this.entryRepo.update(
+      alvos.map((a) => a.id) as any,
+      { fotoPath: null, fotoRemovidaEm: agora },
+    );
+
+    this.auditService.log({
+      userId: 'retencao-automatica',
+      workspaceId: 'sistema',
+      action: 'DELETE',
+      resource: 'food_diary_entries.foto',
+      resourceId: `${alvos.length} registros`,
+    });
+
+    const restam = await this.entryRepo.count({
+      where: { createdAt: LessThan(corte), fotoPath: Not(IsNull()) },
+    });
+
+    return {
+      corte, encontradas: alvos.length, removidas: removidasNoStorage,
+      simulado: false, restam,
+    };
   }
 }

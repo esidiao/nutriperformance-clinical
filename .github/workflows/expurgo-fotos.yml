@@ -1,0 +1,74 @@
+name: Expurgo de fotos do diario (retencao 12 meses)
+
+# Retencao decidida em 01/09/2026: foto de refeicao com mais de 12 meses e
+# apagada. O REGISTRO permanece — descricao, refeicao e horario sao historico
+# clinico; a foto e a parte pesada e mais sensivel.
+#
+# Roda aqui e nao com @Cron in-process porque a API esta no plano gratuito do
+# Render e hiberna apos ~15 min sem trafego: o agendamento interno nunca
+# dispararia. Mesmo motivo do rag-sync.
+on:
+  schedule:
+    # Dia 3 de cada mes, 04:20 UTC (01:20 em Brasilia). Fora do horario de uso
+    # e longe do topo da hora, quando a fila do GitHub Actions congestiona.
+    - cron: '20 4 3 * *'
+  workflow_dispatch:
+    inputs:
+      simular:
+        description: 'true = apenas relata o que seria apagado, sem apagar'
+        required: false
+        default: 'true'
+
+concurrency:
+  group: expurgo-fotos
+  cancel-in-progress: false
+
+jobs:
+  expurgar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acordar a API
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          # A instancia hiberna: sem acordar antes, o primeiro POST estoura o
+          # timeout. Exige "status":"ok" no corpo — o servidor de fallback
+          # tambem responde 200 durante o boot, e aceitar so o codigo HTTP ja
+          # nos enganou uma vez.
+          for tentativa in 1 2 3 4 5 6 7 8 9 10; do
+            corpo=$(curl -s --max-time 90 "${API_URL}/health" || echo '')
+            if printf '%s' "$corpo" | grep -q '"status":"ok"'; then
+              echo "API pronta na tentativa ${tentativa}"; exit 0
+            fi
+            echo "Tentativa ${tentativa}: ainda nao pronta — ${corpo:-sem resposta}"
+            sleep 15
+          done
+          echo "API nao respondeu a tempo"; exit 1
+
+      - name: Expurgar
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # No agendamento mensal apaga de verdade; no disparo manual o padrao
+          # e simular, para ninguem executar um expurgo as cegas por engano.
+          SIMULAR="${{ github.event.inputs.simular }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then SIMULAR="false"; fi
+          echo "simular=${SIMULAR}"
+
+          resposta=$(curl -s -w '\n%{http_code}' --max-time 180 -X POST \
+            -H "x-cron-secret: ${CRON_SECRET}" \
+            "${API_URL}/food-diary/expurgo?simular=${SIMULAR}")
+          codigo=$(printf '%s' "$resposta" | tail -n1)
+          corpo=$(printf '%s' "$resposta" | sed '$d')
+          echo "HTTP ${codigo}"
+          echo "$corpo"
+          [ "$codigo" = "200" ] || [ "$codigo" = "201" ] || exit 1
+
+          # O expurgo processa em lotes. "restam" maior que zero significa que
+          # sobrou trabalho — melhor falhar visivel que dar por concluido.
+          restam=$(printf '%s' "$corpo" | grep -o '"restam":[0-9]*' | grep -o '[0-9]*$')
+          if [ "${restam:-0}" != "0" ]; then
+            echo "Ainda restam ${restam} fotos alem da retencao — rode novamente."
+            exit 1
+          fi

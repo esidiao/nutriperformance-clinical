@@ -84,3 +84,10 @@ CREATE POLICY food_diary_entries_insert ON food_diary_entries
 DROP POLICY IF EXISTS food_diary_entries_update ON food_diary_entries;
 CREATE POLICY food_diary_entries_update ON food_diary_entries
   FOR UPDATE USING (workspace_id = auth_workspace_id());
+
+-- ── Retencao de 12 meses (decidida em 01/09/2026) ────────────────────────────
+-- So a FOTO expira. O registro permanece: descricao, refeicao e horario sao
+-- historico clinico. Marcar a data do expurgo evita confundir "nunca enviou
+-- foto" com "a foto foi apagada pela retencao".
+ALTER TABLE food_diary_entries
+  ADD COLUMN IF NOT EXISTS foto_removida_em TIMESTAMPTZ;
