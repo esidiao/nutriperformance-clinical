@@ -146,14 +146,15 @@ export class PatientPortalService {
       };
     }
 
+    // Delega ao serviço da agenda, que já filtra o link de vídeo pela janela de
+    // tempo. Montar a lista aqui repetiria essa regra — e a cópia esquecida
+    // entregaria a sala semanas antes da consulta.
     const agora = new Date();
-    const consultas = (await this.appointmentsService.listar(link.workspaceId, {
-      de: agora.toISOString(),
-      ate: new Date(agora.getTime() + 90 * 864e5).toISOString(),
-      patientId: link.patientId,
-    }))
-      .filter((c) => c.status === 'agendada' || c.status === 'confirmada')
-      .map((c) => ({ inicio: c.inicio, fim: c.fim, tipo: c.tipo, status: c.status }));
+    const consultas = await this.appointmentsService.paraPortal(
+      link.workspaceId, link.patientId,
+      agora.toISOString(),
+      new Date(agora.getTime() + 90 * 864e5).toISOString(),
+    );
 
     const diario = await this.foodDiaryService.listarRegistros(
       link.workspaceId, link.patientId,

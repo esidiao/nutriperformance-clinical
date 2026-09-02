@@ -54,7 +54,9 @@ describe('PatientPortalService', () => {
         totais: { kcal: 1750 },
       })),
     };
-    appointments = { listar: jest.fn(async () => []) };
+    // `paraPortal` e nao `listar`: o filtro do link de video pela janela de
+    // tempo mora no servico da agenda, e o portal delega.
+    appointments = { paraPortal: jest.fn(async () => []) };
     diary = {
       listarRegistros: jest.fn(async () => ({ registros: [], adesao: {} })),
       registrarPorPortal: jest.fn(async () => ({ id: 'e-1', envio: null })),
@@ -181,15 +183,19 @@ describe('PatientPortalService', () => {
       expect(r.diario[0]).not.toHaveProperty('comentario');
     });
 
-    it('mostra só consultas ativas e futuras', async () => {
-      appointments.listar.mockResolvedValue([
-        { inicio: new Date(), fim: new Date(), tipo: 'retorno', status: 'agendada' },
-        { inicio: new Date(), fim: new Date(), tipo: 'retorno', status: 'cancelada' },
-        { inicio: new Date(), fim: new Date(), tipo: 'retorno', status: 'faltou' },
+    it('delega as consultas ao servico da agenda', async () => {
+      // O filtro do link de video pela janela de tempo mora la. Montar a lista
+      // aqui repetiria a regra, e a copia esquecida entregaria a sala semanas
+      // antes da consulta.
+      appointments.paraPortal.mockResolvedValue([
+        { inicio: new Date(), fim: new Date(), tipo: 'online', status: 'agendada',
+          linkVideo: null, temSalaMarcada: true },
       ]);
       const r: any = await svc.abrirPortal(TOKEN);
+      expect(appointments.paraPortal).toHaveBeenCalledWith(
+        WS, PACIENTE, expect.any(String), expect.any(String),
+      );
       expect(r.consultas).toHaveLength(1);
-      expect(r.consultas[0].status).toBe('agendada');
     });
 
     it('registra o acesso na trilha de LGPD', async () => {

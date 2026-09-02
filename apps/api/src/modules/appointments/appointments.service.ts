@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Not, In } from 'typeorm';
 import { Appointment } from './appointment.entity';
 import { AuditService } from '../audit/audit.service';
+import {
+  gerarSala, validarLinkVideo, linkDisponivel, ORIGENS,
+} from './telessaude';
 
 export const TIPOS = ['primeira_consulta', 'retorno', 'avaliacao', 'online'] as const;
 export const STATUS = ['agendada', 'confirmada', 'realizada', 'faltou', 'cancelada'] as const;
@@ -196,6 +199,81 @@ export class AppointmentsService {
       resourceId: id, changes: mudancas,
     });
     return this.repo.findOneOrFail({ where: { id } });
+  }
+
+
+  // ── Telessaúde (lacuna 13) ────────────────────────────────────────────────
+
+  /**
+   * Define a sala da consulta online.
+   *
+   * Sem `link`, gera uma sala nova. Com `link`, usa o da profissional — ela
+   * pode preferir a ferramenta que já domina, e obrigar a usar a nossa seria
+   * pior para o atendimento.
+   */
+  async definirSala(
+    workspaceId: string, userId: string, id: string, dto: any,
+  ): Promise<Appointment> {
+    const atual = await this.findOne(workspaceId, id);
+
+    if (atual.tipo !== 'online') {
+      throw new BadRequestException(
+        'Sala de vídeo só faz sentido em consulta online. Mude o tipo da consulta primeiro.',
+      );
+    }
+    if (atual.status === 'cancelada') {
+      throw new BadRequestException('Consulta cancelada não recebe sala.');
+    }
+
+    const proprio = dto?.link !== undefined && dto?.link !== null && dto?.link !== '';
+    const mudancas: Partial<Appointment> = proprio
+      ? { linkVideo: validarLinkVideo(dto.link), videoOrigem: 'proprio' }
+      : { linkVideo: gerarSala(), videoOrigem: 'gerado' };
+
+    await this.repo.update(id, mudancas);
+    this.auditService.log({
+      userId, workspaceId, action: 'UPDATE', resource: 'appointments',
+      resourceId: id, changes: { videoOrigem: mudancas.videoOrigem },
+    });
+    return this.repo.findOneOrFail({ where: { id } });
+  }
+
+  async removerSala(workspaceId: string, userId: string, id: string): Promise<Appointment> {
+    await this.findOne(workspaceId, id);
+    await this.repo.update(id, { linkVideo: null, videoOrigem: null });
+    this.auditService.log({
+      userId, workspaceId, action: 'UPDATE', resource: 'appointments', resourceId: id,
+    });
+    return this.repo.findOneOrFail({ where: { id } });
+  }
+
+  /**
+   * Consultas online do paciente com o link JÁ FILTRADO pela janela de tempo.
+   *
+   * O filtro mora aqui, e não na tela, porque a tela não é barreira: quem
+   * abrisse a resposta da API veria o link mesmo com o botão escondido.
+   */
+  async paraPortal(workspaceId: string, patientId: string, de: string, ate: string) {
+    const consultas = await this.listar(workspaceId, { de, ate, patientId });
+    const agora = new Date();
+
+    return consultas
+      .filter((c) => c.status === 'agendada' || c.status === 'confirmada')
+      .map((c) => {
+        const disponivel = c.tipo === 'online' && !!c.linkVideo
+          && linkDisponivel(c.inicio, c.fim, agora);
+        return {
+          inicio: c.inicio,
+          fim: c.fim,
+          tipo: c.tipo,
+          status: c.status,
+          // Só existe se for online E estiver na janela.
+          linkVideo: disponivel ? c.linkVideo : null,
+          // Sinaliza que HAVERÁ sala, sem entregar o link antes da hora — a
+          // pessoa precisa saber que a consulta é por vídeo ao se organizar.
+          temSalaMarcada: c.tipo === 'online' && !!c.linkVideo,
+        };
+      });
   }
 
   /**

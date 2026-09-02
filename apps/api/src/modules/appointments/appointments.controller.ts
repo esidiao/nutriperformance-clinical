@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, Query, Request, UseGuards,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, Request, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
@@ -60,6 +60,20 @@ export class AppointmentsController {
       dia,
       duracaoMin ? parseInt(duracaoMin, 10) : undefined,
     );
+  }
+
+  @ClinicalStaff()
+  @Patch(':id/sala')
+  @ApiOperation({ summary: 'Definir sala da consulta online (gera ou usa link próprio)' })
+  definirSala(@Request() req: any, @Param('id') id: string, @Body() dto: any) {
+    return this.svc.definirSala(req.user.workspaceId, req.user.sub, id, dto);
+  }
+
+  @ClinicalStaff()
+  @Delete(':id/sala')
+  @ApiOperation({ summary: 'Remover a sala' })
+  removerSala(@Request() req: any, @Param('id') id: string) {
+    return this.svc.removerSala(req.user.workspaceId, req.user.sub, id);
   }
 
   @ClinicalStaff()

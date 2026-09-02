@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Loader2, UtensilsCrossed, CalendarDays, Camera, Check, AlertTriangle, ShieldCheck,
+  Loader2, UtensilsCrossed, CalendarDays, Camera, Check, AlertTriangle, ShieldCheck, Video,
 } from 'lucide-react';
 
 /**
@@ -216,12 +216,32 @@ export default function PortalPaciente() {
             </h2>
             <ul className="space-y-1.5">
               {d.consultas.map((c: any, i: number) => (
-                <li key={i} className="rounded-lg border p-3">
-                  <p className="text-sm first-letter:uppercase">{dataHora(c.inicio)}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {ROTULO_TIPO[c.tipo] ?? c.tipo}
-                    {c.status === 'confirmada' && ' · confirmada'}
-                  </p>
+                <li key={i} className="rounded-lg border p-3 space-y-1.5">
+                  <div>
+                    <p className="text-sm first-letter:uppercase">{dataHora(c.inicio)}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {ROTULO_TIPO[c.tipo] ?? c.tipo}
+                      {c.status === 'confirmada' && ' · confirmada'}
+                    </p>
+                  </div>
+
+                  {/* O link só chega aqui perto da hora — o backend o remove
+                      fora da janela, então a tela não precisa esconder nada. */}
+                  {c.linkVideo && (
+                    <a href={c.linkVideo} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center justify-center gap-1.5 w-full h-10 rounded-md bg-primary text-primary-foreground text-sm font-medium">
+                      <Video className="h-4 w-4" /> Entrar na consulta
+                    </a>
+                  )}
+
+                  {/* Sem o link ainda, mas com sala marcada: a pessoa precisa
+                      saber que é por vídeo para se organizar. */}
+                  {!c.linkVideo && c.temSalaMarcada && (
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <Video className="h-3 w-3" />
+                      Consulta por vídeo. O botão para entrar aparece aqui 15 minutos antes.
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SalaDeVideo } from '@/components/SalaDeVideo';
 
 // Expediente da grade. Fora dele a consulta ainda existe e aparece na lista do
 // dia — a grade não é a fonte da verdade, só a visão comum.
@@ -164,6 +165,14 @@ function AcoesConsulta({ consulta, onFechar }: { consulta: any; onFechar: () => 
             {' · '}{TIPOS[consulta.tipo] ?? consulta.tipo}
             {' · '}<span className="capitalize">{consulta.status}</span>
           </p>
+          {/* Sala de vídeo: só aparece em consulta online, e só enquanto ela
+              não foi encerrada — sala de consulta que já passou é porta aberta
+              sem motivo. */}
+          {!encerrada && (
+            <div className="mt-2">
+              <SalaDeVideo consulta={consulta} />
+            </div>
+          )}
           {consulta.motivoCancelamento && (
             <p className="text-xs text-muted-foreground mt-1">
               Motivo: {consulta.motivoCancelamento}

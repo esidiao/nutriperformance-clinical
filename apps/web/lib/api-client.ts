@@ -177,6 +177,10 @@ export const api = {
     get: (id: string) => api.get<any>(`/appointments/${id}`),
     create: (dto: any) => api.post<any>('/appointments', dto),
     update: (id: string, dto: any) => api.patch<any>(`/appointments/${id}`, dto),
+    // Telessaude: sem `link`, o backend gera uma sala; com `link`, usa o dela.
+    definirSala: (id: string, link?: string) =>
+      api.patch<any>(`/appointments/${id}/sala`, link ? { link } : {}),
+    removerSala: (id: string) => api.delete<any>(`/appointments/${id}/sala`),
     mudarStatus: (id: string, status: string, motivo?: string) =>
       api.patch<any>(`/appointments/${id}/status`, { status, motivo }),
     horariosLivres: (dia: string, duracaoMin?: number) =>

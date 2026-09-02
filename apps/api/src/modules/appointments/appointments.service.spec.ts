@@ -251,4 +251,94 @@ describe('AppointmentsService', () => {
       await expect(svc.horariosLivres(WS, 'n1', 'amanhã')).rejects.toThrow(BadRequestException);
     });
   });
+
+  // ── Telessaúde (lacuna 13) ────────────────────────────────────────────────
+  describe('paraPortal', () => {
+    const consulta = (over: any = {}) => ({
+      id: 'ap-1', status: 'agendada', tipo: 'online',
+      inicio: emUma(0.1), fim: emUma(1.1),
+      linkVideo: 'https://meet.jit.si/npc-abc', ...over,
+    });
+
+    it('entrega o link dentro da janela', async () => {
+      repo.find.mockResolvedValue([consulta()]);
+      const r = await svc.paraPortal(WS, 'p-1', new Date().toISOString(), emUma(48).toISOString());
+      expect(r[0].linkVideo).toBe('https://meet.jit.si/npc-abc');
+    });
+
+    it('NAO entrega o link dias antes', async () => {
+      // Uma sala visível semanas antes é porta permanente no portal do paciente.
+      repo.find.mockResolvedValue([consulta({ inicio: emUma(72), fim: emUma(73) })]);
+      const r = await svc.paraPortal(WS, 'p-1', new Date().toISOString(), emUma(96).toISOString());
+      expect(r[0].linkVideo).toBeNull();
+    });
+
+    it('mas AVISA que havera sala', async () => {
+      // A pessoa precisa saber que a consulta e por video ao se organizar.
+      repo.find.mockResolvedValue([consulta({ inicio: emUma(72), fim: emUma(73) })]);
+      const r = await svc.paraPortal(WS, 'p-1', new Date().toISOString(), emUma(96).toISOString());
+      expect(r[0].temSalaMarcada).toBe(true);
+    });
+
+    it('consulta presencial nao tem link', async () => {
+      repo.find.mockResolvedValue([consulta({ tipo: 'retorno' })]);
+      const r = await svc.paraPortal(WS, 'p-1', new Date().toISOString(), emUma(48).toISOString());
+      expect(r[0].linkVideo).toBeNull();
+      expect(r[0].temSalaMarcada).toBe(false);
+    });
+
+    it('cancelada nao aparece', async () => {
+      repo.find.mockResolvedValue([
+        consulta(), consulta({ id: 'ap-2', status: 'cancelada' }),
+      ]);
+      const r = await svc.paraPortal(WS, 'p-1', new Date().toISOString(), emUma(48).toISOString());
+      expect(r).toHaveLength(1);
+    });
+
+    it('nao devolve campos internos da consulta', async () => {
+      // observacoes e motivo de cancelamento sao anotacao da profissional.
+      repo.find.mockResolvedValue([consulta({
+        observacoes: 'ANOTACAO_INTERNA', motivoCancelamento: 'MOTIVO_INTERNO',
+      })]);
+      const r = await svc.paraPortal(WS, 'p-1', new Date().toISOString(), emUma(48).toISOString());
+      const texto = JSON.stringify(r);
+      expect(texto).not.toContain('ANOTACAO_INTERNA');
+      expect(texto).not.toContain('MOTIVO_INTERNO');
+    });
+  });
+
+  describe('definirSala', () => {
+    it('recusa sala em consulta presencial', async () => {
+      repo.findOne.mockResolvedValue({ id: 'ap-1', tipo: 'retorno', status: 'agendada' });
+      await expect(svc.definirSala(WS, USER, 'ap-1', {}))
+        .rejects.toThrow(/consulta online/);
+    });
+
+    it('gera sala quando nao vem link', async () => {
+      repo.findOne.mockResolvedValue({ id: 'ap-1', tipo: 'online', status: 'agendada' });
+      await svc.definirSala(WS, USER, 'ap-1', {});
+      const [, mudancas] = repo.update.mock.calls[0];
+      expect(mudancas.videoOrigem).toBe('gerado');
+      expect(mudancas.linkVideo).toMatch(/^https:\/\//);
+    });
+
+    it('usa o link da profissional quando ela informa', async () => {
+      repo.findOne.mockResolvedValue({ id: 'ap-1', tipo: 'online', status: 'agendada' });
+      await svc.definirSala(WS, USER, 'ap-1', { link: 'https://meet.google.com/abc' });
+      const [, mudancas] = repo.update.mock.calls[0];
+      expect(mudancas.videoOrigem).toBe('proprio');
+      expect(mudancas.linkVideo).toBe('https://meet.google.com/abc');
+    });
+
+    it('recusa link inseguro', async () => {
+      repo.findOne.mockResolvedValue({ id: 'ap-1', tipo: 'online', status: 'agendada' });
+      await expect(svc.definirSala(WS, USER, 'ap-1', { link: 'http://x.com' }))
+        .rejects.toThrow(/https/);
+    });
+
+    it('recusa sala em consulta cancelada', async () => {
+      repo.findOne.mockResolvedValue({ id: 'ap-1', tipo: 'online', status: 'cancelada' });
+      await expect(svc.definirSala(WS, USER, 'ap-1', {})).rejects.toThrow(/cancelada/);
+    });
+  });
 });

@@ -37,6 +37,24 @@ export class Appointment {
   /** agendada | confirmada | realizada | faltou | cancelada */
   @Column({ name: 'status', default: 'agendada' }) status: string;
 
+  /**
+   * Sala da consulta online — lacuna 13.
+   *
+   * Guarda a URL completa. Nulo quando a consulta é presencial ou quando
+   * ninguém definiu sala ainda.
+   */
+  @Column({ name: 'link_video', type: 'text', nullable: true }) linkVideo: string | null;
+
+  /**
+   * gerado | proprio — de onde veio o link.
+   *
+   * Importa para a tela: sala gerada usa um serviço público de terceiro, e a
+   * profissional precisa saber disso. Link próprio é escolha dela, e o aviso
+   * seria ruído.
+   */
+  @Column({ name: 'video_origem', type: 'text', nullable: true })
+  videoOrigem: string | null;
+
   @Column({ name: 'observacoes', type: 'text', nullable: true }) observacoes: string | null;
 
   /** Motivo do cancelamento — sem ele, "cancelada" nao explica nada depois. */
