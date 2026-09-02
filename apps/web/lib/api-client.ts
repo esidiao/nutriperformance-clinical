@@ -267,6 +267,15 @@ export const api = {
   },
 
   // Laboratory
+  // Portal do paciente — lacuna 2. A rota PUBLICA (/publico/portal/:token) nao
+  // passa por aqui: este cliente anexa o token do Supabase.
+  patientPortal: {
+    links: (patientId?: string) =>
+      api.get<any[]>(`/patient-portal/links${patientId ? `?patientId=${patientId}` : ''}`),
+    criarLink: (dto: any) => api.post<any>('/patient-portal/links', dto),
+    revogar: (id: string) => api.patch<any>(`/patient-portal/links/${id}/revogar`, {}),
+  },
+
   // Supervisao de estagiario — lacuna 15.
   supervision: {
     list: (params: { status?: string; estudanteId?: string } = {}) => {

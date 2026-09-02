@@ -205,6 +205,26 @@ export class FoodDiaryService {
    */
   async registrarPublico(token: string, dto: any) {
     const link = await this.porToken(token);
+    return this.registrarPara(link.workspaceId, link.patientId, link.id, dto);
+  }
+
+  /**
+   * Registro pelo portal do paciente (lacuna 2).
+   *
+   * Existe para o portal não reimplementar as regras: teto diário, formato de
+   * foto, refeição no futuro. Duplicadas, as duas cópias divergiriam na
+   * primeira mudança — e a que ficasse para trás aceitaria o que a outra
+   * recusa.
+   */
+  async registrarPorPortal(workspaceId: string, patientId: string, dto: any) {
+    return this.registrarPara(workspaceId, patientId, null, dto);
+  }
+
+  /** Núcleo do registro, sem saber por qual porta o paciente entrou. */
+  private async registrarPara(
+    workspaceId: string, patientId: string, linkId: string | null, dto: any,
+  ) {
+    const link = { workspaceId, patientId, id: linkId };
 
     const refeicao = String(dto?.refeicao ?? '');
     if (!REFEICOES.includes(refeicao as any)) {

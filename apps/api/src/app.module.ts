@@ -46,6 +46,8 @@ import { FoodDiaryModule } from './modules/food-diary/food-diary.module';
 import { FoodDiaryLink, FoodDiaryEntry } from './modules/food-diary/food-diary.entities';
 import { SupervisionModule } from './modules/supervision/supervision.module';
 import { SupervisionRequest } from './modules/supervision/supervision-request.entity';
+import { PatientPortalModule } from './modules/patient-portal/patient-portal.module';
+import { PatientPortalLink } from './modules/patient-portal/patient-portal-link.entity';
 import { Appointment } from './modules/appointments/appointment.entity';
 import { MealPlan } from './modules/meal-plans/meal-plan.entity';
 import { MealPlanItem } from './modules/meal-plans/meal-plan-item.entity';
@@ -96,7 +98,7 @@ import { HealthController } from './health.controller';
             NutritionalAssessment, PhysicalAssessment,
             PatientSupplementation, LaboratoryExam, PatientGoal,
             MealPlan, MealPlanItem, Appointment, Charge, PreConsultForm,
-            FoodDiaryLink, FoodDiaryEntry, SupervisionRequest,
+            FoodDiaryLink, FoodDiaryEntry, SupervisionRequest, PatientPortalLink,
             Food, IndustrializedProduct, SupplementCatalog,
           ],
           synchronize: !isProduction,
@@ -137,6 +139,7 @@ import { HealthController } from './health.controller';
     PreConsultModule,
     FoodDiaryModule,
     SupervisionModule,
+    PatientPortalModule,
     LaboratoryModule,
     GoalsModule,
     ReportsModule,
