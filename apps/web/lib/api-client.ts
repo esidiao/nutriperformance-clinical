@@ -271,6 +271,9 @@ export const api = {
     list: (patientId: string) => api.get<any[]>(`/laboratory/patient/${patientId}`),
     latest: (patientId: string) => api.get<any>(`/laboratory/patient/${patientId}/latest`),
     create: (dto: any) => api.post<any>('/laboratory', dto),
+    // Devolve RASCUNHO para conferencia — nao grava nada.
+    extrairPdf: (pdfBase64: string) =>
+      api.post<any>('/laboratory/extrair-pdf', { pdfBase64 }),
     update: (id: string, dto: any) => api.patch<any>(`/laboratory/${id}`, dto),
     analyze: (id: string, supplementContext?: string[]) =>
       api.post<any>(`/laboratory/${id}/analyze`, { supplementContext }),

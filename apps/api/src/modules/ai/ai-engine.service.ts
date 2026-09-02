@@ -310,6 +310,79 @@ Responda com este JSON exato:
     };
   }
 
+
+  /**
+   * Lê um laudo laboratorial em PDF e extrai os marcadores conhecidos.
+   *
+   * Usa `audioModel` pelo mesmo motivo da transcrição: o prompt clínico
+   * principal obriga resposta em seis seções de markdown, que quebraria o JSON.
+   *
+   * O prompt exige o TRECHO LITERAL de cada valor. Sem isso, conferir a
+   * extração significaria reler o laudo inteiro — e ninguém faria, o que
+   * transformaria a revisão em carimbo.
+   */
+  async extrairExameDePdf(pdfBase64: string, catalogo: string): Promise<any> {
+    const prompt = `Você está lendo um LAUDO LABORATORIAL brasileiro. Extraia os resultados.
+
+MARCADORES CONHECIDOS (use exatamente o nome do campo à esquerda):
+${catalogo}
+
+REGRAS:
+- Extraia SOMENTE o que está escrito no laudo. Nunca calcule, estime ou complete.
+- Copie o número exatamente como aparece, inclusive a vírgula decimal.
+- Para cada valor, copie a LINHA LITERAL do laudo em "trecho".
+- Se o laudo tiver um exame que não está na lista acima, coloque em "naoMapeados".
+- Se um marcador não aparecer no laudo, simplesmente não o inclua.
+- Se houver mais de um resultado do mesmo marcador (ex.: coletas diferentes),
+  traga o da coleta mais recente e mencione em "naoMapeados".
+
+Responda com este JSON exato:
+{
+  "collectionDate": "data da COLETA no formato DD/MM/AAAA, ou null",
+  "laboratoryName": "nome do laboratório, ou null",
+  "valores": [
+    { "campo": "nome_do_campo_da_lista", "valor": "12,5", "unidade": "g/dL", "trecho": "linha literal do laudo" }
+  ],
+  "naoMapeados": [
+    { "nome": "nome do exame como está no laudo", "valor": "valor com unidade", "trecho": "linha literal" }
+  ]
+}`;
+
+    let raw: string;
+    try {
+      const result = await this.audioModel.generateContent({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType: 'application/pdf', data: pdfBase64 } },
+              { text: prompt },
+            ],
+          },
+        ],
+        generationConfig: {
+          maxOutputTokens: 8192,
+          // Zero, não 0.1: extração de número de laudo não tem espaço para
+          // variação criativa. A mesma página deve dar o mesmo resultado.
+          temperature: 0,
+          responseMimeType: 'application/json',
+        },
+      });
+      raw = result.response.text();
+    } catch (err: any) {
+      this.handleGeminiError(err);
+    }
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      this.logger.warn('Extração de PDF não veio em JSON válido.');
+      throw new ServiceUnavailableException(
+        'Não foi possível interpretar o laudo. Verifique se o PDF está legível.',
+      );
+    }
+  }
+
   /**
    * Traduz falhas do provedor de IA (Gemini) em erro 503 com mensagem em português,
    * evitando vazamento de stack trace (500) quando a GEMINI_API_KEY está inválida/expirada

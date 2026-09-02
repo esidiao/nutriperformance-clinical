@@ -21,6 +21,20 @@ export class LaboratoryController {
     return this.svc.create(req.user.workspaceId, req.user.sub, dto);
   }
 
+  /**
+   * Extração por IA. Devolve rascunho para conferência — não grava.
+   *
+   * Throttle apertado: cada chamada manda um PDF para o modelo e custa tempo e
+   * dinheiro. Ninguém extrai doze laudos por minuto de forma legítima.
+   */
+  @ClinicalStaff()
+  @RequiresTokens('laboratory_pdf_extraction')
+  @Throttle({ default: { limit: 6, ttl: 60000 } })
+  @Post('extrair-pdf')
+  extrairPdf(@Request() req: any, @Body() body: { pdfBase64: string }) {
+    return this.svc.extrairDePdf(req.user.workspaceId, req.user.sub, body?.pdfBase64);
+  }
+
   @ClinicalStaff()
   @Get('patient/:patientId')
   findByPatient(@Request() req: any, @Param('patientId') patientId: string) {

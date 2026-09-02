@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LaboratoryExam } from './laboratory-exam.entity';
+import { catalogoParaPrompt, normalizarRascunho, RascunhoExame } from './extracao-pdf';
 import { AIEngineService as AiEngineService } from '../ai/ai-engine.service';
 import { TokenService } from '../tokens/token.service';
 import { AlertsService } from '../alerts/alerts.service';
@@ -39,6 +40,49 @@ export class LaboratoryService {
       this.logger.warn(`Falha ao avaliar alertas laboratoriais (patient=${dto.patientId}): ${e?.message ?? e}`),
     );
     return saved;
+  }
+
+
+  /**
+   * Lê um laudo em PDF e devolve um RASCUNHO para conferência.
+   *
+   * Não grava nada. O retorno vai para a tela, a profissional confere valor a
+   * valor contra o trecho do laudo, corrige o que precisar e só então salva
+   * pelo POST normal.
+   *
+   * Isso é deliberado. Um modelo que leia "TSH 4,5" como "45" põe um valor dez
+   * vezes maior no prontuário, e não há nada no número 45 que denuncie o erro —
+   * nem alerta clínico, nem validação, nem a própria profissional meses depois.
+   * Extração automática economiza digitação; ela não substitui quem assina.
+   */
+  async extrairDePdf(
+    workspaceId: string, userId: string, pdfBase64: string,
+  ): Promise<RascunhoExame> {
+    if (!pdfBase64 || typeof pdfBase64 !== 'string') {
+      throw new BadRequestException('Envie o PDF do laudo.');
+    }
+
+    // base64 cresce ~33% sobre o binário. 4 MB de base64 ≈ 3 MB de PDF, que
+    // cobre laudo com folga — e mantém a instância do plano gratuito de pé.
+    const MAX_BASE64 = 4 * 1024 * 1024;
+    if (pdfBase64.length > MAX_BASE64) {
+      throw new BadRequestException(
+        'PDF acima de 3 MB. Laudos costumam ser bem menores — verifique se o arquivo '
+        + 'não é uma digitalização em alta resolução.',
+      );
+    }
+
+    const bruto = await this.aiEngine.extrairExameDePdf(pdfBase64, catalogoParaPrompt());
+    const rascunho = normalizarRascunho(bruto);
+
+    // Registra a LEITURA, não uma gravação: se alguém auditar depois, precisa
+    // ver que um laudo passou por extração automática antes de virar registro.
+    this.auditService.log({
+      userId, workspaceId, action: 'READ', resource: 'laboratory_pdf_extraction',
+      resourceId: `${rascunho.valores.length} marcadores`,
+    });
+
+    return rascunho;
   }
 
   async findByPatient(workspaceId: string, patientId: string): Promise<LaboratoryExam[]> {

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { api } from '@/lib/api-client';
+import { ImportarLaudoPdf } from '@/components/ImportarLaudoPdf';
 import { toast } from 'sonner';
 
 type LabStatus = 'normal' | 'low' | 'high' | 'borderline' | 'optimal';
@@ -285,6 +286,15 @@ function LaboratoryContent() {
             <FlaskConical className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Selecione um paciente para ver e registrar exames.</p>
           </div>
+        )}
+
+        {/* Antes do formulário manual: quem tem o PDF não deveria descobrir a
+            digitação campo a campo primeiro. */}
+        {patientId && (
+          <ImportarLaudoPdf
+            patientId={patientId}
+            onImportado={() => qc.invalidateQueries({ queryKey: ['lab-exams', patientId] })}
+          />
         )}
 
         {/* Formulário de novo exame */}
