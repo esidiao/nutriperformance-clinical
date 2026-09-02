@@ -171,21 +171,45 @@ describe('AdminController', () => {
 
   describe('getMetrics', () => {
     it('separa totais de ativos para workspaces e usuários', async () => {
+      // O MRR nao consulta mais o banco: `monthly_price_brl` nunca existiu em
+      // workspaces, e os meios de pagamento foram retirados da plataforma.
+      // Sao 5 consultas agora, nao 6.
       db.query
         .mockResolvedValueOnce([{ total: '47', active: '43' }])
         .mockResolvedValueOnce([{ total: '189', active: '180' }])
         .mockResolvedValueOnce([{ count: '1240' }])
         .mockResolvedValueOnce([{ total: '28750' }])
-        .mockResolvedValueOnce([{ mrr: '12350' }])
         .mockResolvedValueOnce([{ operation: 'assistant_query', uses: '10', tokens_consumed: '50' }]);
 
       const res = await controller.getMetrics();
       expect(res).toMatchObject({
         totalWorkspaces: 47, activeWorkspaces: 43,
         totalUsers: 189, activeUsers: 180,
-        totalPatients: 1240, tokensConsumedThisMonth: 28750, mrrBrl: 12350,
+        totalPatients: 1240, tokensConsumedThisMonth: 28750,
       });
       expect(res.moduleUsage).toHaveLength(1);
+    });
+
+    it('MRR vem null, nao zero', async () => {
+      // Zero seria lido como "nenhuma receita"; o correto e "nao ha cobranca
+      // configurada". A diferenca importa num painel de gestao.
+      db.query.mockResolvedValue([{ total: '0', active: '0', count: '0' }]);
+      const res = await controller.getMetrics();
+      expect(res.mrrBrl).toBeNull();
+      expect(res.mrrBrl).not.toBe(0);
+    });
+
+    it('nao consulta coluna que nao existe no banco', async () => {
+      // Este teste passava antes contra um banco mockado que nao correspondia
+      // ao real: a consulta pedia `monthly_price_brl` em workspaces e
+      // `deleted_at` em patients, e /admin/metrics devolvia 500 em producao
+      // desde sempre. Mock nao substitui exercitar producao.
+      db.query
+        .mockResolvedValue([{ total: '0', active: '0', count: '0' }]);
+      await controller.getMetrics();
+      const sqls = db.query.mock.calls.map((c: any[]) => String(c[0]));
+      expect(sqls.join(' ')).not.toContain('monthly_price_brl');
+      expect(sqls.join(' ')).not.toContain('deleted_at');
     });
   });
 });

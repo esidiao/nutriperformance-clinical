@@ -54,18 +54,23 @@ export class AdminController {
                COUNT(*) FILTER (WHERE is_active = true) AS active
         FROM users
       `),
-      this.db.query(`SELECT COUNT(*) FROM patients WHERE deleted_at IS NULL`),
+      // `deleted_at` NAO existe em patients — a coluna de exclusao logica e
+      // `is_active`, e ha ainda `data_deletion_requested_at` para o pedido de
+      // apagamento da LGPD. A consulta antiga derrubava /admin/metrics inteiro,
+      // porque Promise.all falha na primeira query que quebra.
+      this.db.query(`SELECT COUNT(*) FROM patients WHERE is_active = true`),
       this.db.query(`
         SELECT COALESCE(SUM(ABS(amount)), 0) AS total
         FROM token_transactions
         WHERE amount < 0
           AND created_at >= date_trunc('month', NOW())
       `),
-      this.db.query(`
-        SELECT COALESCE(SUM(monthly_price_brl), 0) AS mrr
-        FROM workspaces
-        WHERE is_active = true AND plan != 'free'
-      `),
+      // MRR REMOVIDO. `monthly_price_brl` nao existe em workspaces, e nao
+      // adianta criar: os meios de pagamento foram retirados da plataforma
+      // enquanto a estrategia comercial nao e definida. Receita recorrente
+      // calculada sobre preco que ninguem cobra seria numero inventado num
+      // painel de gestao — pior que numero nenhum.
+      Promise.resolve([{ mrr: null }]),
       this.db.query(`
         SELECT operation, COUNT(*) AS uses, SUM(ABS(amount)) AS tokens_consumed
         FROM token_transactions
@@ -82,7 +87,10 @@ export class AdminController {
       activeUsers: Number(users.active),
       totalPatients: Number(patients.count),
       tokensConsumedThisMonth: Number(tokensThisMonth.total),
-      mrrBrl: Number(mrr.mrr),
+      // null e nao 0: zero seria lido como "nenhuma receita", quando o correto
+      // e "nao ha cobranca configurada". Number(null) daria 0 e apagaria a
+      // diferenca.
+      mrrBrl: mrr.mrr === null ? null : Number(mrr.mrr),
       moduleUsage,
     };
   }
@@ -95,7 +103,7 @@ export class AdminController {
       this.db.query(
         `SELECT id, name, plan, token_balance, token_reserved, is_active, created_at,
                 (SELECT COUNT(*) FROM users u WHERE u.workspace_id = w.id) AS user_count,
-                (SELECT COUNT(*) FROM patients p WHERE p.workspace_id = w.id AND p.deleted_at IS NULL) AS patient_count
+                (SELECT COUNT(*) FROM patients p WHERE p.workspace_id = w.id AND p.is_active = true) AS patient_count
          FROM workspaces w
          ORDER BY created_at DESC
          LIMIT $1 OFFSET $2`,
