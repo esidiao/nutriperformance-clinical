@@ -239,6 +239,10 @@ export class AIEngineService {
      * aviso — e trocar por variável de ambiente é mais rápido que esperar um
      * build quando a IA inteira está fora do ar.
      */
+    // gemini-2.5-flash. Vale registrar que NÃO foi comprovado que o
+    // gemini-2.0-flash anterior estava aposentado: a chave estava inválida, e
+    // toda chamada falharia de qualquer modo. A troca se sustenta por ser o
+    // modelo mais recente, não por um diagnóstico que não se confirmou.
     const nomeModelo = this.config.get<string>('GEMINI_MODEL') ?? 'gemini-2.5-flash';
     this.logger.log(`Modelo de IA em uso: ${nomeModelo}`);
 
@@ -427,12 +431,17 @@ Responda com este JSON exato:
       );
     }
     if (status === 404 || /not found|is not supported for|deprecat/i.test(detalhe)) {
-      // Nome de modelo sai de circulação. Sem este ramo, um modelo aposentado
-      // aparecia como "tente novamente em instantes" — e a tentativa nunca
-      // funcionaria, porque o modelo não existe mais.
+      // ATENÇÃO ao redigir esta mensagem: o Gemini devolve 404 "not found"
+      // TANTO para modelo inexistente QUANTO para chave sem acesso ao modelo.
+      // A primeira versão afirmava "o modelo não está mais disponível" e
+      // mandou a investigação para o lado errado — a causa real era a
+      // credencial. Um erro que nomeia a causa errada com confiança é pior que
+      // um erro genérico: o genérico ao menos não desperdiça o tempo de quem
+      // procura.
       throw new ServiceUnavailableException(
-        'O modelo de IA configurado não está mais disponível. Isto exige atualização '
-        + 'do sistema — avise o suporte.',
+        'O serviço de IA recusou o modelo configurado. Pode ser o nome do modelo ou a '
+        + 'credencial sem acesso a ele — as duas coisas dão o mesmo erro. Avise o suporte; '
+        + 'tentar de novo não resolve.',
       );
     }
     if (status === 400 || /invalid|unsupported|not supported/i.test(detalhe)) {
