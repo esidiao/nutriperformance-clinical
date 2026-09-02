@@ -75,6 +75,11 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      # Nome do modelo Gemini. Opcional — sem ela o codigo usa o padrao. Existe
+      # para trocar de modelo sem esperar build, quando um nome sai de
+      # circulacao e derruba TODA a IA da plataforma de uma vez.
+      - key: GEMINI_MODEL
+        sync: false
 
       # Bucket PRIVADO das fotos do diario alimentar. Estava declarada no .env
       # local mas nunca no Render: o modulo subiu, a rota respondeu, e so na

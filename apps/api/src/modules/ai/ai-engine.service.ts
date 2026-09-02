@@ -229,13 +229,26 @@ export class AIEngineService {
 
   constructor(private config: ConfigService) {
     const apiKey = this.config.get<string>('GEMINI_API_KEY') ?? '';
+
+    /**
+     * Nome do modelo em UM lugar só, e configurável por ambiente.
+     *
+     * Estava repetido em dois pontos: trocar o modelo exigia lembrar dos dois,
+     * e esquecer um deixaria metade das funções de IA apontando para um modelo
+     * aposentado. Configurável porque nome de modelo sai de circulação sem
+     * aviso — e trocar por variável de ambiente é mais rápido que esperar um
+     * build quando a IA inteira está fora do ar.
+     */
+    const nomeModelo = this.config.get<string>('GEMINI_MODEL') ?? 'gemini-2.0-flash';
+    this.logger.log(`Modelo de IA em uso: ${nomeModelo}`);
+
     const genAI = new GoogleGenerativeAI(apiKey);
     this.model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: nomeModelo,
       systemInstruction: ANTI_HALLUCINATION_SYSTEM_PROMPT,
     });
     this.audioModel = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: nomeModelo,
       systemInstruction: AUDIO_INTAKE_SYSTEM_PROMPT,
     });
   }
@@ -411,6 +424,15 @@ Responda com este JSON exato:
     if (status === 429 || /quota|rate limit|exhausted/i.test(detalhe)) {
       throw new ServiceUnavailableException(
         'A cota do serviço de IA foi atingida. Tente mais tarde ou avise o suporte.',
+      );
+    }
+    if (status === 404 || /not found|is not supported for|deprecat/i.test(detalhe)) {
+      // Nome de modelo sai de circulação. Sem este ramo, um modelo aposentado
+      // aparecia como "tente novamente em instantes" — e a tentativa nunca
+      // funcionaria, porque o modelo não existe mais.
+      throw new ServiceUnavailableException(
+        'O modelo de IA configurado não está mais disponível. Isto exige atualização '
+        + 'do sistema — avise o suporte.',
       );
     }
     if (status === 400 || /invalid|unsupported|not supported/i.test(detalhe)) {
