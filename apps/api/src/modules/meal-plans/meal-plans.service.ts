@@ -314,4 +314,117 @@ export class MealPlansService {
       return novo;
     });
   }
+  // ── Modelos ───────────────────────────────────────────────────────────────
+
+  /**
+   * Texto livre que NÃO viaja para um modelo.
+   *
+   * Observação de plano, orientação geral e observação de item nascem escritas
+   * para uma pessoa específica — "relata azia após o jantar", "evitar por causa
+   * da medicação dela". Copiadas para um modelo, reapareceriam no prontuário do
+   * próximo paciente como se fossem dele. O sistema não tem como distinguir a
+   * frase genérica da frase sobre alguém, e errar aqui é vazar informação
+   * clínica de um paciente para outro.
+   *
+   * O que sobra é a estrutura: refeições, alimentos, quantidades, medidas
+   * caseiras, substituições e metas — que é justamente o que se reaproveita.
+   */
+  private readonly TEXTO_NAO_COPIADO = ['observacoes', 'orientacoesGerais'] as const;
+
+  /** Cria um modelo a partir de um plano existente. */
+  async salvarComoModelo(
+    workspaceId: string, userId: string, id: string, nome?: string,
+  ): Promise<MealPlan> {
+    const origem = await this.planRepo.findOne({ where: { id, workspaceId, isActive: true } });
+    if (!origem) throw new NotFoundException('Plano alimentar não encontrado');
+    if (origem.isTemplate) {
+      throw new BadRequestException('Isto já é um modelo. Use "aplicar" para gerar um plano.');
+    }
+
+    const itens = await this.itemRepo.find({ where: { mealPlanId: id, workspaceId } });
+
+    return this.dataSource.transaction(async (mgr) => {
+      const { id: _i, createdAt: _c, updatedAt: _u, ...resto } = origem as any;
+
+      const modelo = await mgr.save(mgr.create(MealPlan, {
+        ...resto,
+        // Sem paciente: um modelo não pertence a ninguém. A CHECK do banco
+        // recusaria o contrário.
+        patientId: null,
+        isTemplate: true,
+        nome: nome?.trim() || `${origem.nome} (modelo)`,
+        createdBy: userId,
+        isDraft: false,
+        dataInicio: null,
+        dataFim: null,
+        observacoes: null,
+        orientacoesGerais: null,
+      }));
+
+      if (itens.length) {
+        await mgr.save(itens.map((it) => {
+          const { id: _ii, createdAt: _ic, updatedAt: _iu, ...ri } = it as any;
+          return mgr.create(MealPlanItem, {
+            ...ri, mealPlanId: modelo.id, observacao: null,
+          });
+        }));
+      }
+
+      this.auditService.log({
+        userId, workspaceId, action: 'CREATE', resource: 'meal_plans', resourceId: modelo.id,
+      });
+      return modelo;
+    });
+  }
+
+  async listarModelos(workspaceId: string): Promise<MealPlan[]> {
+    return this.planRepo.find({
+      where: { workspaceId, isTemplate: true, isActive: true },
+      order: { nome: 'ASC' },
+      take: 200,
+    });
+  }
+
+  /** Gera um plano de verdade para um paciente a partir do modelo. */
+  async aplicarModelo(
+    workspaceId: string, userId: string, modeloId: string, dto: any,
+  ): Promise<MealPlan> {
+    if (!dto?.patientId) throw new BadRequestException('patientId é obrigatório');
+
+    const modelo = await this.planRepo.findOne({
+      where: { id: modeloId, workspaceId, isTemplate: true, isActive: true },
+    });
+    if (!modelo) throw new NotFoundException('Modelo não encontrado');
+
+    const itens = await this.itemRepo.find({ where: { mealPlanId: modeloId, workspaceId } });
+
+    return this.dataSource.transaction(async (mgr) => {
+      const { id: _i, createdAt: _c, updatedAt: _u, ...resto } = modelo as any;
+
+      const plano = await mgr.save(mgr.create(MealPlan, {
+        ...resto,
+        patientId: dto.patientId,
+        isTemplate: false,
+        // Nasce como rascunho: o modelo é ponto de partida, não prescrição
+        // pronta. Quem assina precisa revisar antes de entregar.
+        isDraft: true,
+        nome: dto.nome?.trim() || modelo.nome,
+        createdBy: userId,
+        dataInicio: dto.dataInicio ?? null,
+        dataFim: dto.dataFim ?? null,
+      }));
+
+      if (itens.length) {
+        await mgr.save(itens.map((it) => {
+          const { id: _ii, createdAt: _ic, updatedAt: _iu, ...ri } = it as any;
+          return mgr.create(MealPlanItem, { ...ri, mealPlanId: plano.id });
+        }));
+      }
+
+      this.auditService.log({
+        userId, workspaceId, action: 'CREATE', resource: 'meal_plans', resourceId: plano.id,
+      });
+      return plano;
+    });
+  }
 }

@@ -14,7 +14,12 @@ import {
 export class MealPlan {
   @PrimaryGeneratedColumn('uuid') id: string;
 
-  @Column({ name: 'patient_id' }) patientId: string;
+  /**
+   * Nulo quando o plano é um MODELO. Um modelo não pertence a paciente
+   * nenhum: se guardasse o `patientId` de origem, a identidade de um paciente
+   * viajaria junto com o modelo para o prontuário de outro.
+   */
+  @Column({ name: 'patient_id', nullable: true }) patientId: string | null;
   @Column({ name: 'workspace_id' }) workspaceId: string;
   @Column({ name: 'created_by' }) createdBy: string;
 
@@ -39,6 +44,15 @@ export class MealPlan {
   orientacoesGerais: string | null;
 
   // Rascunho não vale como prescrição — só o plano finalizado é entregue
+  /**
+   * Modelo reutilizável — lacuna 10 do benchmark.
+   *
+   * Vive na mesma tabela dos planos porque é a mesma estrutura: refeições,
+   * itens, metas. Tabela separada duplicaria toda a lógica de itens e as duas
+   * cópias divergiriam na primeira mudança.
+   */
+  @Column({ name: 'is_template', default: false }) isTemplate: boolean;
+
   @Column({ name: 'is_draft', default: true }) isDraft: boolean;
   @Column({ name: 'is_active', default: true }) isActive: boolean;
 

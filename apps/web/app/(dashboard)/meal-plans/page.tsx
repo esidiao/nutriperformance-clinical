@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ModelosDePlano } from '@/components/ModelosDePlano';
 
 const dataBR = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString('pt-BR') : '—';
@@ -137,6 +138,12 @@ export default function MealPlansPage() {
               </Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* Os modelos aparecem quando ainda não há plano — que é exatamente
+            quando remontar do zero seria o caminho mais caro. */}
+        {!listQ.isLoading && !listQ.isError && planos.length === 0 && !criando && (
+          <ModelosDePlano patientId={patientId} />
         )}
 
         <div className="space-y-2">

@@ -34,7 +34,29 @@ export class MealPlansController {
     return this.svc.findByPatient(req.user.workspaceId, patientId);
   }
 
-  // Antes de :id nao, porque a rota e :id/lista-compras — nao conflita.
+  // ANTES de @Get(':id'): sem isso o Nest casa "modelos" como um id de plano
+  // e devolve 404.
+  @NutritionistOnly()
+  @Get('modelos')
+  @ApiOperation({ summary: 'Modelos de plano do workspace' })
+  listarModelos(@Request() req: any) {
+    return this.svc.listarModelos(req.user.workspaceId);
+  }
+
+  @NutritionistOnly()
+  @Post(':id/salvar-como-modelo')
+  @ApiOperation({ summary: 'Salvar plano como modelo reutilizável' })
+  salvarComoModelo(@Request() req: any, @Param('id') id: string, @Body() body: { nome?: string }) {
+    return this.svc.salvarComoModelo(req.user.workspaceId, req.user.sub, id, body?.nome);
+  }
+
+  @NutritionistOnly()
+  @Post('modelos/:id/aplicar')
+  @ApiOperation({ summary: 'Gerar plano para um paciente a partir do modelo' })
+  aplicarModelo(@Request() req: any, @Param('id') id: string, @Body() dto: any) {
+    return this.svc.aplicarModelo(req.user.workspaceId, req.user.sub, id, dto);
+  }
+
   @NutritionistOnly()
   @Get(':id/lista-compras')
   @ApiOperation({ summary: 'Lista de compras derivada do plano' })

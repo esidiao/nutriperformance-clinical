@@ -10,6 +10,7 @@ import { api } from '@/lib/api-client';
 import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
 import { ListaCompras } from '@/components/ListaCompras';
+import { SalvarComoModelo } from '@/components/ModelosDePlano';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -419,6 +420,8 @@ export default function MealPlanPage() {
 
         {/* Depois do cardápio, não antes: a lista é consequência do plano. */}
         <ListaCompras planoId={planId} />
+
+        <SalvarComoModelo planoId={planId} nomeAtual={plano.nome} />
       </div>
     </div>
   );
