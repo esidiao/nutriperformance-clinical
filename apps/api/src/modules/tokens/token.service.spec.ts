@@ -42,6 +42,10 @@ describe('TokenService', () => {
 
   const mockCostRepo = {
     findOne: jest.fn().mockResolvedValue({ operation: 'interaction_analysis', tokensCost: 15 }),
+    find: jest.fn().mockResolvedValue([
+      { operation: 'assistant_query', tokensCost: 5, description: 'Assistente' },
+      { operation: 'interaction_analysis', tokensCost: 15, description: 'Interações' },
+    ]),
   };
   const mockTxRepo = { find: jest.fn().mockResolvedValue([]) };
   const mockWsRepo = {
@@ -129,6 +133,30 @@ describe('TokenService', () => {
       expect(creditSpy).toHaveBeenCalledWith(
         expect.objectContaining({ operation: 'admin_adjustment', amount: 500 }),
       );
+    });
+  });
+
+  describe('listarCustos', () => {
+    it('devolve o que esta na tabela, nao uma lista escrita no codigo', async () => {
+      // A rota /tokens/costs anunciava um array fixo no controller: mostrava um
+      // nome de operacao ja renomeado, omitia as cinco realmente tarifadas e
+      // listava quatro que nenhum codigo executa. Editar o preco pelo painel
+      // nao mudava nada do que o usuario via.
+      const r = await service.listarCustos();
+      expect(r.map((c) => c.operation)).toEqual(['assistant_query', 'interaction_analysis']);
+      expect(mockCostRepo.find).toHaveBeenCalled();
+    });
+
+    it('mantem o formato que o cliente ja esperava', async () => {
+      const [primeiro] = await service.listarCustos();
+      expect(Object.keys(primeiro).sort()).toEqual(['description', 'operation', 'tokens']);
+    });
+
+    it('o preco listado e o mesmo que getCostFor cobra', async () => {
+      // Se as duas fontes divergirem, a lista vira propaganda enganosa.
+      const listado = (await service.listarCustos())
+        .find((c) => c.operation === 'interaction_analysis')!.tokens;
+      expect(listado).toBe(await service.getCostFor('interaction_analysis'));
     });
   });
 });

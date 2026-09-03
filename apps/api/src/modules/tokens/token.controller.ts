@@ -57,19 +57,12 @@ export class TokenController {
 
   @Get('costs')
   @ApiOperation({ summary: 'Tabela de custos por operação' })
-  async getCosts(@Req() req: any) {
-    // Retornar tabela pública de custos (sem autenticação especial)
-    return {
-      costs: [
-        { operation: 'nutritional_assessment_ai', tokens: 10, description: 'Avaliação nutricional com IA' },
-        { operation: 'physical_assessment_ai', tokens: 5, description: 'Avaliação física com IA' },
-        { operation: 'interaction_analysis', tokens: 15, description: 'Análise de interações' },
-        { operation: 'bioavailability_analysis', tokens: 12, description: 'Análise de biodisponibilidade' },
-        { operation: 'supplementation_analysis', tokens: 8, description: 'Análise de suplementação' },
-        { operation: 'report_generation', tokens: 5, description: 'Geração de relatório PDF' },
-        { operation: 'lab_analysis', tokens: 10, description: 'Análise de exames' },
-        { operation: 'goal_ai_suggestion', tokens: 5, description: 'Sugestão de meta com IA' },
-      ],
-    };
+  async getCosts() {
+    // Lê `token_costs`. Era um array fixo aqui, e por isso a lista pública não
+    // tinha relação nenhuma com o que a plataforma de fato cobra: anunciava
+    // `lab_analysis` (nome antigo), omitia as cinco operações realmente
+    // tarifadas e listava quatro que nenhum código executa. O painel de admin
+    // edita esta tabela — editar sem que a lista mudasse era o efeito visível.
+    return { costs: await this.tokenService.listarCustos() };
   }
 }

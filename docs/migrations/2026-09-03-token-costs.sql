@@ -43,15 +43,32 @@ INSERT INTO token_costs (operation, tokens_cost, description) VALUES
   ('physical_audio_intake',          15, 'Transcrição da avaliação física')
 ON CONFLICT (operation) DO NOTHING;
 
+-- 3. Precos sem nenhum caminho no codigo. Removidos a pedido (03/09/2026),
+--    com o produto ainda em testes.
+--
+--    Os valores ficam registrados AQUI para poderem ser recolocados sem
+--    arqueologia quando os recursos existirem:
+--
+--      nutritional_assessment_ai   10  Avaliação nutricional com IA
+--      physical_assessment_ai       5  Avaliação física com IA
+--      goal_ai_suggestion           5  Sugestão de meta com IA
+--      clinical_alert_processing    2  Processamento de alerta clínico
+--
+--    Sao apenas linhas de tarifa: nenhuma delas era cobrada, porque nenhuma
+--    tem consume() no codigo. Remover nao cancela cobranca de ninguem nem
+--    apaga historico — `token_transactions` e outra tabela e nao e tocada.
+DELETE FROM token_costs
+ WHERE operation IN (
+   'nutritional_assessment_ai',
+   'physical_assessment_ai',
+   'goal_ai_suggestion',
+   'clinical_alert_processing'
+ );
+
 COMMIT;
 
 -- --------------------------------------------------------------------------
--- NAO faz parte desta migracao, mas fica registrado:
---
--- `clinical_alert_processing` (2 tokens) esta na tabela e nenhum caminho do
--- codigo o consome. Aparece na lista de precos como se fosse cobravel. Nao
--- apago aqui porque remover linha de tabela de preco em producao e decisao de
--- produto, nao de manutencao — e porque pode ser um recurso planejado.
+-- Fica registrado:
 --
 -- `laboratory_pdf_extraction` segue SEM preco de proposito. A extracao alimenta
 -- o registro do exame, que ja custa 10 tokens em `laboratory_analysis`: cobrar

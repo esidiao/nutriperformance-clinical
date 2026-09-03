@@ -34,6 +34,21 @@ export class TokenService {
     };
   }
 
+  /**
+   * Tabela pública de preços, na ordem em que aparece para o usuário.
+   *
+   * Mesma fonte que `getCostFor` e que o TokenBalanceGuard consultam: se a
+   * lista mostrar um preço, é esse que será cobrado.
+   */
+  async listarCustos() {
+    const linhas = await this.costRepo.find({ order: { operation: 'ASC' } });
+    return linhas.map((l) => ({
+      operation: l.operation,
+      tokens: l.tokensCost,
+      description: l.description,
+    }));
+  }
+
   async getCostFor(operation: string): Promise<number> {
     const cost = await this.costRepo.findOne({ where: { operation } });
     if (!cost) throw new BadRequestException(`Operação desconhecida: ${operation}`);
