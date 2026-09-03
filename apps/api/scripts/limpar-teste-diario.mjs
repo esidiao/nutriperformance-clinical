@@ -27,10 +27,24 @@ if (process.argv[2] !== '--apagar') {
   process.exit(0);
 }
 
+// Storage primeiro, banco depois. Invertido, um erro aqui deixaria imagem que
+// ninguem sabe que existe — foi exatamente o que aconteceu enquanto este script
+// usava DELETE no objeto (`/object/<bucket>/<caminho>`), forma que devolve 400
+// nesta versao da API: ele imprimia o erro, apagava o registro mesmo assim e
+// seguia em frente. O certo e DELETE no bucket com `prefixes`, igual a
+// src/common/storage.ts.
 for (const a of alvos) {
   if (a.foto_path) {
-    const d = await fetch(`${URL_}/storage/v1/object/${BUCKET}/${a.foto_path}`, { method: 'DELETE', headers: h });
+    const d = await fetch(`${URL_}/storage/v1/object/${BUCKET}`, {
+      method: 'DELETE',
+      headers: { ...h, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: [a.foto_path] }),
+    });
     console.log(`foto ${a.foto_path}: HTTP ${d.status}`);
+    if (!d.ok) {
+      console.log('  registro PRESERVADO — sem ele a imagem virava orfa sem ponteiro.');
+      continue;
+    }
   }
   const d = await fetch(`${URL_}/rest/v1/food_diary_entries?id=eq.${a.id}`, { method: 'DELETE', headers: h });
   console.log(`registro ${a.id}: HTTP ${d.status}`);
