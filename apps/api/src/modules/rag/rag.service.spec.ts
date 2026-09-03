@@ -9,7 +9,11 @@ import { TokenService } from '../tokens/token.service';
 describe('RagService.ask', () => {
   let service: RagService;
   const aiEngine = { answerFromContext: jest.fn().mockResolvedValue('Resposta [TACO].') };
-  const tokenService = { getBalance: jest.fn(), consume: jest.fn().mockResolvedValue(undefined) };
+  const tokenService = {
+    getBalance: jest.fn(),
+    consume: jest.fn().mockResolvedValue(5),
+    getCostFor: jest.fn().mockResolvedValue(5),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -60,6 +64,11 @@ describe('RagService.ask', () => {
     expect(r.answer).toContain('TACO');
     expect(r.sources[0].fonte).toBe('taco');
     expect(r.tokensConsumed).toBe(5);
-    expect(tokenService.consume).toHaveBeenCalledWith(expect.objectContaining({ operation: 'assistant_query', cost: 5 }));
+    // Sem `cost`: o preco vem de token_costs. Passar cost aqui de volta faria
+    // o TokenBalanceGuard nao achar a operacao e liberar a chamada paga sem
+    // conferir saldo — foi exatamente o bug.
+    const args = tokenService.consume.mock.calls[0][0];
+    expect(args.operation).toBe('assistant_query');
+    expect(args.cost).toBeUndefined();
   });
 });

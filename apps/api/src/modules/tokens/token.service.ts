@@ -43,16 +43,26 @@ export class TokenService {
   /**
    * Verifica saldo e consome tokens atomicamente.
    * Lança exceção se saldo insuficiente.
+   *
+   * Devolve quanto foi cobrado. Antes não devolvia nada, e cada chamador
+   * mantinha uma constante `COST` própria para gravar em `tokensConsumed` e
+   * responder à tela. Duas fontes para o mesmo número: mudar o preço pelo
+   * painel alterava a cobrança e deixava o registro do paciente mentindo.
    */
   async consume(params: {
     workspaceId: string;
     userId: string;
     operation: string;
-    cost?: number;       // if omitted, looks up from token_costs table
+    /**
+     * Só para casos sem linha em `token_costs`. Passar isto faz o preço do
+     * painel de admin ser ignorado — e, pior, faz o TokenBalanceGuard não
+     * encontrar a operação e liberar a chamada paga sem conferir saldo.
+     */
+    cost?: number;
     resourceId?: string;
     referenceId?: string;
     description?: string;
-  }): Promise<void> {
+  }): Promise<number> {
     const cost = params.cost ?? await this.getCostFor(params.operation);
 
     await this.dataSource.transaction(async (em) => {
@@ -86,6 +96,8 @@ export class TokenService {
 
       await em.save(tx);
     });
+
+    return cost;
   }
 
   async credit(params: {

@@ -20,6 +20,63 @@ import { join } from 'path';
 const CAMPOS_UUID = ['userId', 'workspaceId', 'patientId', 'resourceId'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Miolo de cada `auditService.log({ ... })`, com as chaves balanceadas.
+ *
+ * A primeira versão parava na primeira `}` (`[^}]*`). Parece equivalente e não
+ * é: `resourceId: ${'`'}${'${x.length}'} marcadores${'`'}` tem uma `}` no meio da
+ * interpolação, então o bloco era cortado ANTES do campo problemático. Foi
+ * assim que esta guarda deixou passar um quinto caso do mesmo bug que ela
+ * existe para pegar.
+ */
+export function blocosDeChamada(fonte: string): string[] {
+  const blocos: string[] = [];
+  const marca = 'auditService.log({';
+  let i = fonte.indexOf(marca);
+  while (i !== -1) {
+    let profundidade = 1;
+    let j = i + marca.length;
+    while (j < fonte.length && profundidade > 0) {
+      if (fonte[j] === '{') profundidade++;
+      else if (fonte[j] === '}') profundidade--;
+      j++;
+    }
+    blocos.push(fonte.slice(i + marca.length, j - 1));
+    i = fonte.indexOf(marca, j);
+  }
+  return blocos;
+}
+
+/**
+ * Campos uuid recebendo literal impróprio dentro de UM bloco.
+ *
+ * Separado para poder ser exercitado contra um exemplo ruim conhecido. Guarda
+ * que só roda sobre código já corrigido não prova nada: ela passa tanto quando
+ * funciona quanto quando parou de enxergar.
+ */
+export function problemasNoBloco(bloco: string): string[] {
+  const achados: string[] = [];
+
+  for (const campo of CAMPOS_UUID) {
+    // Só valores literais interessam: variável não dá para conferir aqui.
+    const literal = bloco.match(
+      new RegExp(`\\b${campo}\\s*:\\s*(['\`])((?:[^'\`\\\\]|\\\\.)*)\\1`),
+    );
+    if (!literal) continue;
+
+    const [, aspas, valor] = literal;
+    // Template com interpolação: o que sobra FORA do ${...} é texto solto, e
+    // texto solto não cabe numa coluna uuid. Interpolação sozinha passa, porque
+    // pode ser um uuid em tempo de execução.
+    const foraDaInterpolacao = valor.replace(/\$\{[^}]*\}/g, '').trim();
+    const ruim = aspas === '`' ? foraDaInterpolacao.length > 0 : !UUID.test(valor);
+
+    if (ruim) achados.push(`${campo} = ${aspas}${valor}${aspas}`);
+  }
+
+  return achados;
+}
+
 function arquivos(dir: string): string[] {
   return readdirSync(dir).flatMap((nome) => {
     const p = join(dir, nome);
@@ -33,21 +90,9 @@ describe('auditoria — colunas uuid', () => {
     const problemas: string[] = [];
 
     for (const caminho of arquivos(join(__dirname, '..', '..'))) {
-      const fonte = readFileSync(caminho, 'utf8');
-
-      // Cada bloco de argumento de `auditService.log({ ... })`. Basta o miolo
-      // até a primeira `}` porque o objeto é sempre plano nessas chamadas.
-      for (const chamada of fonte.matchAll(/auditService\.log\(\{([^}]*)\}/g)) {
-        for (const campo of CAMPOS_UUID) {
-          // Só valores literais interessam: variável não dá para conferir aqui.
-          const literal = chamada[1].match(
-            new RegExp(`\\b${campo}\\s*:\\s*(['\`])([^'\`]*)\\1`),
-          );
-          if (literal && !UUID.test(literal[2])) {
-            problemas.push(
-              `${caminho.split(/src[\\/]/)[1]}: ${campo} = "${literal[2]}"`,
-            );
-          }
+      for (const bloco of blocosDeChamada(readFileSync(caminho, 'utf8'))) {
+        for (const p of problemasNoBloco(bloco)) {
+          problemas.push(`${caminho.split(/src[\\/]/)[1]}: ${p}`);
         }
       }
     }
@@ -55,13 +100,45 @@ describe('auditoria — colunas uuid', () => {
     expect(problemas).toEqual([]);
   });
 
-  it('a própria verificação enxerga um caso ruim', () => {
-    // Sem isto o teste acima passaria mesmo se o regex parasse de casar —
-    // exatamente o que aconteceu com a guarda de entidades, que passava porque
-    // não encontrava nada para verificar.
-    const amostra = `this.auditService.log({ userId: 'retencao-automatica', action: 'DELETE' }`;
-    const achado = [...amostra.matchAll(/auditService\.log\(\{([^}]*)\}/g)];
-    expect(achado).toHaveLength(1);
-    expect(achado[0][1]).toMatch(/userId\s*:\s*'retencao-automatica'/);
+  describe('a guarda enxerga os casos que já escaparam', () => {
+    // Cada um destes existiu no código de verdade.
+
+    it('string literal solta', () => {
+      const bloco = blocosDeChamada(
+        `this.auditService.log({ userId: 'retencao-automatica', action: 'DELETE' });`,
+      )[0];
+      expect(problemasNoBloco(bloco)).toEqual([`userId = 'retencao-automatica'`]);
+    });
+
+    it('template com interpolação — o caso que a versão antiga cortava', () => {
+      const bloco = blocosDeChamada(
+        'this.auditService.log({\n'
+        + "  action: 'READ', resource: 'x',\n"
+        + '  resourceId: `${r.valores.length} marcadores`,\n'
+        + '});',
+      )[0];
+      expect(problemasNoBloco(bloco)).toEqual(['resourceId = `${r.valores.length} marcadores`']);
+    });
+  });
+
+  describe('não acusa o que está certo', () => {
+    it('interpolação sozinha pode ser um uuid em execução', () => {
+      const bloco = blocosDeChamada('this.auditService.log({ resourceId: `${foto.id}` });')[0];
+      expect(problemasNoBloco(bloco)).toEqual([]);
+    });
+
+    it('uuid literal', () => {
+      const bloco = blocosDeChamada(
+        `this.auditService.log({ workspaceId: '00000000-0000-0000-0000-000000000001' });`,
+      )[0];
+      expect(problemasNoBloco(bloco)).toEqual([]);
+    });
+
+    it('texto em campo que não é uuid', () => {
+      const bloco = blocosDeChamada(
+        `this.auditService.log({ action: 'DELETE', resource: 'progress_photos' });`,
+      )[0];
+      expect(problemasNoBloco(bloco)).toEqual([]);
+    });
   });
 });

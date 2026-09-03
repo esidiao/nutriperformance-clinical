@@ -18,7 +18,10 @@ describe('SupplementationService', () => {
     findOne: jest.fn(),
   };
   const mockAi = { analyzeSupplementation: jest.fn().mockResolvedValue({ content: 'ok', confidenceLevel: 'moderate' }) };
-  const mockTokens = { consume: jest.fn().mockResolvedValue(undefined) };
+  const mockTokens = {
+    consume: jest.fn().mockResolvedValue(8),
+    getCostFor: jest.fn().mockResolvedValue(8),
+  };
   const mockAlerts = { evaluateSupplementation: jest.fn().mockResolvedValue(undefined) };
   const mockAudit = { log: jest.fn() };
 
@@ -84,9 +87,10 @@ describe('SupplementationService', () => {
       expect(aiArg.supplement).toContain('Creatina');
       expect(aiArg.supplement).not.toContain('Antigo');
 
-      expect(mockTokens.consume).toHaveBeenCalledWith(
-        expect.objectContaining({ operation: 'supplementation_analysis', cost: 8 }),
-      );
+      // Sem `cost`: o preco vem de token_costs, para o painel de admin mandar.
+      const argsToken = mockTokens.consume.mock.calls[0][0];
+      expect(argsToken.operation).toBe('supplementation_analysis');
+      expect(argsToken.cost).toBeUndefined();
       expect(mockAlerts.evaluateSupplementation).toHaveBeenCalled();
       expect(res.tokensConsumed).toBe(8);
     });

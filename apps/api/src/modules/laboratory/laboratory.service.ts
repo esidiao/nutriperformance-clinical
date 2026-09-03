@@ -77,9 +77,13 @@ export class LaboratoryService {
 
     // Registra a LEITURA, não uma gravação: se alguém auditar depois, precisa
     // ver que um laudo passou por extração automática antes de virar registro.
+    // A contagem vai no `changes`, jsonb. Em `resourceId` ela derrubava o
+    // INSERT inteiro — a coluna é uuid — e, sendo o log fire-and-forget, o
+    // registro de que um laudo passou por extração automática simplesmente não
+    // existia. É justamente o que uma auditoria iria procurar.
     this.auditService.log({
       userId, workspaceId, action: 'READ', resource: 'laboratory_pdf_extraction',
-      resourceId: `${rascunho.valores.length} marcadores`,
+      changes: { marcadores: rascunho.valores.length },
     });
 
     return rascunho;
@@ -242,20 +246,20 @@ export class LaboratoryService {
       [],
     );
 
-    const COST = 10;
-    await this.tokenService.consume({
+    // O preço vem de `token_costs`, não de uma constante aqui: é a mesma linha
+    // que o TokenBalanceGuard consulta para barrar antes da chamada paga.
+    const cobrado = await this.tokenService.consume({
       workspaceId,
       userId,
       operation: 'laboratory_analysis',
-      cost: COST,
       resourceId: examId,
     });
 
     await this.repo.update(examId, {
-      tokensConsumed: exam.tokensConsumed + COST,
+      tokensConsumed: exam.tokensConsumed + cobrado,
     });
 
-    return { analysis: result, tokensConsumed: COST };
+    return { analysis: result, tokensConsumed: cobrado };
   }
 
   async getLatest(workspaceId: string, patientId: string): Promise<LaboratoryExam | null> {

@@ -27,8 +27,12 @@ export class LaboratoryController {
    * Throttle apertado: cada chamada manda um PDF para o modelo e custa tempo e
    * dinheiro. Ninguém extrai doze laudos por minuto de forma legítima.
    */
+  // Sem @RequiresTokens: a extração é gratuita de propósito. Ela alimenta o
+  // registro do exame, e a análise desse exame já custa 10 tokens — cobrar as
+  // duas seria cobrar duas vezes pelo mesmo ato clínico. O decorator estava
+  // aqui sem linha em `token_costs`, ou seja, não cobrava e não conferia saldo:
+  // anunciava uma tarifa que não existia. O throttle abaixo é a proteção real.
   @ClinicalStaff()
-  @RequiresTokens('laboratory_pdf_extraction')
   @Throttle({ default: { limit: 6, ttl: 60000 } })
   @Post('extrair-pdf')
   extrairPdf(@Request() req: any, @Body() body: { pdfBase64: string }) {

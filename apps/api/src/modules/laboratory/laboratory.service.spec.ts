@@ -25,7 +25,10 @@ describe('LaboratoryService — analyzeWithAi', () => {
       return Promise.resolve({ content: 'análise', confidenceLevel: 'moderate', warnings: [] });
     }),
   };
-  const mockTokens = { consume: jest.fn().mockResolvedValue(undefined) };
+  const mockTokens = {
+    consume: jest.fn().mockResolvedValue(10),
+    getCostFor: jest.fn().mockResolvedValue(10),
+  };
   const mockAlerts = { evaluateLaboratory: jest.fn().mockResolvedValue(undefined) };
   const mockAudit = { log: jest.fn() };
 
@@ -88,9 +91,11 @@ describe('LaboratoryService — analyzeWithAi', () => {
   it('consome 10 tokens na operação laboratory_analysis', async () => {
     mockRepo.findOne.mockResolvedValueOnce({ id: 'exam-3', workspaceId: 'ws-1', tokensConsumed: 5, hemoglobinGDl: 14 });
     await service.analyzeWithAi('ws-1', 'exam-3', 'user-1', ['Creatina']);
-    expect(mockTokens.consume).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: 'laboratory_analysis', cost: 10, workspaceId: 'ws-1' }),
-    );
+    // Sem `cost`: quem define o preco e token_costs, e o painel de admin
+    // precisa conseguir alterar isso.
+    const args = mockTokens.consume.mock.calls[0][0];
+    expect(args).toMatchObject({ operation: 'laboratory_analysis', workspaceId: 'ws-1' });
+    expect(args.cost).toBeUndefined();
     // tokensConsumed acumulado: 5 + 10
     expect(mockRepo.update).toHaveBeenCalledWith('exam-3', { tokensConsumed: 15 });
   });

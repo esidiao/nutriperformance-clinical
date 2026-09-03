@@ -99,20 +99,18 @@ export class AssessmentsService {
       dietaryStrategy: assessment.dietaryStrategy,
     });
 
-    const COST = 8;
-    await this.tokenService.consume({
+    const cobrado = await this.tokenService.consume({
       workspaceId,
       userId,
       operation: 'nutritional_assessment_summary',
-      cost: COST,
       resourceId: id,
     });
 
     await this.nutritionalRepo.update(id, {
-      tokensConsumed: assessment.tokensConsumed + COST,
+      tokensConsumed: assessment.tokensConsumed + cobrado,
     });
 
-    return { summary: result.content, tokensConsumed: COST };
+    return { summary: result.content, tokensConsumed: cobrado };
   }
 
   // ── Anamnese por áudio ───────────────────────────────────────────────────
@@ -130,14 +128,18 @@ export class AssessmentsService {
     kind: 'nutritional' | 'physical',
     dto: AudioIntakeDto,
   ): Promise<AudioIntakeResult & { tokensConsumed: number }> {
-    const COST = 15;
-
     // Portão de saldo antes da chamada paga: sem isso o Gemini seria cobrado
     // do nosso lado mesmo quando o workspace não tem tokens para pagar.
+    //
+    // A conferência fica aqui e não num @RequiresTokens na rota de propósito: a
+    // mensagem do guard é genérica, e transcrição é a operação mais cara da
+    // plataforma (áudio custa ~32 tokens por segundo gravado). Quem acabou de
+    // gravar meia hora de consulta precisa saber exatamente o que faltou.
+    const custo = await this.tokenService.getCostFor(`${kind}_audio_intake`);
     const { available } = await this.tokenService.getBalance(workspaceId);
-    if (available < COST) {
+    if (available < custo) {
       throw new BadRequestException(
-        `Saldo insuficiente para transcrever a consulta. Disponível: ${available} tokens. Necessário: ${COST} tokens.`,
+        `Saldo insuficiente para transcrever a consulta. Disponível: ${available} tokens. Necessário: ${custo} tokens.`,
       );
     }
 
@@ -147,11 +149,10 @@ export class AssessmentsService {
       kind,
     );
 
-    await this.tokenService.consume({
+    const cobrado = await this.tokenService.consume({
       workspaceId,
       userId,
       operation: `${kind}_audio_intake`,
-      cost: COST,
     });
 
     this.auditService.log({
@@ -161,7 +162,7 @@ export class AssessmentsService {
       resource: `${kind}_audio_intake`,
     });
 
-    return { ...result, tokensConsumed: COST };
+    return { ...result, tokensConsumed: cobrado };
   }
 
   // ── Physical ─────────────────────────────────────────────────────────────

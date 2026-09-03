@@ -97,12 +97,10 @@ export class SupplementationService {
       patientAge: 0,
     });
 
-    const COST = 8;
-    await this.tokenService.consume({
+    const cobrado = await this.tokenService.consume({
       workspaceId,
       userId,
       operation: 'supplementation_analysis',
-      cost: COST,
       resourceId: patientId,
     });
 
@@ -111,6 +109,6 @@ export class SupplementationService {
       this.logger.warn(`Falha ao avaliar alertas de suplementação (patient=${patientId}): ${e?.message ?? e}`),
     );
 
-    return { analysis: result, tokensConsumed: COST };
+    return { analysis: result, tokensConsumed: cobrado };
   }
 }

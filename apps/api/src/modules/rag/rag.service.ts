@@ -6,7 +6,6 @@ import { TokenService } from '../tokens/token.service';
 import { normalize, toVectorLiteral } from './rag-chunk.util';
 
 const EMBED_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent';
-const COST = 5; // tokens por consulta ao assistente
 
 export interface RagSource {
   fonte: string;
@@ -83,10 +82,12 @@ export class RagService {
     }
 
     // Gate de saldo ANTES de qualquer chamada paga ao Gemini (evita custo sem saldo).
+    // O preço vem de `token_costs` — a mesma linha que o painel de admin edita.
+    const custo = await this.tokenService.getCostFor('assistant_query');
     const balance = await this.tokenService.getBalance(params.workspaceId);
-    if (balance.available < COST) {
+    if (balance.available < custo) {
       throw new BadRequestException(
-        `Saldo insuficiente: ${balance.available} tokens disponíveis (necessário ${COST}).`,
+        `Saldo insuficiente: ${balance.available} tokens disponíveis (necessário ${custo}).`,
       );
     }
 
@@ -112,7 +113,6 @@ export class RagService {
       workspaceId: params.workspaceId,
       userId: params.userId,
       operation: 'assistant_query',
-      cost: COST,
       description: 'Consulta ao assistente nutricional (RAG)',
     });
 
@@ -123,6 +123,6 @@ export class RagService {
       score: Math.round(Number(r.score) * 100) / 100,
     }));
 
-    return { answer, sources, tokensConsumed: COST };
+    return { answer, sources, tokensConsumed: custo };
   }
 }

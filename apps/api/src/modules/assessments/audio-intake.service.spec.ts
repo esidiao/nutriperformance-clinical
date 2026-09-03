@@ -14,7 +14,11 @@ function build(overrides: {
       reserved: 0,
       available: overrides.available ?? 100,
     }),
-    consume: jest.fn().mockResolvedValue(undefined),
+    // consume devolve o que cobrou; o servico usa esse retorno em
+    // tokensConsumed. Mock que devolve undefined faria o teste passar com a
+    // tela mostrando 'undefined tokens'.
+    consume: jest.fn().mockResolvedValue(15),
+    getCostFor: jest.fn().mockResolvedValue(15),
   };
 
   const aiEngine = {
@@ -51,9 +55,10 @@ describe('AssessmentsService.transcribeAudioIntake', () => {
     expect(aiEngine.transcribeAudioIntake).toHaveBeenCalledWith('AAAA', 'audio/webm', 'nutritional');
     expect(result.campos).toEqual({ mainComplaint: 'fadiga', weight: 72 });
     expect(result.tokensConsumed).toBe(COST);
-    expect(tokenService.consume).toHaveBeenCalledWith(
-      expect.objectContaining({ workspaceId: 'ws-1', operation: 'nutritional_audio_intake', cost: COST }),
-    );
+    // Sem `cost`: o preco vem de token_costs, para o painel de admin mandar.
+    const args = tokenService.consume.mock.calls[0][0];
+    expect(args).toMatchObject({ workspaceId: 'ws-1', operation: 'nutritional_audio_intake' });
+    expect(args.cost).toBeUndefined();
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({ resource: 'nutritional_audio_intake' }),
     );
