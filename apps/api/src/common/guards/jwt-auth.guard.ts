@@ -61,7 +61,7 @@ export class JwtAuthGuard implements CanActivate {
     //
     // Enquanto `role` e `workspace_id` saíam de `user_metadata`, qualquer conta
     // autenticada conseguia:
-    //   - `updateUser({ data: { role: 'admin' } })`      → entrar em @AdminOnly()
+    //   - `updateUser({ data: { role: 'admin' } })`      → entrar em @PlatformAdminOnly()
     //   - `updateUser({ data: { workspace_id: <alheio> } })` → ler e escrever o
     //     prontuário de outra clínica.
     //

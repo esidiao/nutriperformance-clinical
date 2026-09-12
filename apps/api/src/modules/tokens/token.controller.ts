@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Post, Query, Req, UseGuards
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { AdminOnly } from '../../common/decorators';
+import { PlatformAdminOnly } from '../../common/decorators';
 import { TokenService } from './token.service';
 
 @ApiTags('tokens')
@@ -34,7 +34,7 @@ export class TokenController {
   // assim que o saldo inicial acaba.
   @Post('admin/adjust')
   @UseGuards(RolesGuard)
-  @AdminOnly()
+  @PlatformAdminOnly()
   @ApiOperation({ summary: 'Creditar ou debitar tokens de um workspace (admin)' })
   async adminAdjust(
     @Req() req: any,

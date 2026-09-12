@@ -2,7 +2,7 @@ import { Controller, Get, Patch, Param, Body, Query, Req, UseGuards } from '@nes
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { IsOptional, IsBoolean, IsIn } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { AdminOnly } from '../../common/decorators';
+import { PlatformAdminOnly } from '../../common/decorators';
 import { CurationService } from './curation.service';
 
 class UpdateFoodCurationDto {
@@ -18,14 +18,14 @@ export class CurationController {
   constructor(private readonly svc: CurationService) {}
 
   @Get('overview')
-  @AdminOnly()
+  @PlatformAdminOnly()
   @ApiOperation({ summary: 'Governança das bases: contagens, fontes e importações' })
   overview() {
     return this.svc.overview();
   }
 
   @Get('foods')
-  @AdminOnly()
+  @PlatformAdminOnly()
   @ApiOperation({ summary: 'Listar alimentos para curadoria' })
   @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'q', required: false })
@@ -39,7 +39,7 @@ export class CurationController {
   }
 
   @Patch('foods/:id')
-  @AdminOnly()
+  @PlatformAdminOnly()
   @ApiOperation({ summary: 'Curadoria: ajustar confiabilidade/ativo de um alimento' })
   updateFood(@Param('id') id: string, @Body() dto: UpdateFoodCurationDto, @Req() req: any) {
     return this.svc.updateFood(id, dto, req.user.id, req.ip);

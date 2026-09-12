@@ -4,7 +4,7 @@ import {
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ScientificBaseService } from './scientific-base.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { AdminOnly, ClinicalStaff } from '../../common/decorators';
+import { PlatformAdminOnly, ClinicalStaff } from '../../common/decorators';
 
 @ApiTags('scientific-base')
 @ApiBearerAuth()
@@ -44,7 +44,7 @@ export class ScientificBaseController {
     return this.svc.listByCategory(category, Number(limit), Number(offset));
   }
 
-  @AdminOnly()
+  @PlatformAdminOnly()
   @Patch('category/:category/mark-updated')
   markUpdated(@Param('category') category: string) {
     return this.svc.markCategoryUpdated(category);

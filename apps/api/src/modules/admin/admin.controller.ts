@@ -6,7 +6,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { AdminOnly } from '../../common/decorators';
+import { PlatformAdminOnly } from '../../common/decorators';
 import { ScientificBaseService } from '../scientific-base/scientific-base.service';
 import { TokenService } from '../tokens/token.service';
 import {
@@ -24,7 +24,7 @@ const AUDIT_LOG_COLUMNS = `id, workspace_id, user_id, patient_id, action, resour
 @ApiTags('admin')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@AdminOnly()
+@PlatformAdminOnly()
 @Controller('admin')
 export class AdminController {
   constructor(
