@@ -11,6 +11,7 @@ import { Response } from 'express';
 import { InteractionService } from './interaction.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { AIEngineService, InteractionAnalysisInput } from '../ai/ai-engine.service';
+import { TokenService } from '../tokens/token.service';
 import { ClinicalStaff, RequiresTokens } from '../../common/decorators';
 
 class SupplementItemDto {
@@ -61,6 +62,7 @@ export class InteractionController {
     private interactionService: InteractionService,
     private alertsService: AlertsService,
     private aiEngine: AIEngineService,
+    private tokenService: TokenService,
   ) {}
 
   @Post('analyze')
@@ -94,11 +96,28 @@ export class InteractionController {
     return result;
   }
 
+  // `@RequiresTokens` + `consume()` abaixo: esta rota anunciava "consome 15
+  // tokens" no Swagger e não cobrava nada. Faltava o decorator, então o
+  // TokenBalanceGuard saía cedo (`if (!operation) return true`), e o handler
+  // chamava o Gemini direto daqui — sem passar pelo InteractionService, que é
+  // quem cobra na rota irmã. O resultado era um proxy de LLM gratuito e
+  // ilimitado (20 req/min), com o prompt montado a partir de campos livres do
+  // DTO e a conta indo para a plataforma.
   @Post('analyze/stream')
   @ClinicalStaff()
+  @RequiresTokens('interaction_analysis')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Analisar interações com streaming SSE — consome 15 tokens' })
   async analyzeStream(@Body() dto: AnalyzeInteractionsDto, @Req() req: any, @Res() res: Response) {
+    // Cobra ANTES de abrir o stream: depois que os headers SSE saem, não há
+    // como devolver um 400 de saldo insuficiente ao cliente.
+    await this.tokenService.consume({
+      workspaceId: req.user.workspaceId,
+      userId: req.user.sub,
+      operation: 'interaction_analysis',
+      description: 'Análise de interações suplemento/medicamento (streaming)',
+    });
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');

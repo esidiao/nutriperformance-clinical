@@ -417,7 +417,8 @@ function InteractionAnalysisContent() {
                     placeholder="Ex: Diária" />
                 </div>
                 {supplements.length > 1 && (
-                  <Button type="button" variant="ghost" size="sm" className="mt-auto" onClick={() => removeSupplement(i)}>
+                  <Button type="button" variant="ghost" size="sm" className="mt-auto" onClick={() => removeSupplement(i)}
+                    aria-label={`Remover suplemento ${s.name?.trim() || i + 1}`}>
                     <X className="h-4 w-4 text-red-400" />
                   </Button>
                 )}
@@ -455,7 +456,8 @@ function InteractionAnalysisContent() {
                     placeholder="Ex: 20mg/dia" />
                 </div>
                 {medications.length > 1 && (
-                  <Button type="button" variant="ghost" size="sm" className="mt-auto" onClick={() => removeMedication(i)}>
+                  <Button type="button" variant="ghost" size="sm" className="mt-auto" onClick={() => removeMedication(i)}
+                    aria-label={`Remover medicamento ${m.name?.trim() || i + 1}`}>
                     <X className="h-4 w-4 text-red-400" />
                   </Button>
                 )}
@@ -490,7 +492,8 @@ function InteractionAnalysisContent() {
               <Input value={c} onChange={(e) => updateCondition(i, e.target.value)}
                 placeholder="Ex: Hipertensão, Doença renal crônica, Diabetes tipo 2" />
               {conditions.length > 1 && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => removeCondition(i)}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeCondition(i)}
+                  aria-label={`Remover condição ${c?.trim() || i + 1}`}>
                   <X className="h-4 w-4 text-red-400" />
                 </Button>
               )}

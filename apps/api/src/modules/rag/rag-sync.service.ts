@@ -40,7 +40,22 @@ export class RagSyncService {
     this.running = true;
 
     // Lock distribuído no Postgres: só uma instância roda o sync por vez.
-    const lockRes = await this.dataSource.query('SELECT pg_try_advisory_lock($1) AS locked', [RagSyncService.LOCK_KEY]);
+    //
+    // A aquisição fica no seu próprio try porque ela está FORA do `finally` que
+    // restaura `running`. Se esta query rejeitasse (queda de conexão com o
+    // banco, que no plano gratuito acontece), a exceção subia sem passar por
+    // lugar nenhum que zerasse a flag: `running` ficava `true` para sempre e
+    // todo sync seguinte — inclusive o `POST /assistant/sync` manual, que é a
+    // válvula de escape quando a instância hiberna — devolvia `null` em
+    // silêncio até alguém reiniciar o processo.
+    let lockRes: any;
+    try {
+      lockRes = await this.dataSource.query('SELECT pg_try_advisory_lock($1) AS locked', [RagSyncService.LOCK_KEY]);
+    } catch (e: any) {
+      this.running = false;
+      this.logger.warn(`RAG sync: falha ao adquirir advisory lock: ${e?.message ?? e}`);
+      return null;
+    }
     if (!lockRes?.[0]?.locked) { this.running = false; return null; }
 
     try {

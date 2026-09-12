@@ -45,4 +45,17 @@ describe('ProductsService.findByBarcode', () => {
     await service.findByBarcode('789-1000.100103');
     expect(repo.findOne).toHaveBeenCalledWith({ where: { codigoBarras: '7891000100103' } });
   });
+
+  it('não devolve produto que a curadoria marcou como pendente', async () => {
+    // O mesmo item ficava escondido em /products/search e aparecia normalmente
+    // ao escanear o código de barras — a profissional via um produto bloqueado
+    // sem nenhum sinal de que estava sob revisão.
+    repo.findOne.mockResolvedValueOnce({
+      id: 'p1', codigoBarras: '7891000100103', nomeComercial: 'Suspeito',
+      alergenos: [], tabelaNutricional: {}, aditivos: [], alertaNutricional: [],
+      fonte: 'openfoodfacts', confiabilidade: 'pendente', licenca: 'ODbL',
+      dataAtualizacao: new Date(),
+    });
+    await expect(service.findByBarcode('7891000100103')).rejects.toThrow(NotFoundException);
+  });
 });

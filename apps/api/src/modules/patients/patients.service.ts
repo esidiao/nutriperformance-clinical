@@ -38,6 +38,7 @@ export interface CreatePatientDto {
 @Injectable()
 export class PatientsService {
   private readonly encryptionKey: Buffer;
+  private readonly cpfSalt: string;
   private readonly ivLength = 16;
 
   constructor(
@@ -47,6 +48,25 @@ export class PatientsService {
   ) {
     const keyHex = this.config.get<string>('ENCRYPTION_KEY')!;
     this.encryptionKey = Buffer.from(keyHex, 'hex');
+
+    // Falha no boot, não em silêncio.
+    //
+    // `hashCpf` lia `process.env.CPF_SALT` direto. Sem a variável, o sal virava
+    // a STRING "undefined" — um valor conhecido e constante. Um CPF tem 11
+    // dígitos com dígito verificador, espaço pequeno o bastante para rainbow
+    // table completa: o hash deixava de proteger o que existe para proteger.
+    // O segredo já é obrigatório no provisionamento (render.yaml, `sync: false`),
+    // então exigi-lo aqui não muda o que precisa estar configurado — só troca
+    // uma falha silenciosa por uma que aparece na hora de subir.
+    const salt = this.config.get<string>('CPF_SALT');
+    if (!salt) {
+      throw new Error(
+        'CPF_SALT não configurada. Sem ela o hash de CPF usaria um sal constante ' +
+        'e conhecido, o que o torna reversível por força bruta. Configure a variável ' +
+        'antes de subir a API.',
+      );
+    }
+    this.cpfSalt = salt;
   }
 
   private encrypt(text: string): Buffer {
@@ -67,7 +87,7 @@ export class PatientsService {
   private hashCpf(cpf: string): string {
     // Hash SHA-256 do CPF normalizado — não reversível
     const normalized = cpf.replace(/\D/g, '');
-    return createHash('sha256').update(normalized + process.env.CPF_SALT).digest('hex');
+    return createHash('sha256').update(normalized + this.cpfSalt).digest('hex');
   }
 
   async create(dto: CreatePatientDto, requestingUserId: string, requestingIp: string) {
@@ -105,7 +125,24 @@ export class PatientsService {
     return this.toPublicDto(saved, dto.name);
   }
 
-  async findById(patientId: string, requestingUserId: string, workspaceId: string, requestingIp: string) {
+  /**
+   * `origemExterna` identifica um acesso que NÃO parte de um usuário logado —
+   * hoje, o paciente abrindo o próprio portal pelo link.
+   *
+   * Ela existe porque `audit_logs.user_id` é uuid: quem chamava com um texto
+   * como identificação derrubava o INSERT, e como `AuditService.log` é
+   * fire-and-forget com catch que só emite warn, a falha era invisível. O
+   * resultado: justamente o único caminho não autenticado que lê prontuário
+   * era o único sem trilha. Mesma correção já aplicada em pre-consult,
+   * food-diary e progress-photos — o portal tinha ficado de fora.
+   */
+  async findById(
+    patientId: string,
+    requestingUserId: string | null,
+    workspaceId: string,
+    requestingIp: string,
+    origemExterna?: string,
+  ) {
     const patient = await this.patientRepo.findOne({
       where: { id: patientId, workspaceId },
     });
@@ -115,12 +152,13 @@ export class PatientsService {
     // Log de acesso a dados sensíveis (LGPD)
     await this.auditService.log({
       workspaceId,
-      userId: requestingUserId,
+      userId: origemExterna ? null : requestingUserId,
       patientId,
       action: 'READ',
       resource: 'patients',
       resourceId: patientId,
       ipAddress: requestingIp,
+      ...(origemExterna ? { changes: { origem: origemExterna } } : {}),
     });
 
     const name = patient.nameEncrypted ? this.decrypt(patient.nameEncrypted) : '—';

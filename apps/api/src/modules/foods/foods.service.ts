@@ -170,8 +170,11 @@ export class FoodsService {
     const mapped = foods.map(mapUsdaFood).filter((m) => m.nome_padronizado && m.fonte_id_externo);
     const savedIds: string[] = [];
     for (const m of mapped) {
-      await this.repo.upsert(
-        {
+      await this.repo
+        .createQueryBuilder()
+        .insert()
+        .into(Food)
+        .values({
           nomePadronizado: m.nome_padronizado, grupoAlimentar: m.grupo_alimentar,
           energiaKcal: m.energia_kcal as any, proteinasG: m.proteinas_g as any, carboidratosG: m.carboidratos_g as any,
           lipidiosG: m.lipidios_g as any, gorduraSaturadaG: m.gordura_saturada_g as any, fibrasG: m.fibras_g as any,
@@ -179,17 +182,42 @@ export class FoodsService {
           potassioMg: m.potassio_mg as any, magnesioMg: m.magnesio_mg as any, zincoMg: m.zinco_mg as any,
           vitaminas: m.vitaminas, fonte: 'usda', fonteIdExterno: m.fonte_id_externo,
           fonteVersao: 'FoodData Central', confiabilidade: 'alta', licenca: 'Domínio público (USDA, CC0)',
-        } as any,
-        { conflictPaths: ['fonte', 'fonteIdExterno'] },
-      );
+        } as any)
+        // `confiabilidade` e `ativo` ficam DE FORA da lista de sobrescrita.
+        //
+        // Eles são a decisão da curadoria, e esta é uma rota de LEITURA
+        // (`GET /foods/usda`). Com um upsert que sobrescrevia tudo, bastava
+        // alguém buscar o mesmo termo no USDA para um alimento rebaixado a
+        // 'baixa' — ou desativado — voltar sozinho a 'alta' e ativo. O curador
+        // não era avisado e nada no sistema registrava a reversão.
+        //
+        // Na inserção o valor 'alta' acima continua valendo (é a proveniência
+        // do USDA, CC0); no conflito, o que já está no banco manda.
+        .orUpdate(
+          [
+            'nome_padronizado', 'grupo_alimentar', 'energia_kcal', 'proteinas_g', 'carboidratos_g',
+            'lipidios_g', 'gordura_saturada_g', 'fibras_g', 'acucares_g', 'sodio_mg', 'calcio_mg',
+            'ferro_mg', 'potassio_mg', 'magnesio_mg', 'zinco_mg', 'vitaminas', 'fonte_versao', 'licenca',
+          ],
+          ['fonte', 'fonte_id_externo'],
+        )
+        .execute();
       savedIds.push(m.fonte_id_externo!);
     }
 
-    const rows = await this.repo.find({ where: { fonte: 'usda', fonteIdExterno: In(savedIds) } });
-    // Indexa no RAG (fire-and-forget) — não bloqueia a resposta
+    // Invariante clínica na releitura: o que a curadoria bloqueou não volta pela
+    // porta do USDA. Sem isto, um alimento desativado era devolvido ao
+    // profissional aqui enquanto ficava escondido em `search()`.
+    const rows = (await this.repo.find({ where: { fonte: 'usda', fonteIdExterno: In(savedIds) } }))
+      .filter((f) => f.ativo !== false && f.confiabilidade !== 'pendente');
+
+    // Indexa no RAG (fire-and-forget) — não bloqueia a resposta.
+    // Usa `f.confiabilidade` real, não a constante 'alta': o chunk não pode
+    // contradizer a decisão gravada em foods.confiabilidade (mesmo motivo
+    // documentado em CurationService.updateFood).
     for (const f of rows) {
       this.ragService
-        .indexChunk('usda', f.id, 'alta', buildFoodChunkText(f as any), { nome: f.nomePadronizado })
+        .indexChunk('usda', f.id, f.confiabilidade, buildFoodChunkText(f as any), { nome: f.nomePadronizado })
         .catch((e: any) => this.logger.warn(`Falha ao indexar alimento USDA no RAG (${f.id}): ${e?.message}`));
     }
     return rows.map(toPublic);

@@ -176,7 +176,7 @@ export function DiarioAlimentar({ patientId }: { patientId: string }) {
                        profissional conclui que o paciente não mandou nada. */
                     <div className="h-20 w-20 rounded bg-muted flex flex-col items-center justify-center gap-1 shrink-0 text-center px-1">
                       <ImageOff className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-[9px] leading-tight text-muted-foreground">
+                      <span className="text-[11px] leading-tight text-muted-foreground">
                         foto expirada
                       </span>
                     </div>

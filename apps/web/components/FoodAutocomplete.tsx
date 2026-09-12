@@ -100,11 +100,11 @@ export function FoodAutocomplete({
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-800 dark:text-gray-200 flex-1 truncate">{f.nome}</span>
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 ${CONF_BADGE[f.confiabilidade] ?? 'bg-gray-100 text-gray-500'}`}>
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 ${CONF_BADGE[f.confiabilidade] ?? 'bg-gray-100 text-gray-500'}`}>
                   <BadgeCheck className="h-2.5 w-2.5" /> {f.fonte.toUpperCase()}
                 </span>
               </div>
-              <div className="text-[10px] text-gray-500 mt-0.5">
+              <div className="text-xs text-gray-500 mt-0.5">
                 {f.energiaKcal != null ? `${Math.round(f.energiaKcal)} kcal` : '—'} · P {f.proteinasG ?? '—'}g · C {f.carboidratosG ?? '—'}g · G {f.lipidiosG ?? '—'}g
                 <span className="text-gray-300"> / {Math.round(f.porcaoPadraoG)}g</span>
               </div>

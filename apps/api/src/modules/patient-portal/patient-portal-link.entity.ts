@@ -32,7 +32,12 @@ export class PatientPortalLink {
   @Column({ name: 'created_by' }) createdBy: string;
 
   @Index({ unique: true })
-  @Column({ name: 'token_hash' }) tokenHash: string;
+  // `select: false`: o hash é material de autenticação e não tem por que sair
+  // da API. Os controllers já o removiam na criação, mas as rotas de listagem e
+  // de revogação devolviam a entidade crua. Nenhum código lê esta coluna de uma
+  // entidade carregada — só grava na criação e filtra por ela no WHERE, o que
+  // continua funcionando normalmente.
+  @Column({ name: 'token_hash', select: false }) tokenHash: string;
 
   /** ativo | revogado */
   @Column({ name: 'status', default: 'ativo' }) status: string;

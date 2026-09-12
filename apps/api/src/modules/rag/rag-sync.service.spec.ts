@@ -89,4 +89,25 @@ describe('RagSyncService', () => {
     expect(sql).toContain('f.ativo = true');
     expect(sql).toContain("f.confiabilidade <> 'pendente'");
   });
+
+  it('não fica travado para sempre se a query do advisory lock falhar', async () => {
+    // A aquisição do lock fica FORA do finally que restaura `running`. Sem
+    // tratamento, uma queda de conexão nessa query deixava a flag em `true`
+    // permanentemente: todo sync seguinte — inclusive o POST /assistant/sync
+    // manual, que é a válvula de escape quando a instância hiberna — passava a
+    // devolver null em silêncio até alguém reiniciar o processo.
+    const q = jest.fn().mockResolvedValue([]); // default: demais queries (unlock)
+    q.mockRejectedValueOnce(new Error('connection terminated'));
+    const ds: any = { query: q };
+    const rag: any = { indexChunk: jest.fn().mockResolvedValue(undefined) };
+    const svc = new RagSyncService(ds, rag);
+
+    await expect(svc.syncMissingFoods()).resolves.toBeNull();
+
+    // A execução seguinte precisa conseguir tentar de novo.
+    q.mockResolvedValueOnce([{ locked: true }]).mockResolvedValueOnce([]);
+    await expect(svc.syncMissingFoods()).resolves.toEqual({
+      candidatos: 0, indexados: 0, falhas: 0,
+    });
+  });
 });

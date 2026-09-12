@@ -122,7 +122,7 @@ export class PatientPortalService {
     // Registra o acesso: dado sensível sendo lido por fora do sistema precisa
     // aparecer na trilha. `findById` já grava o log de LGPD.
     const paciente = await this.patientsService.findById(
-      link.patientId, 'paciente-via-portal', link.workspaceId, ip,
+      link.patientId, null, link.workspaceId, ip, 'paciente-via-portal',
     );
 
     await this.repo.update(link.id, { ultimoAcessoEm: new Date() });

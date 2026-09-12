@@ -322,7 +322,9 @@ export default function SupplementationPage() {
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
-                        onClick={() => setExpandedId(isExpanded ? null : supp.id)}>
+                        onClick={() => setExpandedId(isExpanded ? null : supp.id)}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? 'Recolher' : 'Expandir'} detalhes de ${supp.supplementName}`}>
                         {isExpanded
                           ? <ChevronUp className="h-4 w-4 text-gray-400" />
                           : <ChevronDown className="h-4 w-4 text-gray-400" />}

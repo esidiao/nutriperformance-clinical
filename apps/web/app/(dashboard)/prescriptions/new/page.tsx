@@ -347,7 +347,8 @@ export default function PrescriptionNewPage() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-gray-500">Item {i + 1}</span>
                     {items.length > 1 && (
-                      <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 p-1 rounded">
+                      <button onClick={() => removeItem(i)} aria-label={`Remover item ${item.name?.trim() || i + 1}`}
+                        className="text-red-400 hover:text-red-600 p-1 rounded">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -571,7 +572,8 @@ export default function PrescriptionNewPage() {
                 <div key={i} className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-yellow-800 dark:text-yellow-300">Alerta {i + 1}</span>
-                    <button onClick={() => removeInter(i)} className="text-red-400 hover:text-red-600 p-1 rounded">
+                    <button onClick={() => removeInter(i)} aria-label={`Remover alerta ${i + 1}`}
+                      className="text-red-400 hover:text-red-600 p-1 rounded">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>

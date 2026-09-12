@@ -54,6 +54,22 @@ async function bootstrap() {
       rawBody: true,
     });
 
+    // A API roda atrás do proxy da plataforma (Render/Railway), que é quem
+    // termina o TLS. Sem isto o Express ignora o X-Forwarded-For e `req.ip`
+    // vira o IP do PROXY para todo mundo — com duas consequências reais:
+    //
+    // 1. O ThrottlerGuard chaveia o balde por IP. Com um IP só para todos os
+    //    clientes, o limite vira global: 30 requisições por minuto de um único
+    //    atacante bastavam para tirar TODOS os pacientes do ar nas rotas
+    //    públicas (portal, diário alimentar, anamnese pré-consulta).
+    // 2. O IP gravado como prova de consentimento LGPD (`lgpdConsentIp`) e na
+    //    trilha de auditoria era sempre o mesmo endereço do proxy — uma prova
+    //    que não prova nada.
+    //
+    // `1` e não `true`: confiar na cadeia inteira deixaria o cliente forjar o
+    // próprio IP mandando um X-Forwarded-For, que é o mesmo problema ao contrário.
+    app.set('trust proxy', 1);
+
     app.use(helmet({
       crossOriginEmbedderPolicy: false,
       contentSecurityPolicy: false,

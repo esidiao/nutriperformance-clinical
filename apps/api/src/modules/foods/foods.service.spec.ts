@@ -10,6 +10,17 @@ describe('FoodsService', () => {
   let service: FoodsService;
   const mockRepo = { createQueryBuilder: jest.fn(), findOne: jest.fn(), find: jest.fn(), upsert: jest.fn() };
 
+  /** Cadeia `createQueryBuilder().insert().into().values().orUpdate().execute()`. */
+  const mockInsertChain = () => {
+    const chain: any = {};
+    chain.insert = jest.fn(() => chain);
+    chain.into = jest.fn(() => chain);
+    chain.values = jest.fn(() => chain);
+    chain.orUpdate = jest.fn(() => chain);
+    chain.execute = jest.fn(async () => ({}));
+    return chain;
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
@@ -75,6 +86,86 @@ describe('FoodsService', () => {
       expect(result.id).toBe('f1');
       expect(result.fonte).toBe('taco');
       expect(result.confiabilidade).toBe('alta');
+    });
+  });
+
+  // ─── searchUsda ────────────────────────────────────────────────────────────
+  //
+  // `GET /foods/usda` é uma rota de LEITURA que grava. Isso a torna o ponto mais
+  // fácil de furar a invariante clínica sem ninguém notar, e foi o que
+  // acontecia: o upsert sobrescrevia `confiabilidade`/`ativo`, a releitura não
+  // filtrava nada e o RAG era alimentado com 'alta' fixa.
+  describe('searchUsda', () => {
+    const USDA_FOOD = {
+      fdcId: 173263,
+      description: 'Rice, brown, parboiled, cooked',
+      foodCategory: 'Cereal Grains and Pasta',
+      foodNutrients: [
+        { nutrientName: 'Energy', unitName: 'KCAL', value: 147 },
+        { nutrientName: 'Protein', unitName: 'G', value: 3.09 },
+      ],
+    };
+
+    const linha = (over: any = {}) => ({
+      id: 'f-usda-1', nomePadronizado: 'Rice, brown, parboiled, cooked', nomesPopulares: [],
+      grupoAlimentar: 'Cereal Grains and Pasta', porcaoPadraoG: 100, energiaKcal: 147,
+      proteinasG: 3.09, vitaminas: {}, alergenos: [], fonte: 'usda',
+      confiabilidade: 'alta', ativo: true, ...over,
+    });
+
+    let chain: any;
+    let rag: { indexChunk: jest.Mock };
+
+    beforeEach(() => {
+      chain = mockInsertChain();
+      mockRepo.createQueryBuilder.mockReturnValue(chain);
+      rag = (service as any).ragService;
+      // indexChunk e fire-and-forget com `.catch(...)`: o mock precisa devolver
+      // uma promise, senao o proprio teste quebra antes da assercao.
+      rag.indexChunk.mockResolvedValue(undefined);
+      global.fetch = jest.fn(async () => ({
+        ok: true,
+        json: async () => ({ foods: [USDA_FOOD] }),
+      })) as any;
+    });
+
+    it('não sobrescreve a decisão da curadoria no conflito', async () => {
+      mockRepo.find.mockResolvedValueOnce([linha()]);
+      await service.searchUsda('rice');
+
+      const [colunas, conflito] = chain.orUpdate.mock.calls[0];
+      // O ponto todo: estas duas colunas são do curador, não do importador.
+      expect(colunas).not.toContain('confiabilidade');
+      expect(colunas).not.toContain('ativo');
+      // E o que é proveniência/nutrição continua atualizando normalmente.
+      expect(colunas).toContain('energia_kcal');
+      expect(conflito).toEqual(['fonte', 'fonte_id_externo']);
+    });
+
+    it('não devolve alimento que a curadoria desativou ou deixou pendente', async () => {
+      mockRepo.find.mockResolvedValueOnce([
+        linha({ id: 'ok' }),
+        linha({ id: 'inativo', ativo: false }),
+        linha({ id: 'pendente', confiabilidade: 'pendente' }),
+      ]);
+      const res = await service.searchUsda('rice');
+      expect(res.map((r: any) => r.id)).toEqual(['ok']);
+    });
+
+    it('indexa no RAG com a confiabilidade real, e nunca o que está bloqueado', async () => {
+      mockRepo.find.mockResolvedValueOnce([
+        linha({ id: 'media', confiabilidade: 'media' }),
+        linha({ id: 'inativo', ativo: false }),
+      ]);
+      await service.searchUsda('rice');
+
+      expect(rag.indexChunk).toHaveBeenCalledTimes(1);
+      const [fonte, ref, conf] = rag.indexChunk.mock.calls[0];
+      expect(fonte).toBe('usda');
+      expect(ref).toBe('media');
+      // 'media', não 'alta': o chunk não pode afirmar uma confiabilidade que a
+      // curadoria não deu — o assistente exibe esse selo na resposta clínica.
+      expect(conf).toBe('media');
     });
   });
 });

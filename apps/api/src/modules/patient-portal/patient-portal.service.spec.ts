@@ -198,12 +198,23 @@ describe('PatientPortalService', () => {
       expect(r.consultas).toHaveLength(1);
     });
 
-    it('registra o acesso na trilha de LGPD', async () => {
+    it('registra o acesso na trilha de LGPD sem forjar um usuário', async () => {
       // Dado sensível lido por fora do sistema precisa aparecer na trilha.
+      //
+      // A origem vai no parâmetro próprio, e o userId vai NULL. Este teste
+      // fixava o contrário — exigia a string 'paciente-via-portal' no campo de
+      // usuário — e com isso congelava um bug: `audit_logs.user_id` é uuid, o
+      // INSERT era rejeitado pelo banco, e como AuditService.log é
+      // fire-and-forget o erro sumia num warn. O único acesso não autenticado a
+      // prontuário era, por isso, o único sem trilha.
       await svc.abrirPortal(TOKEN);
       expect(patients.findById).toHaveBeenCalledWith(
-        PACIENTE, 'paciente-via-portal', WS, expect.anything(),
+        PACIENTE, null, WS, expect.anything(), 'paciente-via-portal',
       );
+
+      // O que o banco não aceita não pode voltar: nada de texto livre no uuid.
+      const [, userId] = patients.findById.mock.calls[0];
+      expect(userId).toBeNull();
     });
 
     it('anota o último acesso', async () => {

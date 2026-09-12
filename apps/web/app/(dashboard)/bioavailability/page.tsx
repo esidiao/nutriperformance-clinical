@@ -77,7 +77,8 @@ function TagInput({
           {tags.map((tag, i) => (
             <span key={tag} className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${colorBase ?? TAG_COLORS[i % TAG_COLORS.length]}`}>
               {tag}
-              <button type="button" onClick={() => onRemove(i)} className="hover:opacity-70 transition-opacity">
+              <button type="button" onClick={() => onRemove(i)} aria-label={`Remover ${tag}`}
+                className="hover:opacity-70 transition-opacity">
                 <X className="h-3 w-3" />
               </button>
             </span>
@@ -92,7 +93,7 @@ function TagInput({
             onBlur={() => setTimeout(() => setShowSug(false), 150)}
           />
           {input && (
-            <button type="button" onClick={() => commit(input)}
+            <button type="button" onClick={() => commit(input)} aria-label={`Adicionar ${input}`}
               className="flex-shrink-0 text-blue-600 hover:text-blue-700 text-xs font-medium px-1">
               <Plus className="h-3.5 w-3.5" />
             </button>

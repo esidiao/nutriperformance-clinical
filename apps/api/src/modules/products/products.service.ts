@@ -64,7 +64,20 @@ export class ProductsService {
     if (ean.length < 8) throw new NotFoundException('Código de barras inválido');
 
     const cached = await this.repo.findOne({ where: { codigoBarras: ean } });
-    if (cached) return { ...toPublic(cached), origem: 'cache' as const };
+    if (cached) {
+      // Mesmo bloqueio clínico de `search()`: um produto que a curadoria marcou
+      // como 'pendente' não pode voltar por esta porta. Sem isto, o mesmo item
+      // ficava escondido na busca por nome e aparecia normalmente ao escanear o
+      // código de barras — a profissional via o produto bloqueado sem sinal
+      // nenhum de que estava sob revisão.
+      //
+      // Não é o caso de reconsultar o Open Food Facts aqui: o registro existe e
+      // foi deliberadamente bloqueado; rebuscá-lo apenas recriaria o mesmo dado.
+      if (cached.confiabilidade === 'pendente') {
+        throw new NotFoundException('Produto em revisão pela curadoria — indisponível para uso clínico');
+      }
+      return { ...toPublic(cached), origem: 'cache' as const };
+    }
 
     const mapped = await this.fetchFromOpenFoodFacts(ean);
     if (!mapped) throw new NotFoundException('Produto não encontrado no Open Food Facts');
