@@ -8,9 +8,15 @@ export const PAPEL_ESTUDANTE = 'supervised_student';
 /**
  * Papel do usuário logado, lido da sessão do Supabase.
  *
- * Lê `user_metadata` com queda para `app_metadata`, na mesma ordem do
+ * Lê `app_metadata` com queda para `user_metadata`, na mesma ordem do
  * AuthGuard e do middleware — três lugares já faziam isso solto, e divergir
  * aqui produziria uma tela que mostra uma coisa e um backend que decide outra.
+ *
+ * A ordem é essa porque só `app_metadata` exige service-role para ser escrito;
+ * `user_metadata` o próprio usuário grava. Com a precedência invertida, quem se
+ * promovesse a 'admin' no navegador veria a interface de admin aparecer e levava
+ * 403 em cada clique. A queda para `user_metadata` fica só para contas ainda não
+ * migradas (ver apps/api/scripts/migrar-identidade-app-metadata.mjs).
  *
  * Serve para ADAPTAR a interface, nunca para autorizar: quem decide é o
  * RolesGuard no backend. Um papel forjado no navegador muda o que aparece na
@@ -29,8 +35,8 @@ export function usePapel() {
       .then(({ data: { session } }) => {
         const u = session?.user;
         setPapel(
-          (u?.user_metadata?.role as string)
-          ?? (u?.app_metadata?.role as string)
+          (u?.app_metadata?.role as string)
+          ?? (u?.user_metadata?.role as string)
           ?? null,
         );
       })

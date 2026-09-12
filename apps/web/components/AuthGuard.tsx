@@ -27,7 +27,9 @@ export function AuthGuard({ children, requiredRole }: { children: React.ReactNod
 
       if (requiredRole) {
         const user = session.user;
-        const role = user.user_metadata?.role ?? user.app_metadata?.role;
+        // app_metadata primeiro: é o que o backend usa para autorizar, e é o
+        // único dos dois que o próprio usuário não consegue escrever.
+        const role = user.app_metadata?.role ?? user.user_metadata?.role;
         if (role !== requiredRole) {
           router.replace('/dashboard');
           return;

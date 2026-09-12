@@ -42,15 +42,22 @@ const tSup = await token(emailSupervisora);
 const hSup = { Authorization: `Bearer ${tSup}`, 'Content-Type': 'application/json' };
 const { data: { user: uSup } } = await admin.auth.admin.listUsers()
   .then((r) => ({ data: { user: r.data.users.find((u) => u.email === emailSupervisora) } }));
-const workspaceId = uSup.user_metadata?.workspace_id;
-ok('supervisora tem workspace', !!workspaceId, `role=${uSup.user_metadata?.role}`);
+// app_metadata e a fonte de identidade desde a correcao da escalada de
+// privilegio (user_metadata e gravavel pelo proprio usuario). Queda para
+// user_metadata so para conta ainda nao migrada.
+const workspaceId = uSup.app_metadata?.workspace_id ?? uSup.user_metadata?.workspace_id;
+const roleSup = uSup.app_metadata?.role ?? uSup.user_metadata?.role;
+ok('supervisora tem workspace', !!workspaceId, `role=${roleSup}`);
 
 // Cria estagiario temporario no MESMO workspace
 const emailEst = `estagio.teste.${Date.now()}@nutriperformance.local`;
 const { data: novo, error: erroNovo } = await admin.auth.admin.createUser({
   email: emailEst,
   email_confirm: true,
-  user_metadata: { role: 'supervised_student', workspace_id: workspaceId, full_name: '[TESTE] Estagiario' },
+  // Identidade em app_metadata: e de la que o JwtAuthGuard le. So em
+  // user_metadata, esta conta de teste tomaria 401 na API.
+  app_metadata: { role: 'supervised_student', workspace_id: workspaceId },
+  user_metadata: { full_name: '[TESTE] Estagiario' },
 });
 ok('cria estagiario temporario', !erroNovo && !!novo?.user?.id, erroNovo?.message ?? emailEst);
 if (!novo?.user?.id) process.exit(1);

@@ -45,7 +45,7 @@ const anon = createClient(SUPABASE_URL, process.env.SUPABASE_ANON_KEY ?? SERVICE
 const { data: sessao, error: erroOtp } = await anon.auth.verifyOtp({ type: 'magiclink', token_hash: link.properties.hashed_token });
 if (erroOtp) { console.error('Não consegui trocar o link por sessão:', erroOtp.message); process.exit(1); }
 const token = sessao.session.access_token;
-registra('autenticacao sem senha', true, `${email} (role=${sessao.user.user_metadata?.role ?? '?'})`);
+registra('autenticacao sem senha', true, `${email} (role=${sessao.user.app_metadata?.role ?? sessao.user.user_metadata?.role ?? '?'})`);
 
 const chamar = async (metodo, rota, corpo) => {
   const r = await fetch(`${API}${rota}`, {

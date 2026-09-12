@@ -46,12 +46,12 @@ describe('JwtAuthGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toThrow('Token inválido ou expirado');
   });
 
-  it('popula req.user com id=sub, role e workspaceId a partir do payload', async () => {
+  it('popula req.user com id=sub, role e workspaceId a partir do app_metadata', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
     jest.spyOn(guard as any, 'verifyToken').mockResolvedValue({
       sub: 'user-uuid-123',
       email: 'pro@clinica.com',
-      user_metadata: { role: 'fitness_professional', workspace_id: 'ws-9' },
+      app_metadata: { role: 'fitness_professional', workspace_id: 'ws-9' },
     });
     const { ctx, request } = makeContext({ authorization: 'Bearer valido' });
 
@@ -65,17 +65,53 @@ describe('JwtAuthGuard', () => {
     });
   });
 
-  it('usa role padrão "nutritionist" quando user_metadata não traz role', async () => {
+  // ─── Escalada de privilégio ────────────────────────────────────────────────
+  //
+  // `user_metadata` é gravável pelo próprio dono do token
+  // (`supabase.auth.updateUser({ data })`); `app_metadata` exige service-role.
+  // Estes dois testes são o que impede a regressão.
+
+  it('IGNORA role e workspace_id vindos de user_metadata', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
     jest.spyOn(guard as any, 'verifyToken').mockResolvedValue({
-      sub: 'user-uuid-456',
-      user_metadata: {},
+      sub: 'user-uuid-123',
+      email: 'estagiario@clinica.com',
+      // O que o atacante grava em si mesmo:
+      user_metadata: { role: 'admin', workspace_id: 'ws-da-vitima' },
+      // O que o sistema realmente definiu:
+      app_metadata: { role: 'supervised_student', workspace_id: 'ws-proprio' },
     });
     const { ctx, request } = makeContext({ authorization: 'Bearer valido' });
 
     await guard.canActivate(ctx);
-    expect(request.user.role).toBe('nutritionist');
-    expect(request.user.id).toBe('user-uuid-456');
+    expect(request.user.role).toBe('supervised_student');
+    expect(request.user.workspaceId).toBe('ws-proprio');
+  });
+
+  it('NEGA acesso quando só user_metadata traz a identidade', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    jest.spyOn(guard as any, 'verifyToken').mockResolvedValue({
+      sub: 'user-uuid-456',
+      user_metadata: { role: 'admin', workspace_id: 'ws-qualquer' },
+      app_metadata: {},
+    });
+    const { ctx } = makeContext({ authorization: 'Bearer valido' });
+
+    // Falha fechado: sem identidade no lugar confiável, não entra. Antes havia
+    // um `?? 'nutritionist'` aqui, que dava papel clínico a conta sem metadado.
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('NEGA acesso quando falta o workspace, mesmo com role válido', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    jest.spyOn(guard as any, 'verifyToken').mockResolvedValue({
+      sub: 'user-uuid-789',
+      app_metadata: { role: 'nutritionist' },
+    });
+    const { ctx } = makeContext({ authorization: 'Bearer valido' });
+
+    // Sem workspaceId todo filtro multi-tenant dos serviços viraria `undefined`.
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 
   it('verifica a flag pública usando IS_PUBLIC_KEY', async () => {

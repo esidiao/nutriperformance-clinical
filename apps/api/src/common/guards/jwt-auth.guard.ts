@@ -53,7 +53,40 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token inválido ou expirado');
     }
 
-    const meta = (payload.user_metadata as Record<string, unknown> | undefined) ?? {};
+    // ─── Identidade: app_metadata, NUNCA user_metadata ───────────────────────
+    //
+    // `user_metadata` é gravável pelo PRÓPRIO usuário: com o access token dele,
+    // um `supabase.auth.updateUser({ data: { ... } })` reescreve o campo. Só
+    // `app_metadata` exige a service-role key.
+    //
+    // Enquanto `role` e `workspace_id` saíam de `user_metadata`, qualquer conta
+    // autenticada conseguia:
+    //   - `updateUser({ data: { role: 'admin' } })`      → entrar em @AdminOnly()
+    //   - `updateUser({ data: { workspace_id: <alheio> } })` → ler e escrever o
+    //     prontuário de outra clínica.
+    //
+    // O isolamento multi-tenant do resto do sistema é consistente: todo serviço
+    // filtra por `req.user.workspaceId`. Era justamente isso que a falha
+    // anulava, porque deixava o atacante ESCOLHER o workspaceId injetado aqui.
+    const meta = (payload.app_metadata as Record<string, unknown> | undefined) ?? {};
+    const role = meta.role as string | undefined;
+    const workspaceId = meta.workspace_id as string | undefined;
+
+    // Falha fechado, e o default sumiu de propósito.
+    //
+    // Antes havia `?? 'nutritionist'`: uma conta sem metadado nenhum nascia com
+    // papel clínico. Agora, sem identidade em app_metadata o acesso é negado —
+    // um token válido prova quem você é, não o que você pode fazer.
+    //
+    // ⚠️ ORDEM DE IMPLANTAÇÃO: rodar `scripts/migrar-identidade-app-metadata.mjs`
+    // ANTES de subir esta versão. Ele copia role/workspace_id de user_metadata
+    // para app_metadata em todas as contas. Sem isso, ninguém entra.
+    if (!role || !workspaceId) {
+      throw new UnauthorizedException(
+        'Conta sem identidade de acesso configurada. Contate o administrador ' +
+        'do sistema para vincular seu perfil e workspace.',
+      );
+    }
 
     // Attach user info derived from Supabase JWT claims.
     // NOTE: vários controllers usam `req.user.id` — expomos `id` (= sub) além
@@ -62,8 +95,8 @@ export class JwtAuthGuard implements CanActivate {
       sub: payload.sub, // Supabase user UUID
       id: payload.sub,
       email: (payload as Record<string, unknown>).email,
-      role: (meta.role as string) ?? 'nutritionist',
-      workspaceId: meta.workspace_id,
+      role,
+      workspaceId,
     };
 
     return true;

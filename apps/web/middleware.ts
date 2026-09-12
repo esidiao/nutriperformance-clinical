@@ -168,7 +168,8 @@ export async function middleware(request: NextRequest) {
   // Admin routes: enforce role check server-side
   if (isAdminOnly(pathname)) {
     const user = (session as any).user;
-    const role = user?.user_metadata?.role ?? user?.app_metadata?.role;
+    // app_metadata primeiro — mesma ordem do JwtAuthGuard na API.
+    const role = user?.app_metadata?.role ?? user?.user_metadata?.role;
     if (role !== 'admin') {
       const dashUrl = request.nextUrl.clone();
       dashUrl.pathname = '/dashboard';
