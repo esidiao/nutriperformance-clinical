@@ -2,7 +2,6 @@ import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/com
 import { CanActivate } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
-import * as jwt from 'jsonwebtoken';
 
 // Marca rotas como públicas (sem necessidade de JWT). Usado pelo @Public().
 export const IS_PUBLIC_KEY = 'isPublic';
@@ -14,13 +13,22 @@ export const IS_PUBLIC_KEY = 'isPublic';
 // now signed with a private key and must be verified against the project's
 // public JWKS endpoint — NOT with a shared HS256 secret.
 //
-// This guard verifies via JWKS first (the current system) and falls back to the
-// legacy HS256 shared-secret path for older projects that still issue HS256
-// tokens, so it works regardless of which signing scheme the project uses.
+// Este guard verifica SOMENTE pelo JWKS.
+//
+// Havia um segundo caminho, HS256 com `SUPABASE_JWT_SECRET` compartilhado, para
+// projetos que ainda emitissem token simetrico. Ele foi removido em 23/09/2026
+// porque nao era rede de seguranca: era uma segunda autoridade de assinatura
+// aceita em paralelo. Qualquer um com o segredo legado forjava token valido
+// para qualquer conta, mesmo com a chave assimetrica ativa.
+//
+// Verificado antes de remover (`scripts/provar-jwks.mjs`): os tokens emitidos
+// hoje sao ES256 e o JWKS sozinho os valida, com app_metadata intacto. Se um
+// dia o projeto voltar a emitir HS256, o lugar de tratar isso e aqui, com a
+// decisao explicita — nao com um fallback silencioso que ninguem lembra que
+// existe.
 // =============================================================================
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET ?? '';
 
 // Remote JWKS set (cached + auto-refreshed internally by jose).
 const JWKS = SUPABASE_URL
@@ -103,28 +111,14 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   private async verifyToken(token: string): Promise<JWTPayload | null> {
-    // 1) Asymmetric keys (ES256/RS256) via JWKS — the current Supabase system.
-    if (JWKS) {
-      try {
-        const { payload } = await jwtVerify(token, JWKS, { audience: 'authenticated' });
-        return payload;
-      } catch {
-        // fall through to legacy HS256 attempt
-      }
+    // Chaves assimetricas (ES256/RS256) via JWKS. Sem SUPABASE_URL nao ha como
+    // verificar nada, e ai a resposta certa e negar — nao deixar passar.
+    if (!JWKS) return null;
+    try {
+      const { payload } = await jwtVerify(token, JWKS, { audience: 'authenticated' });
+      return payload;
+    } catch {
+      return null;
     }
-
-    // 2) Legacy HS256 shared secret — only for projects still issuing HS256.
-    if (SUPABASE_JWT_SECRET) {
-      try {
-        return jwt.verify(token, SUPABASE_JWT_SECRET, {
-          algorithms: ['HS256'],
-          audience: 'authenticated',
-        }) as JWTPayload;
-      } catch {
-        return null;
-      }
-    }
-
-    return null;
   }
 }

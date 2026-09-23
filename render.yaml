@@ -55,13 +55,17 @@ services:
       # SUPABASE_URL monta o JWKS de verificação do token no JwtAuthGuard.
       - key: SUPABASE_URL
         sync: false
-      # Fallback HS256 para projetos legados; o caminho atual é o JWKS acima.
-      # ⚠️ Enquanto existir, esta variável ACEITA token assinado com o segredo
-      # legado, mesmo com a chave assimétrica ativa — é um segundo caminho de
-      # autenticação. Se o projeto já publica JWKS (ES256), remover fecha esse
-      # caminho; conferir com `node apps/api/scripts/estado-das-chaves.mjs`.
-      - key: SUPABASE_JWT_SECRET
-        sync: false
+      # SUPABASE_JWT_SECRET foi REMOVIDA em 23/09/2026 — não recriar.
+      #
+      # Era o fallback HS256 do JwtAuthGuard. Não era rede de segurança: era uma
+      # segunda autoridade de assinatura aceita em paralelo ao JWKS. Quem
+      # tivesse o segredo legado forjava token válido para qualquer conta, mesmo
+      # com a chave assimétrica (ES256) ativa.
+      #
+      # O guard não lê mais essa variável, e um teste em jwt-auth.guard.spec.ts
+      # trava isso — recriar a variável no painel não reabre o caminho. Provado
+      # antes de remover com `node apps/api/scripts/provar-jwks.mjs <email>`:
+      # os tokens emitidos hoje são ES256 e o JWKS sozinho os valida.
 
       # Chave de serviço: assina as URLs de upload/leitura do bucket privado
       # (common/storage.ts). NÃO estava declarada aqui, e a omissão é

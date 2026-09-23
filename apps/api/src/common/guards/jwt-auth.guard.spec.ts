@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { Reflector } from '@nestjs/core';
 import { UnauthorizedException, ExecutionContext } from '@nestjs/common';
 import { JwtAuthGuard, IS_PUBLIC_KEY } from './jwt-auth.guard';
@@ -119,5 +121,33 @@ describe('JwtAuthGuard', () => {
     const { ctx } = makeContext({});
     await guard.canActivate(ctx);
     expect(spy).toHaveBeenCalledWith(IS_PUBLIC_KEY, expect.any(Array));
+  });
+
+  describe('caminho unico de verificacao', () => {
+    // O guard aceitava, em paralelo ao JWKS, token HS256 assinado com
+    // SUPABASE_JWT_SECRET. Nao era rede de seguranca: era uma segunda
+    // autoridade de assinatura. Quem tivesse o segredo legado forjava token
+    // valido para qualquer conta, mesmo com a chave assimetrica ativa.
+    const fonte = readFileSync(join(__dirname, 'jwt-auth.guard.ts'), 'utf8');
+    const codigo = fonte
+      .split(/\r?\n/)
+      .filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l))
+      .join('\n');
+
+    it('nao importa jsonwebtoken', () => {
+      expect(codigo).not.toMatch(/from\s+'jsonwebtoken'/);
+    });
+
+    it('nao le SUPABASE_JWT_SECRET', () => {
+      // Reintroduzir a variavel no Render nao pode reabrir o caminho: o codigo
+      // precisa ignora-la.
+      expect(codigo).not.toContain('SUPABASE_JWT_SECRET');
+    });
+
+    it('sem JWKS configurado, NEGA em vez de deixar passar', () => {
+      // Falta de SUPABASE_URL e erro de configuracao. A resposta certa e negar
+      // — antes, sem JWKS, a verificacao caia no ramo HS256.
+      expect(codigo).toMatch(/if\s*\(!JWKS\)\s*return null/);
+    });
   });
 });
