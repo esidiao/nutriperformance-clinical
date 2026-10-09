@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ShieldAlert, Coins, Activity, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { AudioIntakeRecorder } from '@/components/AudioIntakeRecorder';
 
@@ -142,6 +143,31 @@ export default function PhysicalAssessmentNewPage() {
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('patient') : null,
   );
 
+  /**
+   * Sexo e idade vêm do CADASTRO, não de campo digitado na tela.
+   *
+   * Antes não havia campo `gender` nenhum no formulário, e o código lia
+   * `watch('gender') ?? 'female'` — ou seja, TODO paciente era tratado como
+   * mulher. Isso não ficava só na aparência:
+   *
+   *  - a equação de Jackson & Pollock usava os coeficientes femininos;
+   *  - os rótulos pediam tríceps/supra-ilíaca/coxa, que é o protocolo
+   *    feminino, mesmo para homem;
+   *  - e o que foi medido era GRAVADO nas colunas erradas — peitoral de um
+   *    homem ia para `skinfoldTricepsMm`.
+   *
+   * A idade tinha defeito parecido: `Number(watch('age') ?? 30)` devolve 0
+   * para campo vazio, porque `??` não captura string vazia. Com idade 0 a
+   * função devolve null e o percentual simplesmente não calcula — era o
+   * "Idade: 0 anos" do relatório de testes.
+   */
+  const pacienteQ = useQuery({
+    queryKey: ['paciente-avaliacao', patientId],
+    queryFn: () => api.patients.get(patientId!),
+    enabled: !!patientId,
+  });
+  const paciente: any = pacienteQ.data ?? null;
+
   // Estado local das dobras cutâneas (calculadora de % de gordura)
   const [sf, setSf] = useState({ s1: '', s2: '', s3: '' });
 
@@ -186,8 +212,13 @@ export default function PhysicalAssessmentNewPage() {
         const x = Number(v);
         return isFinite(x) ? x : undefined;
       };
-      const g = (watch as any)('gender') ?? 'female';
-      const sfMap = g === 'male'
+      // Mesmo cuidado na GRAVAÇÃO: sem sexo conhecido, as dobras não são
+      // mapeadas para coluna nenhuma. Chutar aqui grava peitoral de homem em
+      // `skinfoldTricepsMm` — e o erro fica no prontuário.
+      const g = formGender;
+      const sfMap = g === null
+        ? {}
+        : g === 'male'
         ? { skinfoldChestMm: toNum(sf.s1) || undefined, skinfoldAbdominalMm: toNum(sf.s2) || undefined, skinfoldThighMm: toNum(sf.s3) || undefined }
         : { skinfoldTricepsMm: toNum(sf.s1) || undefined, skinfoldSuprailiacMm: toNum(sf.s2) || undefined, skinfoldThighMm: toNum(sf.s3) || undefined };
       const dto: Record<string, unknown> = {
@@ -218,26 +249,45 @@ export default function PhysicalAssessmentNewPage() {
     }
   };
 
-  const watchedGender = watch('activityLevel'); // workaround — read gender from form
-  const formGender = (watch as any)('gender') ?? 'female'; // or default
-  const formAge = Number((watch as any)('age') ?? 30);
+  // Do cadastro. `null` quando não se sabe — e aí nada é calculado, em vez de
+  // assumir um valor e produzir número que parece medida.
+  const formGender: 'male' | 'female' | null =
+    paciente?.gender === 'male' || paciente?.gender === 'female' ? paciente.gender : null;
+
+  const idadeDigitada = Number(String((watch as any)('age') ?? '').replace(',', '.'));
+  const formAge: number | null = paciente?.age && paciente.age > 0
+    ? Number(paciente.age)
+    : (Number.isFinite(idadeDigitada) && idadeDigitada > 0 ? idadeDigitada : null);
+
+  const faltaParaCalcular = [
+    formGender === null ? 'sexo' : null,
+    formAge === null ? 'idade' : null,
+  ].filter(Boolean) as string[];
 
   // ─── Calculadora de % de gordura por dobras cutâneas ───────────────────────
   const sfSum = toNum(sf.s1) + toNum(sf.s2) + toNum(sf.s3);
-  const sfFat = bodyFatFrom3Skinfolds(sfSum, formAge, formGender);
-  const sfFatCls = sfFat ? classifyFat(sfFat, formGender) : null;
+  const sfFat = formGender && formAge
+    ? bodyFatFrom3Skinfolds(sfSum, formAge, formGender)
+    : null;
+  const sfFatCls = sfFat && formGender ? classifyFat(sfFat, formGender) : null;
   const weightNum = Number(wW) || 0;
   const sfFatMass = sfFat && weightNum ? Math.round((weightNum * sfFat / 100) * 10) / 10 : null;
   const sfLeanMass = sfFat && weightNum ? Math.round((weightNum * (1 - sfFat / 100)) * 10) / 10 : null;
+  // Sem sexo definido não há protocolo: os sítios do Jackson & Pollock de 3
+  // dobras são diferentes para homem e mulher.
   const sfLabels = formGender === 'male'
     ? ['Peitoral (mm)', 'Abdominal (mm)', 'Coxa (mm)']
-    : ['Tríceps (mm)', 'Supra-ilíaca (mm)', 'Coxa (mm)'];
+    : formGender === 'female'
+      ? ['Tríceps (mm)', 'Supra-ilíaca (mm)', 'Coxa (mm)']
+      : ['Dobra 1 (mm)', 'Dobra 2 (mm)', 'Dobra 3 (mm)'];
 
   // Circumference table rows
   const waistVal = Number(wWaist);
   const bmiCls = bmi ? classifyBmi(bmi) : null;
-  const waistCls = waistVal > 0 ? classifyWaist(waistVal, formGender) : null;
-  const whrCls = whr ? classifyRCQ(whr, formGender, formAge) : null;
+  // Os pontos de corte de cintura e RCQ também são por sexo (94/102 cm para
+  // homem, 80/88 para mulher). Classificar sem saber seria inventar risco.
+  const waistCls = waistVal > 0 && formGender ? classifyWaist(waistVal, formGender) : null;
+  const whrCls = whr && formGender && formAge ? classifyRCQ(whr, formGender, formAge) : null;
 
   return (
     <div className="px-4 py-5 sm:p-6 max-w-4xl mx-auto space-y-6">
@@ -279,7 +329,19 @@ export default function PhysicalAssessmentNewPage() {
               </div>
               <div>
                 <Label htmlFor="age">Idade (anos)</Label>
-                <Input id="age" {...register('age')} type="number" min={1} max={120} placeholder="30" />
+                {paciente?.age ? (
+                  // Vindo do cadastro, a idade é mostrada e não editada: dois
+                  // lugares para o mesmo dado divergem, e aqui a divergência
+                  // trocaria a equação sem ninguém notar.
+                  <div className="h-10 flex items-center gap-2 text-sm">
+                    <strong>{paciente.age}</strong>
+                    <span className="text-xs text-muted-foreground">
+                      · do cadastro {paciente.gender === 'male' ? '· Masculino' : paciente.gender === 'female' ? '· Feminino' : ''}
+                    </span>
+                  </div>
+                ) : (
+                  <Input id="age" {...register('age')} type="number" min={1} max={120} placeholder="30" />
+                )}
               </div>
               <div>
                 <Label>Sexo</Label>
@@ -340,10 +402,37 @@ export default function PhysicalAssessmentNewPage() {
               Calculadora de % de Gordura — Dobras Cutâneas
             </CardTitle>
             <p className="text-xs text-gray-500 mt-1">
-              Protocolo Jackson &amp; Pollock (3 dobras) · equação de Siri. Sexo: {formGender === 'male' ? 'Masculino' : 'Feminino'} · Idade: {formAge} anos.
+              Protocolo Jackson &amp; Pollock (3 dobras) · equação de Siri.{' '}
+              {formGender && formAge
+                ? <>Sexo: {formGender === 'male' ? 'Masculino' : 'Feminino'} · Idade: {formAge} anos
+                    {paciente ? ' (do cadastro do paciente)' : ''}.</>
+                : <span className="text-orange-700">
+                    Faltam dados do paciente — ver abaixo.
+                  </span>}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Sem sexo e idade não há cálculo. Dizer isso é melhor que exibir
+                nada e deixar a pessoa achar que a calculadora está quebrada —
+                foi assim que o "Idade: 0 anos" passou despercebido. */}
+            {faltaParaCalcular.length > 0 && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900 space-y-1">
+                <p>
+                  <strong>Não dá para calcular o percentual de gordura sem {faltaParaCalcular.join(' e ')}.</strong>
+                </p>
+                <p>
+                  Os sítios de dobra e a equação de Jackson &amp; Pollock mudam conforme o
+                  sexo, e a equação usa a idade. Chutar qualquer um dos dois produziria um
+                  número que parece medida e não é.
+                </p>
+                <p>
+                  {patientId
+                    ? 'Complete o sexo e a data de nascimento no cadastro do paciente.'
+                    : 'Abra esta avaliação pela ficha do paciente para que os dados venham do cadastro.'}
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[sf.s1, sf.s2, sf.s3].map((val, i) => (
                 <div key={i}>
