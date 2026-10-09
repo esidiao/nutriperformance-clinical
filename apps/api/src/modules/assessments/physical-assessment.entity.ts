@@ -44,6 +44,17 @@ export class PhysicalAssessment {
   @Column({ name: 'skinfold_abdominal_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldAbdominalMm: number | null;
   @Column({ name: 'skinfold_thigh_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldThighMm: number | null;
   @Column({ name: 'skinfold_chest_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldChestMm: number | null;
+  /**
+   * Axilar média. Completa os 7 sítios de Jackson & Pollock — os outros seis
+   * já existiam, e era só ela que faltava para o protocolo de 7 dobras ter
+   * onde ser gravado.
+   */
+  @Column({ name: 'skinfold_midaxillary_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldMidaxillaryMm: number | null;
+  /**
+   * Qual protocolo gerou os valores (ex: `jackson_pollock_3`,
+   * `jackson_pollock_7`). Sem ele um conjunto de dobras não se interpreta: o
+   * mesmo sítio entra em equações diferentes conforme o protocolo e o sexo.
+   */
   @Column({ name: 'skinfold_protocol', nullable: true }) skinfoldProtocol: string | null;
 
   // Atividade física
