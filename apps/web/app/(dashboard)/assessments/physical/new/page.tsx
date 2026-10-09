@@ -18,6 +18,10 @@ import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { AudioIntakeRecorder } from '@/components/AudioIntakeRecorder';
+import {
+  PROTOCOLOS, PENDENTES, protocoloPorId, ROTULO_SITIO, classificarGordura,
+  composicao, type Sitio,
+} from '@/lib/protocolos-dobras';
 
 const schema = z.object({
   patientId: z.string().optional(),
@@ -103,30 +107,10 @@ const toNum = (s: unknown) => {
   return isFinite(n) ? Math.max(0, n) : 0;
 };
 
-// Densidade corporal por Jackson & Pollock (3 dobras) → % gordura por Siri.
-function bodyFatFrom3Skinfolds(sum: number, age: number, gender: string): number | null {
-  if (sum <= 0 || age <= 0) return null;
-  const bd = gender === 'male'
-    ? 1.10938 - 0.0008267 * sum + 0.0000016 * sum * sum - 0.0002574 * age
-    : 1.0994921 - 0.0009929 * sum + 0.0000023 * sum * sum - 0.0001392 * age;
-  const fat = 495 / bd - 450;
-  if (!isFinite(fat) || fat <= 0 || fat > 70) return null;
-  return Math.round(fat * 10) / 10;
-}
-
-// Classificação de % de gordura (referência ACSM, simplificada por sexo).
-function classifyFat(fat: number, gender: string): { label: string; cls: Classification } {
-  if (gender === 'male') {
-    if (fat < 6)  return { label: 'Muito baixo', cls: 'elevated' };
-    if (fat <= 17) return { label: 'Atleta / Fitness', cls: 'normal' };
-    if (fat <= 24) return { label: 'Aceitável', cls: 'normal' };
-    return { label: 'Acima do ideal', cls: 'critical' };
-  }
-  if (fat < 14) return { label: 'Muito baixo', cls: 'elevated' };
-  if (fat <= 24) return { label: 'Atleta / Fitness', cls: 'normal' };
-  if (fat <= 31) return { label: 'Aceitável', cls: 'normal' };
-  return { label: 'Acima do ideal', cls: 'critical' };
-}
+// As equações de dobras saíram daqui para `lib/protocolos-dobras.ts`: lá são
+// funções puras e TESTADAS (apps/api/src/modules/assessments/protocolos-dobras.spec.ts).
+// Coeficiente errado não dá erro — devolve percentual plausível. Isso não pode
+// morar solto numa página sem teste.
 
 export default function PhysicalAssessmentNewPage() {
   const [bmi, setBmi] = useState<number | null>(null);
@@ -168,8 +152,13 @@ export default function PhysicalAssessmentNewPage() {
   });
   const paciente: any = pacienteQ.data ?? null;
 
-  // Estado local das dobras cutâneas (calculadora de % de gordura)
-  const [sf, setSf] = useState({ s1: '', s2: '', s3: '' });
+  // Dobras guardadas por SÍTIO, não por posição.
+  //
+  // Antes eram `s1/s2/s3` e o significado de cada uma dependia do sexo. Como
+  // o sexo estava sempre errado, a medida ia para a coluna errada no banco.
+  // Com a chave sendo o próprio sítio, não há como trocar.
+  const [medidas, setMedidas] = useState<Partial<Record<Sitio, string>>>({});
+  const [protocoloId, setProtocoloId] = useState('jackson_pollock_3');
 
   // Preenche apenas os campos do schema que a transcrição extraiu; o resto do
   // formulário e o que o profissional já digitou permanecem intactos.
@@ -215,12 +204,21 @@ export default function PhysicalAssessmentNewPage() {
       // Mesmo cuidado na GRAVAÇÃO: sem sexo conhecido, as dobras não são
       // mapeadas para coluna nenhuma. Chutar aqui grava peitoral de homem em
       // `skinfoldTricepsMm` — e o erro fica no prontuário.
-      const g = formGender;
-      const sfMap = g === null
-        ? {}
-        : g === 'male'
-        ? { skinfoldChestMm: toNum(sf.s1) || undefined, skinfoldAbdominalMm: toNum(sf.s2) || undefined, skinfoldThighMm: toNum(sf.s3) || undefined }
-        : { skinfoldTricepsMm: toNum(sf.s1) || undefined, skinfoldSuprailiacMm: toNum(sf.s2) || undefined, skinfoldThighMm: toNum(sf.s3) || undefined };
+      // Cada sítio vai para a SUA coluna. Não há mais mapeamento por posição,
+      // que era o que permitia gravar peitoral em `skinfoldTricepsMm`.
+      const COLUNA_DO_SITIO: Record<Sitio, string> = {
+        triceps: 'skinfoldTricepsMm',
+        subscapular: 'skinfoldSubscapularMm',
+        suprailiac: 'skinfoldSuprailiacMm',
+        abdominal: 'skinfoldAbdominalMm',
+        thigh: 'skinfoldThighMm',
+        chest: 'skinfoldChestMm',
+        midaxillary: 'skinfoldMidaxillaryMm',
+      };
+      const sfMap: Record<string, number> = {};
+      for (const [sitio, valor] of Object.entries(medidasNum)) {
+        sfMap[COLUNA_DO_SITIO[sitio as Sitio]] = valor as number;
+      }
       const dto: Record<string, unknown> = {
         patientId,
         weightKg: n(data.weightKg), heightCm: n(data.heightCm),
@@ -235,7 +233,9 @@ export default function PhysicalAssessmentNewPage() {
         trainingFrequencyPerWeek: n(data.weeklyFrequency), trainingDurationMin: n(data.sessionDurationMin),
         mainSportActivity: data.sportModality || undefined,
         primaryGoal: data.primaryGoal,
-        skinfoldProtocol: (sf.s1 || sf.s2 || sf.s3) ? 'pollock_3' : undefined,
+        // Qual protocolo gerou os valores. Sem isto os milímetros não se
+        // interpretam depois: o mesmo sítio entra em equações diferentes.
+        skinfoldProtocol: Object.keys(sfMap).length ? protocolo.id : undefined,
         ...sfMap,
         professionalNotes: data.professionalNotes || undefined,
       };
@@ -265,21 +265,23 @@ export default function PhysicalAssessmentNewPage() {
   ].filter(Boolean) as string[];
 
   // ─── Calculadora de % de gordura por dobras cutâneas ───────────────────────
-  const sfSum = toNum(sf.s1) + toNum(sf.s2) + toNum(sf.s3);
+  const protocolo = protocoloPorId(protocoloId) ?? PROTOCOLOS[0];
+  const sitiosExigidos: Sitio[] = protocolo.sitios(formGender ?? 'female');
+
+  const medidasNum: Partial<Record<Sitio, number>> = {};
+  for (const [k, v] of Object.entries(medidas)) {
+    const n = Number(String(v).replace(',', '.'));
+    if (Number.isFinite(n) && n > 0) medidasNum[k as Sitio] = n;
+  }
+  const sfSum = sitiosExigidos.reduce((a, s) => a + (medidasNum[s] ?? 0), 0);
+
   const sfFat = formGender && formAge
-    ? bodyFatFrom3Skinfolds(sfSum, formAge, formGender)
+    ? protocolo.calcular(medidasNum, formAge, formGender)
     : null;
-  const sfFatCls = sfFat && formGender ? classifyFat(sfFat, formGender) : null;
+  const sfFatCls = sfFat !== null && formGender ? classificarGordura(sfFat, formGender) : null;
   const weightNum = Number(wW) || 0;
-  const sfFatMass = sfFat && weightNum ? Math.round((weightNum * sfFat / 100) * 10) / 10 : null;
-  const sfLeanMass = sfFat && weightNum ? Math.round((weightNum * (1 - sfFat / 100)) * 10) / 10 : null;
-  // Sem sexo definido não há protocolo: os sítios do Jackson & Pollock de 3
-  // dobras são diferentes para homem e mulher.
-  const sfLabels = formGender === 'male'
-    ? ['Peitoral (mm)', 'Abdominal (mm)', 'Coxa (mm)']
-    : formGender === 'female'
-      ? ['Tríceps (mm)', 'Supra-ilíaca (mm)', 'Coxa (mm)']
-      : ['Dobra 1 (mm)', 'Dobra 2 (mm)', 'Dobra 3 (mm)'];
+  const { massaGordaKg: sfFatMass, massaMagraKg: sfLeanMass } =
+    composicao(sfFat, weightNum || null);
 
   // Circumference table rows
   const waistVal = Number(wWaist);
@@ -402,7 +404,7 @@ export default function PhysicalAssessmentNewPage() {
               Calculadora de % de Gordura — Dobras Cutâneas
             </CardTitle>
             <p className="text-xs text-gray-500 mt-1">
-              Protocolo Jackson &amp; Pollock (3 dobras) · equação de Siri.{' '}
+              {protocolo.nome}.{' '}
               {formGender && formAge
                 ? <>Sexo: {formGender === 'male' ? 'Masculino' : 'Feminino'} · Idade: {formAge} anos
                     {paciente ? ' (do cadastro do paciente)' : ''}.</>
@@ -433,18 +435,48 @@ export default function PhysicalAssessmentNewPage() {
               </div>
             )}
 
+            <div>
+              <Label htmlFor="protocolo">Protocolo</Label>
+              <select
+                id="protocolo"
+                value={protocoloId}
+                onChange={(e) => setProtocoloId(e.target.value)}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {PROTOCOLOS.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nome}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground mt-1">{protocolo.nota}</p>
+            </div>
+
+            {/* Um campo por sítio que ESTE protocolo exige. Mudando o
+                protocolo, mudam os campos — e o que já foi medido continua
+                guardado pelo nome do sítio, não se perde. */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[sf.s1, sf.s2, sf.s3].map((val, i) => (
-                <div key={i}>
-                  <Label>{sfLabels[i]}</Label>
+              {sitiosExigidos.map((sitio) => (
+                <div key={sitio}>
+                  <Label htmlFor={`dobra-${sitio}`}>{ROTULO_SITIO[sitio]} (mm)</Label>
                   <Input
+                    id={`dobra-${sitio}`}
                     type="number" step="0.1" min={0} placeholder="0"
-                    value={val}
-                    onChange={(e) => setSf((p) => ({ ...p, [`s${i + 1}`]: e.target.value }))}
+                    value={medidas[sitio] ?? ''}
+                    onChange={(e) => setMedidas((p) => ({ ...p, [sitio]: e.target.value }))}
                   />
                 </div>
               ))}
             </div>
+
+            {/* O que foi pedido e ainda não entrou, com o motivo. Omitir
+                faria parecer que o pedido se perdeu. */}
+            <details className="text-[11px] text-muted-foreground">
+              <summary className="cursor-pointer">Outros protocolos ainda não disponíveis</summary>
+              <ul className="mt-1 space-y-0.5 pl-4 list-disc">
+                {PENDENTES.map((p) => (
+                  <li key={p.nome}><strong>{p.nome}</strong> — {p.motivo}.</li>
+                ))}
+              </ul>
+            </details>
 
             {sfFat && sfFatCls ? (
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -467,7 +499,7 @@ export default function PhysicalAssessmentNewPage() {
               </div>
             ) : (
               <p className="text-xs text-gray-400">
-                Preencha as três dobras (mm) e a idade para calcular o percentual de gordura. Somatório atual: {sfSum > 0 ? `${sfSum} mm` : '—'}.
+                Preencha {sitiosExigidos.length === 1 ? 'a dobra' : `as ${sitiosExigidos.length} dobras`} (mm) do protocolo escolhido. Somatório atual: {sfSum > 0 ? `${sfSum} mm` : '—'}.
               </p>
             )}
 
