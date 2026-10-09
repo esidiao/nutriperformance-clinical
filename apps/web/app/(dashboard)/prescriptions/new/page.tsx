@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
 import { SeletorDePaciente, type PacienteResumo } from '@/components/SeletorDePaciente';
+import { escalarMacros, emGramas, type Por100 } from '@/lib/escala-nutricional';
 import type { PrescriptionData, PrescriptionItem, PrescriptionInteraction, PrescriptionMeal } from '@/lib/pdf/generatePrescription';
 import {
   FileText, Download, Plus, Trash2, Coins, ShieldAlert,
@@ -43,10 +44,38 @@ const COMMON_SUPPLEMENTS = [
 type DocType = 'supplementation' | 'prescription';
 
 // ─── Meal model (prescrição nutricional) ───────────────────────────────────────
-type MealFood = { name: string; dose: string; notes: string; kcal: string; prot: string; carb: string; fat: string };
+//
+// `quantidadeG` é número e `dose` é a medida caseira ("3 colheres de sopa").
+// Antes havia só `dose`, texto livre, e os macros vinham da base SEM
+// multiplicar — ou seja, ficavam na base 100 qualquer que fosse a quantidade
+// digitada. Toda tabela de composição (TACO, USDA) é por 100 g, então "60 g de
+// arroz" exibia os valores de 100 g. Relatado pela nutricionista em
+// 09/10/2026, e é o defeito mais grave do conjunto: a dieta inteira fechava
+// com números errados.
+type MealFood = {
+  name: string;
+  /** Gramas. Dirige o cálculo. */
+  quantidadeG: string;
+  /** Medida caseira, para o paciente: "3 colheres de sopa", "1 escumadeira". */
+  dose: string;
+  notes: string;
+  kcal: string; prot: string; carb: string; fat: string;
+  /**
+   * Valores por 100 g do alimento escolhido na base. Enquanto existirem, mudar
+   * as gramas recalcula. Editar um macro à mão desfaz o vínculo (vira null):
+   * número prescrito não pode ser sobrescrito sem o profissional mandar.
+   */
+  por100: Por100 | null;
+};
 type Meal = { name: string; time: string; foods: MealFood[] };
 
-const emptyMealFood = (): MealFood => ({ name: '', dose: '', notes: '', kcal: '', prot: '', carb: '', fat: '' });
+const emptyMealFood = (): MealFood => ({
+  name: '', quantidadeG: '', dose: '', notes: '',
+  kcal: '', prot: '', carb: '', fat: '', por100: null,
+});
+
+const recalcular = (f: MealFood): MealFood =>
+  f.por100 ? { ...f, ...escalarMacros(f.por100, emGramas(f.quantidadeG)) } : f;
 
 // Refeições disponíveis para adição rápida
 const MEAL_PRESETS = [
@@ -111,29 +140,51 @@ export default function PrescriptionNewPage() {
     setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, [field]: val } : m));
   const addMeal = (name = 'Nova refeição') => setMeals((p) => [...p, { name, time: '', foods: [emptyMealFood()] }]);
   const removeMeal = (mi: number) => setMeals((p) => p.filter((_, idx) => idx !== mi));
+  const MACROS = ['kcal', 'prot', 'carb', 'fat'] as const;
+
   const updateFood = (mi: number, fi: number, field: keyof MealFood, val: string) =>
-    setMeals((prev) => prev.map((m, idx) => idx === mi
-      ? { ...m, foods: m.foods.map((f, j) => j === fi ? { ...f, [field]: val } : f) }
-      : m));
+    setMeals((prev) => prev.map((m, idx) => idx !== mi ? m : {
+      ...m,
+      foods: m.foods.map((f, j) => {
+        if (j !== fi) return f;
+        // Mexer na gramagem recalcula; mexer num macro à mão desfaz o vínculo
+        // com a base, senão a próxima mudança de gramas apagaria o valor que
+        // o profissional digitou.
+        if (field === 'quantidadeG') return recalcular({ ...f, quantidadeG: val });
+        if ((MACROS as readonly string[]).includes(field as string)) {
+          return { ...f, [field]: val, por100: null };
+        }
+        return { ...f, [field]: val };
+      }),
+    }));
   const addFood = (mi: number) =>
     setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, foods: [...m.foods, emptyMealFood()] } : m));
   const removeFood = (mi: number, fi: number) =>
     setMeals((prev) => prev.map((m, idx) => idx === mi ? { ...m, foods: m.foods.filter((_, j) => j !== fi) } : m));
 
-  // Autopreenchimento ao selecionar um alimento da base (valores por porção padrão).
-  // Mantém edição manual: o nutricionista pode ajustar dose e macros depois.
+  /**
+   * Guarda os valores POR 100 G do alimento e calcula para a quantidade atual.
+   *
+   * A versão anterior copiava `food.energiaKcal` direto para o campo kcal.
+   * Como a base é toda por 100 g, o número exibido era o de 100 g — e mudar a
+   * quantidade não mexia nele, porque não havia o que recalcular.
+   */
   const applyFood = (mi: number, fi: number, food: FoodResult) =>
-    setMeals((prev) => prev.map((m, idx) => idx === mi
-      ? { ...m, foods: m.foods.map((f, j) => j === fi ? {
-          ...f,
-          name: food.nome,
-          dose: f.dose.trim() || `${Math.round(food.porcaoPadraoG)} g`,
-          kcal: food.energiaKcal != null ? String(Math.round(food.energiaKcal)) : f.kcal,
-          prot: food.proteinasG != null ? String(food.proteinasG) : f.prot,
-          carb: food.carboidratosG != null ? String(food.carboidratosG) : f.carb,
-          fat: food.lipidiosG != null ? String(food.lipidiosG) : f.fat,
-        } : f) }
-      : m));
+    setMeals((prev) => prev.map((m, idx) => idx !== mi ? m : {
+      ...m,
+      foods: m.foods.map((f, j) => j !== fi ? f : recalcular({
+        ...f,
+        name: food.nome,
+        // Se ainda não há quantidade, começa pela porção padrão do alimento.
+        quantidadeG: f.quantidadeG.trim() || String(Math.round(food.porcaoPadraoG)),
+        por100: {
+          kcal: food.energiaKcal,
+          prot: food.proteinasG,
+          carb: food.carboidratosG,
+          fat: food.lipidiosG,
+        },
+      })),
+    }));
 
   // ─── Interaction CRUD ──────────────────────────────────────────────────────
   const updateInter = (i: number, field: keyof PrescriptionInteraction, val: string) =>
@@ -149,7 +200,15 @@ export default function PrescriptionNewPage() {
         time: m.time.trim() || undefined,
         items: m.foods
           .filter((f) => f.name.trim())
-          .map<PrescriptionItem>((f) => ({ name: f.name, dose: f.dose, frequency: '', notes: f.notes })),
+          // O PDF leva gramas E medida caseira: a grama é o que foi prescrito,
+          // a medida caseira é como o paciente serve. Perder qualquer uma das
+          // duas torna o documento pior para um dos dois leitores.
+          .map<PrescriptionItem>((f) => {
+            const g = f.quantidadeG.trim();
+            const caseira = f.dose.trim();
+            const dose = g && caseira ? `${g} g (${caseira})` : (g ? `${g} g` : caseira);
+            return { name: f.name, dose, frequency: '', notes: f.notes };
+          }),
       }))
       .filter((m) => m.items.length > 0);
 
@@ -435,7 +494,7 @@ export default function PrescriptionNewPage() {
                     {meal.foods.map((food, fi) => (
                       <div key={fi} className="rounded-lg border border-gray-100 dark:border-gray-800 p-2 space-y-2">
                         <div className="grid grid-cols-12 gap-2 items-start">
-                          <div className="col-span-12 sm:col-span-5">
+                          <div className="col-span-12 sm:col-span-4">
                             <Label className="text-[10px] text-gray-500">Alimento / Preparação</Label>
                             <FoodAutocomplete
                               value={food.name}
@@ -445,18 +504,35 @@ export default function PrescriptionNewPage() {
                               className="h-9 text-sm"
                             />
                           </div>
-                          <div className="col-span-6 sm:col-span-4">
-                            <Label className="text-[10px] text-gray-500">Quantidade / Medida</Label>
-                            <Input value={food.dose} onChange={(e) => updateFood(mi, fi, 'dose', e.target.value)}
-                              placeholder="Ex: 2 unid. / 100g" maxLength={60} className="h-9 text-sm" />
+                          <div className="col-span-4 sm:col-span-2">
+                            <Label className="text-[10px] text-gray-500">Quantidade (g)</Label>
+                            <Input
+                              type="number" min={0} step="1" inputMode="decimal"
+                              value={food.quantidadeG}
+                              onChange={(e) => updateFood(mi, fi, 'quantidadeG', e.target.value)}
+                              placeholder="60"
+                              className="h-9 text-sm"
+                            />
                           </div>
-                          <div className="col-span-6 sm:col-span-3">
+                          <div className="col-span-8 sm:col-span-3">
+                            <Label className="text-[10px] text-gray-500">Medida caseira</Label>
+                            <Input value={food.dose} onChange={(e) => updateFood(mi, fi, 'dose', e.target.value)}
+                              placeholder="3 colheres de sopa" maxLength={60} className="h-9 text-sm" />
+                          </div>
+                          <div className="col-span-12 sm:col-span-3">
                             <Label className="text-[10px] text-gray-500">Obs. / Substituição</Label>
                             <Input value={food.notes} onChange={(e) => updateFood(mi, fi, 'notes', e.target.value)}
                               placeholder="Ex: ou 1 scoop whey" maxLength={200} className="h-9 text-sm" />
                           </div>
                         </div>
-                        {/* Linha de valores nutricionais (opcional) */}
+                        {/* Valores nutricionais. Com alimento da base, saem do
+                            cálculo e NÃO devem ser digitados — por isso o
+                            aviso diz o que acontece se forem. */}
+                        <p className="text-[10px] text-gray-400">
+                          {food.por100
+                            ? `Calculado para ${food.quantidadeG || '0'} g a partir da base (valores por 100 g). Editar um campo abaixo desfaz o cálculo automático.`
+                            : 'Valores digitados manualmente.'}
+                        </p>
                         <div className="flex items-end gap-2">
                           <div className="flex-1">
                             <Label className="text-[10px] text-gray-500">Kcal</Label>

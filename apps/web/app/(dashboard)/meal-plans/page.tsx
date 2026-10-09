@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { SeletorDePaciente } from '@/components/SeletorDePaciente';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Loader2, UtensilsCrossed, ChevronRight, Users } from 'lucide-react';
 import { api } from '@/lib/api-client';
@@ -37,8 +38,14 @@ export default function MealPlansPage() {
     },
   });
 
-  // Sem paciente na URL não há plano a listar — planos existem sempre vinculados
-  // a alguém, então a tela orienta em vez de mostrar lista vazia.
+  // Sem paciente na URL, a tela ESCOLHE o paciente em vez de mandar embora.
+  //
+  // Antes havia só um botão "Ir para pacientes". O menu lateral aponta para
+  // /meal-plans sem `?patient=`, então quem clicava em "Planos Alimentares"
+  // era devolvido à lista de pacientes e concluía que a criação de plano
+  // estava quebrada — item 1 do relatório de testes de 07/10/2026. Pior: a
+  // pessoa ia tentar montar a dieta na tela de prescrição, que é a que não
+  // calculava a gramagem.
   if (!patientId) {
     return (
       <>
@@ -46,16 +53,24 @@ export default function MealPlansPage() {
           title="Planos Alimentares"
           description="Prescrição de plano alimentar por paciente"
         />
-        <div className="p-4 sm:p-6">
+        <div className="p-4 sm:p-6 max-w-xl">
           <Card>
-            <CardContent className="py-10 text-center space-y-3">
-              <Users className="h-8 w-8 text-gray-300 mx-auto" />
+            <CardContent className="pt-5 space-y-4">
               <p className="text-sm text-muted-foreground">
-                Escolha um paciente para ver ou criar planos alimentares.
+                Planos alimentares são sempre de um paciente. Escolha de quem
+                você quer ver ou criar um plano.
               </p>
-              <Link href="/patients">
-                <Button size="sm" variant="outline">Ir para pacientes</Button>
-              </Link>
+              <SeletorDePaciente
+                id="plano-paciente"
+                value=""
+                onChange={(id) => {
+                  if (id) window.location.href = `/meal-plans?patient=${id}`;
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Prefere começar pela ficha?{' '}
+                <Link href="/patients" className="underline">Ver todos os pacientes</Link>.
+              </p>
             </CardContent>
           </Card>
         </div>
