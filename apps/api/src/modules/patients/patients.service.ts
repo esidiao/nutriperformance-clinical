@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { Patient } from './patient.entity';
@@ -285,6 +285,50 @@ export class PatientsService {
         isActive: false,
       },
     );
+  }
+
+  /**
+   * Nome e código dos pacientes citados por outra tela, já descriptografados.
+   *
+   * Existe porque `patients.name_encrypted` é `bytea`: um JOIN em SQL devolve
+   * bytes, não nome. Telas que listam registros de vários pacientes — metas,
+   * suplementação — não conseguem identificar de quem é cada linha sem passar
+   * por aqui.
+   *
+   * Sem isso, a tela de metas mostrava três exemplos escritos no código, e a
+   * testadora leu como "metas de todos os pacientes misturadas".
+   *
+   * Lê dado pessoal, então audita: o acesso a nome de paciente tem a mesma
+   * exigência de registro venha de onde vier.
+   */
+  async nomesPorId(
+    workspaceId: string,
+    ids: string[],
+    requestingUserId?: string,
+  ): Promise<Map<string, { nome: string; codigo: string | null }>> {
+    const unicos = [...new Set(ids.filter(Boolean))];
+    if (!unicos.length) return new Map();
+
+    const pacientes = await this.patientRepo.find({
+      where: { id: In(unicos), workspaceId },
+      select: ['id', 'nameEncrypted', 'internalCode'] as any,
+    });
+
+    await this.auditService.log({
+      workspaceId,
+      userId: requestingUserId,
+      action: 'READ',
+      resource: 'patients',
+      changes: { resolvidos: pacientes.length, motivo: 'identificacao em lista' },
+    });
+
+    return new Map(pacientes.map((p) => [
+      p.id,
+      {
+        nome: p.nameEncrypted ? this.decrypt(p.nameEncrypted) : '—',
+        codigo: p.internalCode ?? null,
+      },
+    ]));
   }
 
   private toPublicDto(patient: Patient, name: string, email?: string) {

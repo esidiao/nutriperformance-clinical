@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
+import { SeletorDePaciente } from '@/components/SeletorDePaciente';
+import { api } from '@/lib/api-client';
 import {
   Plus, Pill, ShieldAlert, Coins, Search,
   AlertTriangle, ChevronDown, ChevronUp, Brain,
@@ -36,6 +39,8 @@ interface PatientSupplement {
   riskLevel?: RiskLevel;
   adverseEvents?: string;
   startDate?: string;
+  patientId: string;
+  paciente?: { nome: string; codigo: string | null } | null;
 }
 
 const CATEGORY_LABELS: Record<SupplementCategory, string> = {
@@ -55,33 +60,7 @@ const RISK_CONFIG: Record<RiskLevel, { label: string; badge: string; border: str
   insufficient_data:{ label: 'Não avaliado',    badge: 'bg-gray-100 text-gray-600 border-gray-300',    border: 'border-l-gray-300' },
 };
 
-const MOCK_SUPPLEMENTS: PatientSupplement[] = [
-  {
-    id: '1', supplementName: 'Creatina Monoidratada', brand: 'Optimum Nutrition',
-    category: 'creatine', dose: '5g', frequency: 'Diária', timing: 'Pós-treino',
-    withMeal: true, withTraining: true, purpose: 'Hipertrofia e ganho de força',
-    isActive: true, riskLevel: 'low', startDate: '01/04/2026',
-  },
-  {
-    id: '2', supplementName: 'Whey Protein Concentrado', brand: 'Growth',
-    category: 'protein', dose: '30g (1 scoop)', frequency: '1-2x ao dia', timing: 'Pós-treino e/ou café da manhã',
-    withMeal: false, withTraining: true, purpose: 'Complementação proteica para hipertrofia',
-    isActive: true, riskLevel: 'low', startDate: '01/04/2026',
-  },
-  {
-    id: '3', supplementName: 'Sulfato Ferroso', brand: 'Genérico (farmácia)',
-    category: 'minerals', dose: '40mg ferro elementar', frequency: 'Diária', timing: 'Em jejum com vitamina C',
-    withMeal: false, withTraining: false, purpose: 'Correção de deficiência de ferro',
-    isActive: true, riskLevel: 'moderate', startDate: '15/03/2026',
-    adverseEvents: 'Leve desconforto gástrico inicial, já resolvido',
-  },
-  {
-    id: '4', supplementName: 'Vitamina D3 5000 UI', brand: 'Sundown',
-    category: 'vitamins', dose: '5000 UI', frequency: 'Diária', timing: 'Com refeição gordurosa',
-    withMeal: true, withTraining: false, purpose: 'Correção de deficiência (25-OH VitD: 18 ng/mL)',
-    isActive: true, riskLevel: 'low', startDate: '15/03/2026',
-  },
-];
+// MOCK_SUPPLEMENTS removido: a tela lia quatro exemplos escritos aqui.
 
 interface SupplementFormState {
   supplementName: string;
@@ -103,8 +82,47 @@ const EMPTY_FORM: SupplementFormState = {
   startDate: '', adverseEvents: '',
 };
 
+/**
+ * Converte a linha da API para o formato que esta tela já desenhava.
+ *
+ * O banco guarda dose e frequência separadas e tipadas (`doseAmount` +
+ * `doseUnit`, `frequencyPerDay`); a tela sempre mostrou texto. A conversão
+ * fica aqui, num lugar só, em vez de espalhar `${a} ${b}` pelo JSX.
+ */
+function daApi(r: any): PatientSupplement {
+  const dose = [r.doseAmount, r.doseUnit].filter((x) => x !== null && x !== undefined && x !== '').join(' ');
+  return {
+    id: r.id,
+    patientId: r.patientId,
+    paciente: r.paciente ?? null,
+    supplementName: r.supplementName,
+    brand: r.brand ?? undefined,
+    category: (r.anvisaCategory as SupplementCategory) ?? 'other',
+    dose: dose || '—',
+    frequency: r.frequencyPerDay ? `${r.frequencyPerDay}x/dia` : '—',
+    timing: r.administrationTiming ?? undefined,
+    withMeal: !!r.withFood,
+    purpose: r.therapeuticGoal ?? '',
+    isActive: !!r.isActive,
+    riskLevel: (r.riskLevel as RiskLevel) ?? 'insufficient_data',
+    startDate: r.startDate ?? undefined,
+  };
+}
+
 export default function SupplementationPage() {
-  const [supplements, setSupplements] = useState<PatientSupplement[]>(MOCK_SUPPLEMENTS);
+  const qc = useQueryClient();
+  const [filtroPaciente, setFiltroPaciente] = useState('');
+  const [verInativos, setVerInativos] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [novoPaciente, setNovoPaciente] = useState('');
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['suplementacao', filtroPaciente, verInativos],
+    queryFn: () => api.supplementation.listarTodas(filtroPaciente || undefined, verInativos),
+  });
+  const supplements: PatientSupplement[] = ((data as any[]) ?? []).map(daApi);
+  const recarregar = () => qc.invalidateQueries({ queryKey: ['suplementacao'] });
+  const aoFalhar = (e: any) => setErro(e?.message ?? 'Não foi possível concluir a ação.');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<SupplementFormState>(EMPTY_FORM);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -116,29 +134,74 @@ export default function SupplementationPage() {
     CATEGORY_LABELS[s.category].toLowerCase().includes(search.toLowerCase()),
   );
 
-  const handleAdd = () => {
-    if (!form.supplementName || !form.dose || !form.frequency) return;
-    const newEntry: PatientSupplement = {
-      id: String(Date.now()), ...form, isActive: true, riskLevel: 'insufficient_data',
+  /**
+   * Dose vem como texto livre ("5 g", "2 cápsulas"). O banco guarda número e
+   * unidade separados, então a conversão acontece aqui. O que não for número
+   * reconhecível vai inteiro para a unidade, em vez de virar null em silêncio.
+   */
+  const separarDose = (texto: string) => {
+    const m = texto.trim().match(/^([\d.,]+)\s*(.*)$/);
+    if (!m) return { doseAmount: undefined, doseUnit: texto.trim() || undefined };
+    const n = Number(m[1].replace(',', '.'));
+    return {
+      doseAmount: Number.isFinite(n) ? n : undefined,
+      doseUnit: m[2].trim() || undefined,
     };
-    setSupplements((prev) => [newEntry, ...prev]);
-    setForm(EMPTY_FORM);
-    setShowForm(false);
   };
 
-  const handleToggleActive = (id: string) => {
-    setSupplements((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s)),
-    );
-  };
+  const criar = useMutation({
+    mutationFn: () => {
+      const { doseAmount, doseUnit } = separarDose(form.dose);
+      const freq = Number(String(form.frequency).replace(/[^\d]/g, ''));
+      return api.supplementation.create({
+        patientId: novoPaciente,
+        supplementName: form.supplementName.trim(),
+        brand: form.brand.trim() || undefined,
+        anvisaCategory: form.category,
+        doseAmount,
+        doseUnit,
+        frequencyPerDay: Number.isFinite(freq) && freq > 0 ? freq : undefined,
+        administrationTiming: form.timing.trim() || undefined,
+        withFood: form.withMeal,
+        therapeuticGoal: form.purpose.trim() || undefined,
+        startDate: form.startDate || undefined,
+        professionalNotes: form.adverseEvents.trim()
+          ? `Evento adverso relatado: ${form.adverseEvents.trim()}`
+          : undefined,
+        isActive: true,
+      });
+    },
+    onSuccess: () => {
+      setForm(EMPTY_FORM); setNovoPaciente(''); setShowForm(false); setErro(null);
+      recarregar();
+    },
+    onError: aoFalhar,
+  });
 
-  const handleAnalyze = async (id: string) => {
-    setIsAnalyzing(id);
-    await new Promise((r) => setTimeout(r, 2000));
-    setSupplements((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, riskLevel: 'low' } : s)),
-    );
-    setIsAnalyzing(null);
+  const alternarAtivo = useMutation({
+    mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) =>
+      ativo ? api.supplementation.deactivate(id) : api.supplementation.update(id, { isActive: true }),
+    onSuccess: () => { setErro(null); recarregar(); },
+    onError: aoFalhar,
+  });
+
+  const analisar = useMutation({
+    mutationFn: (patientId: string) => api.supplementation.analyze(patientId),
+    onSuccess: () => { setIsAnalyzing(null); setErro(null); recarregar(); },
+    onError: (e) => { setIsAnalyzing(null); aoFalhar(e); },
+  });
+
+  const handleAdd = () => criar.mutate();
+  const handleToggleActive = (id: string, ativo: boolean) => alternarAtivo.mutate({ id, ativo });
+
+  /**
+   * A análise é por PACIENTE, não por suplemento: ela avalia o conjunto em uso
+   * para encontrar interação entre eles. Analisar um item isolado não
+   * responderia a pergunta que importa.
+   */
+  const handleAnalyze = (patientId: string) => {
+    setIsAnalyzing(patientId);
+    analisar.mutate(patientId);
   };
 
   const activeCount = supplements.filter((s) => s.isActive).length;
@@ -179,6 +242,13 @@ export default function SupplementationPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <SeletorDePaciente
+                id="suplemento-paciente"
+                value={novoPaciente}
+                obrigatorio
+                onChange={(id) => setNovoPaciente(id)}
+              />
+              <div className="hidden md:block" />
               <div>
                 <Label>Nome do suplemento *</Label>
                 <Input value={form.supplementName}
@@ -251,11 +321,40 @@ export default function SupplementationPage() {
             </div>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button onClick={handleAdd}>Registrar suplemento</Button>
+              <Button
+                onClick={handleAdd}
+                disabled={!novoPaciente || !form.supplementName.trim() || criar.isPending}
+              >
+                Registrar suplemento
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {erro && <p className="text-sm text-destructive">{erro}</p>}
+
+      {/* Filtro por paciente — sem isto a lista do workspace não diz de quem é
+          cada linha, que foi o problema apontado na tela de Metas. */}
+      <Card>
+        <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+          <SeletorDePaciente
+            id="filtro-suplemento-paciente"
+            label="Filtrar por paciente"
+            value={filtroPaciente}
+            onChange={(id) => setFiltroPaciente(id)}
+          />
+          <label className="flex items-center gap-2 text-sm h-10">
+            <input
+              type="checkbox"
+              checked={verInativos}
+              onChange={(e) => setVerInativos(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Mostrar também os suplementos desativados
+          </label>
+        </CardContent>
+      </Card>
 
       {/* Busca */}
       <div className="relative max-w-xs">
@@ -266,6 +365,16 @@ export default function SupplementationPage() {
 
       {/* Lista de suplementos */}
       <div className="space-y-3">
+        {isLoading && (
+          <div className="py-10 flex justify-center text-sm text-muted-foreground">
+            Carregando suplementos…
+          </div>
+        )}
+        {isError && (
+          <p className="py-10 text-center text-sm text-destructive">
+            Não foi possível carregar os suplementos.
+          </p>
+        )}
         {filtered.map((supp) => {
           const risk = supp.riskLevel ?? 'insufficient_data';
           const riskCfg = RISK_CONFIG[risk];
@@ -278,6 +387,14 @@ export default function SupplementationPage() {
                 {/* Linha principal */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-600 mb-1">
+                      {supp.paciente
+                        ? <>
+                            <span className="font-medium">{supp.paciente.nome}</span>
+                            {supp.paciente.codigo && <span className="text-gray-400"> · {supp.paciente.codigo}</span>}
+                          </>
+                        : <span className="italic text-gray-400">paciente não identificado</span>}
+                    </p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <Pill className="h-4 w-4 text-gray-400 flex-shrink-0" />
                       <span className="font-semibold text-gray-900">{supp.supplementName}</span>
@@ -307,13 +424,13 @@ export default function SupplementationPage() {
                       {riskCfg.label}
                     </span>
                     <div className="flex items-center gap-1">
-                      {isAnalyzing === supp.id ? (
+                      {isAnalyzing === supp.patientId ? (
                         <Button size="sm" variant="outline" disabled className="text-xs h-7">
                           <span className="animate-spin mr-1">⟳</span> Analisando…
                         </Button>
                       ) : (
                         <Button size="sm" variant="outline" className="text-xs h-7 flex items-center gap-1"
-                          onClick={() => handleAnalyze(supp.id)}>
+                          onClick={() => handleAnalyze(supp.patientId)}>
                           <Brain className="h-3 w-3" />
                           Analisar
                           <span className="text-gray-400 ml-0.5">(8</span>
@@ -348,7 +465,7 @@ export default function SupplementationPage() {
                     </div>
                     <div className="flex gap-2 mt-2">
                       <Button size="sm" variant="outline" className="text-xs h-7"
-                        onClick={() => handleToggleActive(supp.id)}>
+                        onClick={() => handleToggleActive(supp.id, supp.isActive)}>
                         {supp.isActive ? 'Desativar' : 'Reativar'}
                       </Button>
                     </div>
@@ -362,7 +479,7 @@ export default function SupplementationPage() {
           );
         })}
 
-        {filtered.length === 0 && (
+        {!isLoading && !isError && filtered.length === 0 && (
           <EmptyState
             icon="💊"
             title="Nenhum suplemento registrado"

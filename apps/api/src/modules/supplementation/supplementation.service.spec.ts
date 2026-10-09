@@ -7,6 +7,7 @@ import { AIEngineService } from '../ai/ai-engine.service';
 import { TokenService } from '../tokens/token.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { AuditService } from '../audit/audit.service';
+import { PatientsService } from '../patients/patients.service';
 
 describe('SupplementationService', () => {
   let service: SupplementationService;
@@ -24,6 +25,8 @@ describe('SupplementationService', () => {
   };
   const mockAlerts = { evaluateSupplementation: jest.fn().mockResolvedValue(undefined) };
   const mockAudit = { log: jest.fn() };
+  // Nome de paciente e criptografado; quem descriptografa e o PatientsService.
+  const mockPatients = { nomesPorId: jest.fn().mockResolvedValue(new Map()) };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -35,6 +38,7 @@ describe('SupplementationService', () => {
         { provide: TokenService, useValue: mockTokens },
         { provide: AlertsService, useValue: mockAlerts },
         { provide: AuditService, useValue: mockAudit },
+        { provide: PatientsService, useValue: mockPatients },
       ],
     }).compile();
     service = module.get<SupplementationService>(SupplementationService);

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PatientGoal } from './patient-goal.entity';
 import { AuditService } from '../audit/audit.service';
+import { PatientsService } from '../patients/patients.service';
 
 @Injectable()
 export class GoalsService {
@@ -10,6 +11,7 @@ export class GoalsService {
     @InjectRepository(PatientGoal)
     private readonly repo: Repository<PatientGoal>,
     private readonly auditService: AuditService,
+    private readonly patientsService: PatientsService,
   ) {}
 
   async create(
@@ -34,6 +36,46 @@ export class GoalsService {
       resourceId: saved.id,
     });
     return saved;
+  }
+
+  /**
+   * Metas do workspace inteiro, cada uma com o paciente identificado.
+   *
+   * A tela de Metas mostrava três exemplos escritos no código, e a testadora
+   * leu como "metas de todos os pacientes misturadas". Não era mistura de dado
+   * real — era dado falso. Mas a leitura dela apontou o requisito certo: sem o
+   * nome do paciente em cada linha, uma lista de metas não serve para nada.
+   *
+   * O nome vem do PatientsService porque está criptografado no banco; JOIN em
+   * SQL devolveria bytes. Meta de paciente que sumiu do workspace fica com
+   * `paciente: null` em vez de desaparecer — some da tela seria perder o
+   * registro sem avisar.
+   */
+  async listarDoWorkspace(
+    workspaceId: string,
+    userId: string,
+    filtros: { patientId?: string; incluirConcluidas?: boolean } = {},
+  ) {
+    const where: Record<string, unknown> = { workspaceId };
+    if (filtros.patientId) where.patientId = filtros.patientId;
+    if (!filtros.incluirConcluidas) where.isAchieved = false;
+
+    const metas = await this.repo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: 500,
+    });
+
+    const nomes = await this.patientsService.nomesPorId(
+      workspaceId,
+      metas.map((m) => m.patientId),
+      userId,
+    );
+
+    return metas.map((m) => ({
+      ...m,
+      paciente: nomes.get(m.patientId) ?? null,
+    }));
   }
 
   async findByPatient(workspaceId: string, patientId: string): Promise<PatientGoal[]> {

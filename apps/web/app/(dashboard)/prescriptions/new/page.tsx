@@ -11,19 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
+import { SeletorDePaciente, type PacienteResumo } from '@/components/SeletorDePaciente';
 import type { PrescriptionData, PrescriptionItem, PrescriptionInteraction, PrescriptionMeal } from '@/lib/pdf/generatePrescription';
 import {
   FileText, Download, Plus, Trash2, Coins, ShieldAlert,
-  User, ChevronDown, CheckCircle, Pill, Leaf, AlertTriangle, Clock, UtensilsCrossed, Flame,
+  CheckCircle, Pill, Leaf, AlertTriangle, Clock, UtensilsCrossed, Flame,
 } from 'lucide-react';
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const PATIENTS = [
-  { id: 'P001', code: 'PAC-SEED-001', age: 28, gender: 'Feminino', goal: 'Hipertrofia' },
-  { id: 'P002', code: 'PAC-002',      age: 42, gender: 'Masculino', goal: 'Emagrecimento' },
-  { id: 'P003', code: 'PAC-003',      age: 35, gender: 'Feminino',  goal: 'Saúde geral' },
-  { id: 'P004', code: 'PAC-004',      age: 24, gender: 'Masculino', goal: 'Performance' },
-];
+// A lista de pacientes vem da API. Antes eram quatro exemplos escritos aqui
+// (PAC-SEED-001 a PAC-004): o PDF saía certinho, mas vinculado a um paciente
+// que não existe. Relatório de testes de 07/10/2026, item 4.
 
 const PROFESSIONAL = {
   name: 'Dra. Ana Costa',
@@ -94,8 +91,8 @@ const emptyInter = (): PrescriptionInteraction => ({ pair: '', risk: 'moderate',
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PrescriptionNewPage() {
   const [docType, setDocType]           = useState<DocType>('supplementation');
-  const [patientOpen, setPatientOpen]   = useState(false);
-  const [patient, setPatient]           = useState(PATIENTS[0]);
+  const [patientId, setPatientId]       = useState('');
+  const [patient, setPatient]           = useState<PacienteResumo | null>(null);
   const [items, setItems]               = useState<PrescriptionItem[]>([emptySupp()]);
   const [meals, setMeals]               = useState<Meal[]>(makeDefaultMeals());
   const [interactions, setInteractions] = useState<PrescriptionInteraction[]>([]);
@@ -177,6 +174,13 @@ export default function PrescriptionNewPage() {
 
   // ─── Generate PDF ──────────────────────────────────────────────────────────
   const handleGenerate = async () => {
+    // Antes a tela tinha um paciente de exemplo sempre selecionado, entao
+    // nunca faltava. Com a lista real, gerar sem escolher produziria um
+    // documento assinado sem identificar ninguem.
+    if (!patient) {
+      toast.error('Escolha o paciente antes de gerar o PDF.');
+      return;
+    }
     if (!hasContent) {
       toast.error(docType === 'supplementation'
         ? 'Adicione ao menos um suplemento antes de gerar o PDF.'
@@ -193,7 +197,12 @@ export default function PrescriptionNewPage() {
         date: todayBR(),
         validity: validityDate(Number(validity) || 90),
         professional: PROFESSIONAL,
-        patient: { code: patient.code, age: patient.age, gender: patient.gender, goal: patient.goal },
+        patient: {
+          name: patient!.name,
+          code: patient!.internalCode ?? '—',
+          age: patient!.age ?? 0,
+          gender: patient!.gender ?? '—',
+        },
         items: docType === 'supplementation'
           ? items.filter((it) => it.name.trim())
           : (presMeals ?? []).flatMap((m) => m.items),
@@ -208,7 +217,9 @@ export default function PrescriptionNewPage() {
       const { generatePrescriptionPDF } = await import('@/lib/pdf/generatePrescription');
       await generatePrescriptionPDF(data);
       toast.success('Prescrição gerada com sucesso!', {
-        description: `prescricao-${patient.code.toLowerCase()}-${todayBR().replace(/\//g, '-')}.pdf`,
+        // Nome do paciente NAO entra no nome do arquivo: ele fica visivel na
+        // pasta de downloads e em qualquer tela compartilhada.
+        description: `prescricao-${(patient!.internalCode ?? patient!.id.slice(0, 8)).toLowerCase()}-${todayBR().replace(/\//g, '-')}.pdf`,
       });
     } catch (err) {
       console.error(err);
@@ -294,38 +305,20 @@ export default function PrescriptionNewPage() {
             <CardTitle className="text-sm font-semibold">Paciente</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative">
-              <button
-                onClick={() => setPatientOpen(!patientOpen)}
-                className="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{patient.code}</p>
-                  <p className="text-xs text-gray-500">{patient.age} anos · {patient.gender} · {patient.goal}</p>
-                </div>
-                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${patientOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {patientOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden">
-                  {PATIENTS.map((p) => (
-                    <button key={p.id} onClick={() => { setPatient(p); setPatientOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 text-left transition-colors ${patient.id === p.id ? 'bg-blue-50 dark:bg-blue-950' : ''}`}>
-                      <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-xs font-bold">{p.code.slice(-2)}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{p.code}</p>
-                        <p className="text-xs text-gray-500">{p.age}a · {p.gender} · {p.goal}</p>
-                      </div>
-                      {patient.id === p.id && <CheckCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <SeletorDePaciente
+              id="prescricao-paciente"
+              label="Paciente"
+              obrigatorio
+              value={patientId}
+              onChange={(id, p) => { setPatientId(id); setPatient(p ?? null); }}
+            />
+            {patient && (
+              <p className="mt-2 text-xs text-gray-500">
+                {patient.internalCode ?? 'sem código'}
+                {patient.age != null ? ` · ${patient.age} anos` : ''}
+                {patient.gender ? ` · ${patient.gender}` : ''}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -643,7 +636,9 @@ export default function PrescriptionNewPage() {
             <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
               {[
                 `Cabeçalho — ${PROFESSIONAL.name} · ${PROFESSIONAL.council} ${PROFESSIONAL.councilNumber}`,
-                `Paciente — ${patient.code} · ${patient.age}a · ${patient.goal}`,
+                patient
+                  ? `Paciente — ${patient.name}${patient.internalCode ? ` · ${patient.internalCode}` : ''}`
+                  : 'Paciente — nenhum selecionado',
                 docType === 'supplementation'
                   ? `${suppCount} suplemento(s)`
                   : `${mealCount} refeição(ões) · ${mealFoodCount} alimento(s)`,
@@ -663,7 +658,7 @@ export default function PrescriptionNewPage() {
         <div className="flex justify-end pt-2 border-t dark:border-gray-800">
           <Button
             onClick={handleGenerate}
-            disabled={generating || !hasContent}
+            disabled={generating || !hasContent || !patient}
             size="lg"
             className="flex items-center gap-2 min-w-[200px]"
           >

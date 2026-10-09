@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Body, Request, UseGuards,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, Request, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
@@ -24,6 +24,26 @@ export class GoalsController {
   @Post()
   create(@Request() req: any, @Body() dto: Partial<PatientGoal>) {
     return this.svc.create(req.user.workspaceId, req.user.sub, dto);
+  }
+
+  /**
+   * Lista do workspace, com o paciente identificado em cada meta.
+   *
+   * Vem ANTES de `@Get(':id')` de propósito: o Nest casa na ordem de
+   * declaração, e `/goals` sem parâmetro não pode ser engolido por uma rota de
+   * id.
+   */
+  @ClinicalStaff()
+  @Get()
+  listar(
+    @Request() req: any,
+    @Query('patientId') patientId?: string,
+    @Query('concluidas') concluidas?: string,
+  ) {
+    return this.svc.listarDoWorkspace(req.user.workspaceId, req.user.sub, {
+      patientId: patientId || undefined,
+      incluirConcluidas: concluidas === 'true',
+    });
   }
 
   @ClinicalStaff()

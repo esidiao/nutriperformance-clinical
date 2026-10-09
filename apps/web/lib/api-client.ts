@@ -263,6 +263,13 @@ export const api = {
   },
 
   supplementation: {
+    listarTodas: (patientId?: string, inativos?: boolean) => {
+      const q = new URLSearchParams();
+      if (patientId) q.set('patientId', patientId);
+      if (inativos) q.set('inativos', 'true');
+      const qs = q.toString();
+      return api.get<any[]>(`/supplementation${qs ? `?${qs}` : ''}`);
+    },
     list: (patientId: string) => api.get<any[]>(`/supplementation/patient/${patientId}`),
     create: (dto: any) => api.post<any>('/supplementation', dto),
     update: (id: string, dto: any) => api.patch<any>(`/supplementation/${id}`, dto),
@@ -331,6 +338,15 @@ export const api = {
 
   // Goals
   goals: {
+    // Lista do workspace, cada meta com { paciente: { nome, codigo } }. A tela
+    // de topo precisa disso: sem o nome, nao da para saber de quem e a meta.
+    listarTodas: (patientId?: string, concluidas?: boolean) => {
+      const q = new URLSearchParams();
+      if (patientId) q.set('patientId', patientId);
+      if (concluidas) q.set('concluidas', 'true');
+      const qs = q.toString();
+      return api.get<any[]>(`/goals${qs ? `?${qs}` : ''}`);
+    },
     list: (patientId: string) => api.get<any[]>(`/goals/patient/${patientId}`),
     summary: (patientId: string) => api.get<any>(`/goals/patient/${patientId}/summary`),
     create: (dto: any) => api.post<any>('/goals', dto),

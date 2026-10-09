@@ -102,10 +102,11 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   const patCols = [
+    `Paciente: ${sanitize(data.patient.name, 60)}`,
     `Código: ${sanitize(data.patient.code, 40)}`,
     `Idade: ${data.patient.age} anos`,
     `Sexo: ${sanitize(data.patient.gender, 20)}`,
-    `Objetivo: ${sanitize(data.patient.goal, 60)}`,
+    ...(data.patient.goal ? [`Objetivo: ${sanitize(data.patient.goal, 60)}`] : []),
   ];
   const colW = CW / patCols.length;
   patCols.forEach((t, i) => {
@@ -361,10 +362,17 @@ export interface PrescriptionData {
     clinic: string;
   };
   patient: {
+    /** Nome do paciente. Prescricao sem nome nao identifica ninguem. */
+    name: string;
     code: string;
     age: number;
     gender: string;
-    goal: string;
+    /**
+     * Objetivo clinico. Opcional: o cadastro do paciente nao guarda esse
+     * campo, e inventar um objetivo num documento assinado seria pior que
+     * omitir.
+     */
+    goal?: string;
   };
   items: PrescriptionItem[];
   /** Quando presente (type='prescription'), o PDF é renderizado agrupado por refeição. */

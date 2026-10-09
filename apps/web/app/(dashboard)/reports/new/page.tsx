@@ -9,9 +9,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageHeader } from '@/components/PageHeader';
+import { SeletorDePaciente, type PacienteResumo } from '@/components/SeletorDePaciente';
 import {
   FileText, Coins, ShieldAlert, CheckSquare, Square,
-  Download, Printer, User, CheckCircle, Eye, ChevronDown,
+  Download, Printer, CheckCircle, Eye,
 } from 'lucide-react';
 
 type ReportType = 'nutritional_assessment' | 'physical_assessment' | 'supplementation_analysis' | 'full_clinical' | 'evolution' | 'goals';
@@ -36,12 +37,9 @@ const MODULES = [
   { id: 'alerts',        label: 'Alertas Clínicos' },
 ];
 
-// Fake patient list for selector
-const PATIENTS = [
-  { id: 'P001', code: 'PAC-SEED-001', age: 28, gender: 'F', goal: 'Hipertrofia' },
-  { id: 'P002', code: 'PAC-002',      age: 42, gender: 'M', goal: 'Emagrecimento' },
-  { id: 'P003', code: 'PAC-003',      age: 35, gender: 'F', goal: 'Saúde geral' },
-];
+// Os pacientes vêm da API. Eram três exemplos escritos aqui — a mesma lista
+// falsa que a tela de prescrição tinha, e que no relatório de testes apareceu
+// como "os pacientes cadastrados não aparecem para seleção".
 
 const LEGAL = `Este relatório foi gerado pelo NutriPerformance Clinical como ferramenta de apoio profissional.
 NÃO constitui diagnóstico médico, prescrição ou tratamento.
@@ -84,8 +82,8 @@ CFN · CONFEF · LGPD (Lei 13.709/2018)
 
 export default function ReportNewPage() {
   const [selectedType, setSelectedType]       = useState<ReportType>('full_clinical');
-  const [selectedPatient, setSelectedPatient] = useState(PATIENTS[0]);
-  const [showPatientSelector, setShowPatientSelector] = useState(false);
+  const [patientId, setPatientId] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<PacienteResumo | null>(null);
   const [selectedModules, setSelectedModules] = useState(['nutritional', 'physical', 'supplementation', 'interactions', 'goals']);
   const [professionalNotes, setProfessionalNotes] = useState('');
   const [pdfReady, setPdfReady]               = useState(false);
@@ -139,41 +137,20 @@ export default function ReportNewPage() {
         {/* Paciente */}
         <Card>
           <CardContent className="pt-4 pb-4">
-            <div className="relative">
-              <button
-                onClick={() => setShowPatientSelector(!showPatientSelector)}
-                className="w-full flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-xl border border-blue-200 dark:border-blue-800 hover:border-blue-300 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{selectedPatient.code}</p>
-                  <p className="text-xs text-gray-500">{selectedPatient.age} anos · {selectedPatient.gender === 'F' ? 'Feminino' : 'Masculino'} · {selectedPatient.goal}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-blue-600 font-medium">Alterar</span>
-                  <ChevronDown className={`h-4 w-4 text-blue-600 transition-transform ${showPatientSelector ? 'rotate-180' : ''}`} />
-                </div>
-              </button>
-              {showPatientSelector && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 rounded-xl border shadow-lg z-10 overflow-hidden">
-                  {PATIENTS.map((p) => (
-                    <button key={p.id} onClick={() => { setSelectedPatient(p); setShowPatientSelector(false); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 text-left transition-colors ${selectedPatient.id === p.id ? 'bg-blue-50 dark:bg-blue-950' : ''}`}>
-                      <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-xs font-bold">{p.code.slice(-2)}</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{p.code}</p>
-                        <p className="text-xs text-gray-500">{p.age}a · {p.goal}</p>
-                      </div>
-                      {selectedPatient.id === p.id && <CheckCircle className="ml-auto h-4 w-4 text-blue-600" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <SeletorDePaciente
+              id="relatorio-paciente"
+              label="Paciente"
+              obrigatorio
+              value={patientId}
+              onChange={(id, p) => { setPatientId(id); setSelectedPatient(p ?? null); }}
+            />
+            {selectedPatient && (
+              <p className="mt-2 text-xs text-gray-500">
+                {selectedPatient.internalCode ?? 'sem código'}
+                {selectedPatient.age != null ? ` · ${selectedPatient.age} anos` : ''}
+                {selectedPatient.gender ? ` · ${selectedPatient.gender}` : ''}
+              </p>
+            )}
           </CardContent>
         </Card>
 

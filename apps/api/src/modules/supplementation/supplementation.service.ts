@@ -6,6 +6,7 @@ import { AIEngineService as AiEngineService } from '../ai/ai-engine.service';
 import { TokenService } from '../tokens/token.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { AuditService } from '../audit/audit.service';
+import { PatientsService } from '../patients/patients.service';
 
 @Injectable()
 export class SupplementationService {
@@ -18,6 +19,7 @@ export class SupplementationService {
     private readonly tokenService: TokenService,
     private readonly alertsService: AlertsService,
     private readonly auditService: AuditService,
+    private readonly patientsService: PatientsService,
   ) {}
 
   async create(
@@ -35,6 +37,41 @@ export class SupplementationService {
       resourceId: saved.id,
     });
     return saved;
+  }
+
+  /**
+   * Suplementacoes do workspace, com o paciente identificado em cada linha.
+   *
+   * Mesma razao da lista de metas: a tela de topo mostrava dados de exemplo
+   * escritos no codigo, e sem o nome do paciente uma lista assim nao serve
+   * para nada. O nome vem do PatientsService porque esta criptografado.
+   *
+   * Padrao e so o que esta ATIVO: suplemento desativado e historico, e
+   * misturar os dois numa tela de acompanhamento faz parecer que o paciente
+   * toma o que ja parou de tomar.
+   */
+  async listarDoWorkspace(
+    workspaceId: string,
+    userId: string,
+    filtros: { patientId?: string; incluirInativos?: boolean } = {},
+  ) {
+    const where: Record<string, unknown> = { workspaceId };
+    if (filtros.patientId) where.patientId = filtros.patientId;
+    if (!filtros.incluirInativos) where.isActive = true;
+
+    const itens = await this.repo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: 500,
+    });
+
+    const nomes = await this.patientsService.nomesPorId(
+      workspaceId,
+      itens.map((i) => i.patientId),
+      userId,
+    );
+
+    return itens.map((i) => ({ ...i, paciente: nomes.get(i.patientId) ?? null }));
   }
 
   async findByPatient(workspaceId: string, patientId: string): Promise<PatientSupplementation[]> {

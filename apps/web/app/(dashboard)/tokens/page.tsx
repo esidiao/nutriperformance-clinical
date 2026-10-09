@@ -47,47 +47,64 @@ function ModuleBar({ label, used, total, color }: { label: string; used: number;
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const tokenCosts = [
-  { operation: 'Análise de Interações', tokens: 15, icon: '🔬' },
-  { operation: 'Avaliação Nutricional', tokens: 10, icon: '🥗' },
-  { operation: 'Biodisponibilidade', tokens: 12, icon: '🧬' },
-  { operation: 'Análise de Suplementação', tokens: 8, icon: '💊' },
-  { operation: 'Avaliação Física', tokens: 5, icon: '🏋️' },
-  { operation: 'Geração de Relatório', tokens: 5, icon: '📄' },
-  { operation: 'Exames Laboratoriais', tokens: 10, icon: '🔭' },
-  { operation: 'Sugestão de Meta', tokens: 5, icon: '🎯' },
-];
+//
+// A tabela de preços e o consumo por módulo eram constantes escritas aqui.
+// Duas consequências concretas:
+//
+//  - a lista anunciava "Sugestão de Meta · 5 tokens", preço que foi REMOVIDO
+//    de `token_costs` em 03/10/2026 por não ter nenhum código que o cobre;
+//  - o gráfico de consumo mostrava números inventados ao lado de um saldo
+//    real, o que é pior que não ter gráfico: parece medição.
+//
+// Agora os dois saem da API.
 
-const moduleUsage = [
-  { label: 'Interações', used: 45, color: 'bg-red-400' },
-  { label: 'Avaliações Nutricionais', used: 30, color: 'bg-green-400' },
-  { label: 'Biodisponibilidade', used: 24, color: 'bg-purple-400' },
-  { label: 'Relatórios', used: 10, color: 'bg-blue-400' },
-  { label: 'Outros', used: 6, color: 'bg-gray-400' },
-];
+const ROTULO_OPERACAO: Record<string, { label: string; icon: string; color: string }> = {
+  interaction_analysis:           { label: 'Análise de Interações',   icon: '🔬', color: 'bg-red-400' },
+  nutritional_assessment_summary: { label: 'Avaliação Nutricional',   icon: '🥗', color: 'bg-green-400' },
+  bioavailability_analysis:       { label: 'Biodisponibilidade',      icon: '🧬', color: 'bg-purple-400' },
+  supplementation_analysis:       { label: 'Suplementação',           icon: '💊', color: 'bg-amber-400' },
+  report_generation:              { label: 'Geração de Relatório',    icon: '📄', color: 'bg-blue-400' },
+  laboratory_analysis:            { label: 'Exames Laboratoriais',    icon: '🔭', color: 'bg-cyan-400' },
+  assistant_query:                { label: 'Assistente (RAG)',        icon: '💬', color: 'bg-indigo-400' },
+  nutritional_audio_intake:       { label: 'Transcrição nutricional', icon: '🎙️', color: 'bg-pink-400' },
+  physical_audio_intake:          { label: 'Transcrição física',      icon: '🎙️', color: 'bg-rose-400' },
+};
 
-const mockTransactions = [
-  { date: '22/05/2026', operation: 'Análise de interações — PAC-SEED-001', amount: -15, balance: 557, module: 'interactions' },
-  { date: '21/05/2026', operation: 'Geração de relatório PDF — PAC-002', amount: -5, balance: 572, module: 'reports' },
-  { date: '20/05/2026', operation: 'Avaliação nutricional — PAC-SEED-001', amount: -10, balance: 577, module: 'nutritional' },
-  { date: '20/05/2026', operation: 'Recarga — Plano Profissional', amount: +600, balance: 587, module: 'billing' },
-  { date: '18/05/2026', operation: 'Análise de biodisponibilidade — PAC-003', amount: -12, balance: -13, module: 'bio' },
-  { date: '17/05/2026', operation: 'Análise de interações — PAC-004', amount: -15, balance: -25, module: 'interactions' },
-];
+const descreverOperacao = (op: string) =>
+  ROTULO_OPERACAO[op] ?? { label: op, icon: '•', color: 'bg-gray-400' };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TokensPage() {
 
   const balanceQ = useQuery({ queryKey: ['tokenBalance'], queryFn: () => api.tokens.balance() });
   const historyQ = useQuery({ queryKey: ['tokenHistory'], queryFn: () => api.tokens.history() });
+  const costsQ = useQuery({ queryKey: ['tokenCosts'], queryFn: () => api.tokens.costs() });
 
   const bal: any = balanceQ.data ?? {};
   const currentBalance = typeof bal.balance === 'number' ? bal.balance : 0;
   const available = typeof bal.available === 'number' ? bal.available : currentBalance;
   const isUnlimited = currentBalance >= 100_000_000;
-  const totalUsage = moduleUsage.reduce((a, b) => a + b.used, 0);
+
   const lowBalance = !isUnlimited && !balanceQ.isLoading && currentBalance < 120;
   const history: any[] = Array.isArray(historyQ.data) ? historyQ.data : [];
+
+  // Consumo por módulo derivado do histórico real. Só débitos entram: recarga
+  // é entrada de saldo, não uso.
+  const porModulo = new Map<string, number>();
+  for (const t of history) {
+    const valor = Number(t.amount);
+    if (!Number.isFinite(valor) || valor >= 0) continue;
+    const chave = String(t.module ?? 'outros');
+    porModulo.set(chave, (porModulo.get(chave) ?? 0) + Math.abs(valor));
+  }
+  const moduleUsage = Array.from(porModulo.entries())
+    .map(([op, used]) => ({ ...descreverOperacao(op), used }))
+    .sort((a, b) => b.used - a.used);
+  const totalUsage = moduleUsage.reduce((a, b) => a + b.used, 0);
+
+  const custos: any[] = Array.isArray((costsQ.data as any)?.costs)
+    ? (costsQ.data as any).costs
+    : [];
 
   const fmtDate = (iso?: string) => { if (!iso) return '—'; const d = new Date(iso); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR'); };
 
@@ -160,6 +177,11 @@ export default function TokensPage() {
               {moduleUsage.map((m) => (
                 <ModuleBar key={m.label} label={m.label} used={m.used} total={totalUsage} color={m.color} />
               ))}
+              {!historyQ.isLoading && moduleUsage.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum consumo registrado ainda.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -174,15 +196,23 @@ export default function TokensPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {tokenCosts.map((cost) => (
-                <div key={cost.operation} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-                  <span className="text-base">{cost.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-700 truncate leading-tight">{cost.operation}</p>
-                    <p className="text-xs font-bold text-blue-600 mt-0.5">{cost.tokens} tokens</p>
+              {custos.map((cost: any) => {
+                const d = descreverOperacao(cost.operation);
+                return (
+                  <div key={cost.operation} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+                    <span className="text-base">{d.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-700 truncate leading-tight">{d.label}</p>
+                      <p className="text-xs font-bold text-blue-600 mt-0.5">{cost.tokens} tokens</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              {!costsQ.isLoading && custos.length === 0 && (
+                <p className="col-span-full text-xs text-muted-foreground">
+                  Nenhuma operação tarifada.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

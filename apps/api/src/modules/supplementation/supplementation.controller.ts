@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, Request, UseGuards,
+  Controller, Get, Post, Patch, Param, Body, Query, Request, UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
@@ -19,6 +19,23 @@ export class SupplementationController {
   @Post()
   create(@Request() req: any, @Body() dto: Partial<PatientSupplementation>) {
     return this.svc.create(req.user.workspaceId, req.user.sub, dto);
+  }
+
+  /**
+   * Antes de `@Get(':id')`: o Nest casa na ordem de declaração e uma rota de
+   * id engoliria `/supplementation` sem parâmetro.
+   */
+  @ClinicalStaff()
+  @Get()
+  listar(
+    @Request() req: any,
+    @Query('patientId') patientId?: string,
+    @Query('inativos') inativos?: string,
+  ) {
+    return this.svc.listarDoWorkspace(req.user.workspaceId, req.user.sub, {
+      patientId: patientId || undefined,
+      incluirInativos: inativos === 'true',
+    });
   }
 
   @ClinicalStaff()

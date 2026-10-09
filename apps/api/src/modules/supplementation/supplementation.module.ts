@@ -7,6 +7,7 @@ import { AiModule } from '../ai/ai.module';
 import { TokensModule } from '../tokens/tokens.module';
 import { AlertsModule } from '../alerts/alerts.module';
 import { AuditModule } from '../audit/audit.module';
+import { PatientsModule } from '../patients/patients.module';
 
 @Module({
   imports: [
@@ -15,6 +16,8 @@ import { AuditModule } from '../audit/audit.module';
     TokensModule,
     AlertsModule,
     AuditModule,
+    // Nome do paciente e criptografado; so o PatientsService descriptografa.
+    PatientsModule,
   ],
   providers: [SupplementationService],
   controllers: [SupplementationController],
