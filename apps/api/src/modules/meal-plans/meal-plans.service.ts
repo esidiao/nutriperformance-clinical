@@ -7,6 +7,9 @@ import { Food } from '../foods/food.entity';
 import { AuditService } from '../audit/audit.service';
 import { montarListaCompras, ListaCompras } from './lista-compras';
 import { SupervisionService, PAPEL_ESTUDANTE } from '../supervision/supervision.service';
+import {
+  extrairDoAlimento, somarMicronutrientes, type TotalMicronutriente,
+} from './micronutrientes';
 
 export const REFEICOES = [
   'cafe_manha', 'lanche_manha', 'almoco', 'lanche_tarde',
@@ -22,6 +25,11 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export interface TotaisNutricionais {
   kcal: number; proteinasG: number; carboidratosG: number;
   lipidiosG: number; fibrasG: number; sodioMg: number;
+  /**
+   * Micronutrientes com a COBERTURA junto: quantos itens do plano tinham o
+   * dado. Um total somado sobre 7 de 10 alimentos parece número real e não é.
+   */
+  micronutrientes: Record<string, TotalMicronutriente>;
 }
 
 @Injectable()
@@ -224,6 +232,9 @@ export class MealPlansService {
         lipidiosG: round2(num((food as any).lipidiosG) * f),
         fibrasG: round2(num((food as any).fibrasG) * f),
         sodioMg: round2(num((food as any).sodioMg) * f),
+        // Mesma multiplicação dos macros. Só entram os nutrientes que a base
+        // realmente tem para este alimento — ausente não vira zero.
+        micronutrientes: extrairDoAlimento(food, quantidade),
       };
     } else {
       if (!dto.alimentoNome?.trim()) {
@@ -237,6 +248,10 @@ export class MealPlansService {
         lipidiosG: round2(num(dto.lipidiosG)),
         fibrasG: round2(num(dto.fibrasG)),
         sodioMg: round2(num(dto.sodioMg)),
+        // Item digitado à mão não tem micronutriente conhecido. `{}` diz
+        // exatamente isso, e o relatório trata como cobertura incompleta em
+        // vez de somar zeros.
+        micronutrientes: {},
       };
     }
 
@@ -296,6 +311,7 @@ export class MealPlansService {
       lipidiosG: round2(t.lipidiosG),
       fibrasG: round2(t.fibrasG),
       sodioMg: round2(t.sodioMg),
+      micronutrientes: somarMicronutrientes(itens),
     };
   }
 

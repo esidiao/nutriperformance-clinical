@@ -196,6 +196,9 @@ describe('MealPlansService', () => {
     it('devolve zeros para plano vazio', () => {
       expect(svc.somar([])).toEqual({
         kcal: 0, proteinasG: 0, carboidratosG: 0, lipidiosG: 0, fibrasG: 0, sodioMg: 0,
+        // Vazio, nao com zeros: nutriente que nenhum item tem precisa ficar
+        // DE FORA, senao o relatorio leria 0 como "a dieta nao fornece".
+        micronutrientes: {},
       });
     });
   });

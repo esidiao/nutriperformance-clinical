@@ -25,7 +25,27 @@ export type Situacao =
   | 'acima_ul'      // ultrapassou o limite superior
   | 'acima_cdrr'    // sódio acima de 2.300 mg
   | 'indeterminado' // referência é AI: não dá para concluir
-  | 'sem_dado';     // a base não tem o nutriente
+  | 'incompleto'    // nem todos os alimentos do plano têm esse dado
+  | 'sem_dado';     // nenhum alimento tem o dado
+
+/**
+ * Valor com a cobertura junto, como o plano devolve.
+ *
+ * Aceita número puro para os macros, que vêm de campo próprio e sempre
+ * existem em todo item.
+ */
+export type Oferta = number | {
+  valor: number;
+  itensComDado: number;
+  itensTotal: number;
+  completo: boolean;
+};
+
+const normalizar = (o: Oferta | undefined | null) => {
+  if (o === undefined || o === null) return null;
+  if (typeof o === 'number') return { valor: o, completo: true, itensComDado: 0, itensTotal: 0 };
+  return o;
+};
 
 export interface LinhaAdequacao {
   nutriente: string;
@@ -56,7 +76,7 @@ function ulDaFaixa(ref: ValorReferencia, faixa: string): number | null {
  *                fornece. A distinção é proposital.
  */
 export function avaliarAdequacao(
-  totais: Partial<Record<string, number>>,
+  totais: Partial<Record<string, Oferta>>,
   idade: number,
   sexo: Sexo,
 ): { linhas: LinhaAdequacao[]; faixa: string | null; semDadoNaBase: string[] } {
@@ -77,8 +97,8 @@ export function avaliarAdequacao(
       nota: ref.nota,
     };
 
-    const ofertado = totais[ref.nutriente];
-    if (ofertado === undefined || ofertado === null) {
+    const oferta = normalizar(totais[ref.nutriente]);
+    if (oferta === null) {
       return {
         ...base, tipo: '—', ofertado: null, recomendado: null, percentual: null,
         situacao: 'sem_dado',
@@ -86,7 +106,21 @@ export function avaliarAdequacao(
       };
     }
 
+    const ofertado = oferta.valor;
     const recomendado = ref.valores[sexo][faixa];
+
+    // Cobertura parcial vem ANTES de qualquer juízo sobre adequação. Um total
+    // somado sobre parte dos alimentos é menor que o real; lido contra a RDA,
+    // produziria um "abaixo da recomendação" que o dado não sustenta.
+    if (!oferta.completo) {
+      const faltam = oferta.itensTotal - oferta.itensComDado;
+      return {
+        ...base, tipo: ref.tipo, ofertado: arred(ofertado), recomendado,
+        percentual: null,
+        situacao: 'incompleto',
+        leitura: `${faltam} de ${oferta.itensTotal} alimentos do plano não têm este nutriente na base. O total está subestimado e não dá para comparar com a recomendação.`,
+      };
+    }
     const percentual = recomendado > 0 ? Math.round((ofertado / recomendado) * 100) : null;
     const ul = ulDaFaixa(ref, faixa);
 
@@ -145,6 +179,7 @@ export function resumir(linhas: LinhaAdequacao[]) {
     abaixo: conta('abaixo'),
     acimaDoLimite: conta('acima_ul') + conta('acima_cdrr'),
     indeterminados: conta('indeterminado'),
+    incompletos: conta('incompleto'),
     semDado: conta('sem_dado'),
   };
 }

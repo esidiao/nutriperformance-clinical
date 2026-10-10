@@ -54,6 +54,19 @@ export class MealPlanItem {
   @Column({ name: 'sodio_mg', type: 'numeric', precision: 8, scale: 2, default: 0 })
   sodioMg: number;
 
+  /**
+   * Micronutrientes, já multiplicados pela quantidade do item.
+   *
+   * Chave AUSENTE = a base não tem o dado para este alimento.
+   * Valor ZERO = o alimento não fornece esse nutriente.
+   *
+   * A distinção é o que permite ao relatório de adequação dizer "não é
+   * possível avaliar" em vez de "abaixo da recomendação". Achatar as duas em
+   * zero produziria um total menor que parece número real.
+   */
+  @Column({ name: 'micronutrientes', type: 'jsonb', default: () => "'{}'::jsonb" })
+  micronutrientes: Record<string, number>;
+
   @Column({ name: 'substituicoes', type: 'jsonb', default: '[]' }) substituicoes: object[];
   @Column({ name: 'observacao', type: 'text', nullable: true }) observacao: string | null;
 

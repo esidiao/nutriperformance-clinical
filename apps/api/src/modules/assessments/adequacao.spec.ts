@@ -150,6 +150,51 @@ describe('adequação nutricional', () => {
     });
   });
 
+  describe('cobertura incompleta', () => {
+    // A regra mais importante do relatório. Somar 7 de 10 alimentos produz um
+    // total menor que parece real; lido contra a RDA, viraria um "abaixo da
+    // recomendação" que o dado não sustenta.
+
+    it('total parcial NÃO é julgado contra a recomendação', () => {
+      const r = avaliarAdequacao(
+        { calcioMg: { valor: 400, itensComDado: 7, itensTotal: 10, completo: false } },
+        30, 'male',
+      );
+      const l = linha(r, 'calcioMg');
+      expect(l.situacao).toBe('incompleto');
+      expect(l.percentual).toBeNull();
+    });
+
+    it('a leitura diz QUANTOS alimentos faltaram', () => {
+      const r = avaliarAdequacao(
+        { calcioMg: { valor: 400, itensComDado: 7, itensTotal: 10, completo: false } },
+        30, 'male',
+      );
+      expect(linha(r, 'calcioMg').leitura).toMatch(/3 de 10/);
+    });
+
+    it('o mesmo valor, com cobertura completa, é julgado normalmente', () => {
+      const r = avaliarAdequacao(
+        { calcioMg: { valor: 400, itensComDado: 10, itensTotal: 10, completo: true } },
+        30, 'male',
+      );
+      expect(linha(r, 'calcioMg').situacao).toBe('abaixo');
+    });
+
+    it('cobertura parcial vence até o UL — não dá para afirmar excesso tampouco', () => {
+      const r = avaliarAdequacao(
+        { ferroMg: { valor: 60, itensComDado: 2, itensTotal: 5, completo: false } },
+        30, 'male',
+      );
+      expect(linha(r, 'ferroMg').situacao).toBe('incompleto');
+    });
+
+    it('número puro continua valendo como cobertura completa', () => {
+      // Macros vêm de campo próprio e existem em todo item.
+      expect(linha(avaliarAdequacao({ proteinasG: 40 }, 30, 'male'), 'proteinasG').situacao).toBe('abaixo');
+    });
+  });
+
   describe('procedência', () => {
     it('toda linha carrega a fonte do valor', () => {
       for (const l of avaliarAdequacao({ calcioMg: 900 }, 30, 'male').linhas) {
