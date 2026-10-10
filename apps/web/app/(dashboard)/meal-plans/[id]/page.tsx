@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
 import { ListaCompras } from '@/components/ListaCompras';
 import { SalvarComoModelo } from '@/components/ModelosDePlano';
+import { RelatorioAdequacao } from '@/components/RelatorioAdequacao';
 import { SupervisaoDoTrabalho } from '@/components/Supervisao';
 import { usePapel } from '@/lib/usePapel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -390,6 +391,10 @@ export default function MealPlanPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Relatório de adequação — o pedido central da nutricionista:
+            fechar a dieta e saber se bate com a recomendação do dia. */}
+        <RelatorioAdequacao patientId={patientId} totais={plano.totais} />
 
         {plano.isDraft && (
           <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950
