@@ -1,0 +1,82 @@
+name: Manter Supabase acordado
+
+# O Supabase gratuito PAUSA o projeto por inatividade. Quando isso acontece, o
+# host para de resolver em DNS, a API não conecta e fica presa em
+# {"status":"starting"} — que é a página de espera do Render, não resposta da
+# aplicação. O sintoma que chega é "fulano não consegue entrar".
+#
+# Aconteceu duas vezes em cinco dias (23/09 e 28/09 de 2026), e nas duas o
+# diagnóstico custou tempo porque parecia problema de conta.
+#
+# A causa é um ciclo entre os dois planos gratuitos: a API no Render hiberna
+# após ~15 min sem tráfego; hibernada, ela não consulta o banco; sem consulta,
+# o Supabase conta inatividade e pausa; pausado, a API não sobe. Uma visita
+# diária quebra o ciclo.
+#
+# ⚠️ Isto PREVINE a pausa, não a desfaz. Se o projeto já pausou, só o botão
+#    Restore no painel do Supabase resolve.
+
+on:
+  schedule:
+    # Diário às 07:20 UTC (04:20 em Brasília). Minuto não redondo de propósito:
+    # no topo da hora a fila do GitHub Actions congestiona e agendamentos
+    # atrasam.
+    - cron: '20 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: manter-acordado
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validar segredo
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          set -euo pipefail
+          [ -n "$API_URL" ] || { echo "::error::Secret API_URL não configurado"; exit 1; }
+          echo "Alvo: ${API_URL}"
+
+      - name: Acordar a API e tocar o banco
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          set -euo pipefail
+
+          # `/health` executa um SELECT 1. É isso que conta como atividade para
+          # o Supabase — um 200 do Render sozinho não toca no banco.
+          #
+          # E não basta o código HTTP: durante o boot o fallback do main.ts
+          # responde 200 com {"status":"starting"}. Só "database":"connected"
+          # prova que a consulta aconteceu.
+          for tentativa in $(seq 1 12); do
+            corpo=$(curl -s --max-time 90 "${API_URL}/health" || echo '')
+
+            if printf '%s' "$corpo" | grep -q '"database":"connected"'; then
+              echo "OK na tentativa ${tentativa}: ${corpo}"
+              {
+                echo "### Supabase acordado"
+                echo ''
+                echo '```json'
+                printf '%s\n' "$corpo"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            echo "Tentativa ${tentativa}: ${corpo:-sem resposta}"
+            sleep 15
+          done
+
+          # Chegar aqui significa que o ciclo já se fechou: ou o Supabase
+          # pausou, ou a API não sobe. As duas exigem alguém no painel, então
+          # o job FALHA para gerar notificação — silêncio aqui seria o mesmo
+          # que não ter o workflow.
+          echo "::error::A API não reportou database:connected após 12 tentativas (~3 min)."
+          echo "::error::Verifique se o projeto Supabase está pausado (o host para de resolver em DNS) e, se estiver, use Restore no painel."
+          exit 1
