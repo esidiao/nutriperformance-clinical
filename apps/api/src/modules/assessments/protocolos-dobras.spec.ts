@@ -122,6 +122,63 @@ describe('protocolos de dobras cutâneas', () => {
     });
   });
 
+  describe('Durnin & Womersley 4 dobras', () => {
+    const dw = protocoloPorId('durnin_womersley_4')!;
+
+    it('exige bíceps, tríceps, subescapular e supra-ilíaca', () => {
+      expect(dw.sitios('male')).toEqual(['biceps', 'triceps', 'subscapular', 'suprailiac']);
+    });
+
+    it('as constantes mudam por FAIXA ETÁRIA, não continuamente', () => {
+      // 25 e 28 caem na mesma faixa (20–29): mesmo Σ, mesmo resultado.
+      const m = { biceps: 8, triceps: 12, subscapular: 14, suprailiac: 16 };
+      expect(dw.calcular(m, 25, 'male')).toBe(dw.calcular(m, 28, 'male'));
+      // 29 e 31 caem em faixas diferentes: o resultado muda.
+      expect(dw.calcular(m, 29, 'male')).not.toBe(dw.calcular(m, 31, 'male'));
+    });
+
+    it('resultado difere entre sexos', () => {
+      const m = { biceps: 8, triceps: 12, subscapular: 14, suprailiac: 16 };
+      expect(dw.calcular(m, 30, 'male')).not.toEqual(dw.calcular(m, 30, 'female'));
+    });
+
+    it('homem 25 anos, Σ 50 mm fica em faixa plausível', () => {
+      const r = dw.calcular({ biceps: 8, triceps: 12, subscapular: 14, suprailiac: 16 }, 25, 'male');
+      expect(r).toBeGreaterThan(10);
+      expect(r).toBeLessThan(25);
+    });
+
+    it('idade acima de 50 usa a última faixa, sem quebrar', () => {
+      const m = { biceps: 8, triceps: 12, subscapular: 14, suprailiac: 16 };
+      expect(typeof dw.calcular(m, 75, 'female')).toBe('number');
+    });
+
+    it('faltando o bíceps, não calcula', () => {
+      expect(dw.calcular({ triceps: 12, subscapular: 14, suprailiac: 16 }, 30, 'male')).toBeNull();
+    });
+
+    it('saiu da lista de pendentes', () => {
+      expect(PENDENTES.map((p) => p.nome).join(' ')).not.toMatch(/Durnin/);
+    });
+  });
+
+  describe('constantes visíveis para conferência', () => {
+    it('todo protocolo declara as constantes que usa', () => {
+      // Coeficiente errado devolve percentual plausível. Deixar a conta
+      // visível é o que permite conferir contra o livro.
+      for (const p of PROTOCOLOS) {
+        expect(p.constantes.length).toBeGreaterThan(0);
+        expect(p.constantes.join(' ')).toMatch(/\d/);
+      }
+    });
+
+    it('Durnin lista a tabela por faixa etária', () => {
+      const texto = protocoloPorId('durnin_womersley_4')!.constantes.join('\n');
+      expect(texto).toMatch(/17–19|17-19/);
+      expect(texto).toMatch(/50\+/);
+    });
+  });
+
   describe('composição corporal', () => {
     it('80 kg com 20% dá 16 kg de gordura e 64 de massa magra', () => {
       expect(composicao(20, 80)).toEqual({ massaGordaKg: 16, massaMagraKg: 64 });
@@ -147,7 +204,7 @@ describe('protocolos de dobras cutâneas', () => {
       const nomes = PENDENTES.map((p) => p.nome).join(' ');
       expect(nomes).toMatch(/Petroski/);
       expect(nomes).toMatch(/Guedes/);
-      expect(nomes).toMatch(/Durnin/);
+      // Durnin & Womersley saiu daqui em 10/10/2026: foi implementado.
       for (const p of PENDENTES) expect(p.motivo.length).toBeGreaterThan(20);
     });
 

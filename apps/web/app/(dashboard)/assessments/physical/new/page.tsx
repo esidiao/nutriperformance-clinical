@@ -214,6 +214,7 @@ export default function PhysicalAssessmentNewPage() {
         thigh: 'skinfoldThighMm',
         chest: 'skinfoldChestMm',
         midaxillary: 'skinfoldMidaxillaryMm',
+        biceps: 'skinfoldBicepsMm',
       };
       const sfMap: Record<string, number> = {};
       for (const [sitio, valor] of Object.entries(medidasNum)) {
@@ -448,6 +449,20 @@ export default function PhysicalAssessmentNewPage() {
                 ))}
               </select>
               <p className="text-[11px] text-muted-foreground mt-1">{protocolo.nota}</p>
+
+              {/* As constantes ficam à vista para conferência contra a
+                  referência da profissional. Coeficiente errado não dá erro:
+                  devolve percentual plausível. Caixa-preta aqui seria o pior
+                  arranjo possível. */}
+              <details className="mt-2 text-[11px] text-muted-foreground">
+                <summary className="cursor-pointer">Ver a equação e as constantes usadas</summary>
+                <pre className="mt-1 whitespace-pre-wrap font-mono text-[10px] leading-relaxed bg-muted rounded p-2">
+{protocolo.constantes.join('\n')}
+                </pre>
+                <p className="mt-1">
+                  Confira contra a edição que você adota antes de usar clinicamente.
+                </p>
+              </details>
             </div>
 
             {/* Um campo por sítio que ESTE protocolo exige. Mudando o

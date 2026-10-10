@@ -24,7 +24,7 @@ export type Sexo = 'male' | 'female';
 /** Chaves iguais às colunas de `physical_assessments`. */
 export type Sitio =
   | 'triceps' | 'subscapular' | 'suprailiac' | 'abdominal'
-  | 'thigh' | 'chest' | 'midaxillary';
+  | 'thigh' | 'chest' | 'midaxillary' | 'biceps';
 
 export const ROTULO_SITIO: Record<Sitio, string> = {
   triceps: 'Tríceps',
@@ -34,11 +34,21 @@ export const ROTULO_SITIO: Record<Sitio, string> = {
   thigh: 'Coxa',
   chest: 'Peitoral',
   midaxillary: 'Axilar média',
+  biceps: 'Bíceps',
 };
 
 export interface Protocolo {
   id: string;
   nome: string;
+  /**
+   * Constantes da equação, em texto, para a profissional CONFERIR contra a
+   * referência dela antes de confiar no número.
+   *
+   * Existe porque coeficiente errado não dá erro: devolve um percentual
+   * plausível. Deixar a conta visível transforma uma caixa-preta impossível de
+   * auditar em algo que se confere com o livro aberto em 30 segundos.
+   */
+  constantes: string[];
   /** Sítios exigidos, por sexo quando o protocolo difere. */
   sitios: (sexo: Sexo) => Sitio[];
   /** Observação clínica curta, exibida junto da escolha. */
@@ -72,6 +82,11 @@ const JP3: Protocolo = {
   id: 'jackson_pollock_3',
   nome: 'Jackson & Pollock — 3 dobras',
   nota: 'O mais usado na rotina. Sítios diferentes para homem e mulher.',
+  constantes: [
+    'Homens: D = 1,10938 − 0,0008267·Σ + 0,0000016·Σ² − 0,0002574·idade',
+    'Mulheres: D = 1,0994921 − 0,0009929·Σ + 0,0000023·Σ² − 0,0001392·idade',
+    'Conversão: Siri — %G = 495/D − 450',
+  ],
   sitios: (sexo) => sexo === 'male'
     ? ['chest', 'abdominal', 'thigh']
     : ['triceps', 'suprailiac', 'thigh'],
@@ -89,6 +104,11 @@ const JP7: Protocolo = {
   id: 'jackson_pollock_7',
   nome: 'Jackson & Pollock — 7 dobras',
   nota: 'Mais sítios, menor erro. Mesmos 7 pontos para ambos os sexos.',
+  constantes: [
+    'Homens: D = 1,112 − 0,00043499·Σ + 0,00000055·Σ² − 0,00028826·idade',
+    'Mulheres: D = 1,097 − 0,00046971·Σ + 0,00000056·Σ² − 0,00012828·idade',
+    'Conversão: Siri — %G = 495/D − 450',
+  ],
   sitios: () => ['chest', 'midaxillary', 'triceps', 'subscapular', 'abdominal', 'suprailiac', 'thigh'],
   calcular: (m, idade, sexo) => {
     const s = soma(m, JP7.sitios(sexo));
@@ -104,6 +124,7 @@ const FAULKNER: Protocolo = {
   id: 'faulkner_4',
   nome: 'Faulkner — 4 dobras',
   nota: 'Comum em atletas. Não usa idade, e dá direto o percentual, sem densidade.',
+  constantes: ['%G = Σ·0,153 + 5,783 (mesma equação para ambos os sexos)'],
   sitios: () => ['triceps', 'subscapular', 'suprailiac', 'abdominal'],
   calcular: (m) => {
     const s = soma(m, FAULKNER.sitios('male'));
@@ -112,7 +133,50 @@ const FAULKNER: Protocolo = {
   },
 };
 
-export const PROTOCOLOS: Protocolo[] = [JP3, JP7, FAULKNER];
+/**
+ * Durnin & Womersley (1974) — 4 dobras, equação logarítmica.
+ *
+ * Diferente das outras: as constantes mudam por FAIXA ETÁRIA, não entram na
+ * fórmula como variável. Por isso a tabela abaixo.
+ *
+ * ⚠️ Estes valores vêm da tabela amplamente reproduzida na literatura. São os
+ * que eu consigo declarar, mas NÃO substituem conferência: a tela mostra as
+ * constantes usadas justamente para que a profissional compare com a edição
+ * que ela adota antes de usar clinicamente.
+ */
+const DW_CONSTANTES: Array<{ ate: number; male: [number, number]; female: [number, number] }> = [
+  { ate: 19, male: [1.1620, 0.0630], female: [1.1549, 0.0678] },
+  { ate: 29, male: [1.1631, 0.0632], female: [1.1599, 0.0717] },
+  { ate: 39, male: [1.1422, 0.0544], female: [1.1423, 0.0632] },
+  { ate: 49, male: [1.1620, 0.0700], female: [1.1333, 0.0612] },
+  { ate: 200, male: [1.1715, 0.0779], female: [1.1339, 0.0645] },
+];
+
+const DURNIN: Protocolo = {
+  id: 'durnin_womersley_4',
+  nome: 'Durnin & Womersley — 4 dobras',
+  nota: 'Equação logarítmica; as constantes mudam por faixa etária. Exige a dobra do bíceps.',
+  constantes: [
+    'D = c − m · log₁₀(Σ), com c e m por faixa etária:',
+    ...DW_CONSTANTES.map((f, i) => {
+      const de = i === 0 ? 17 : DW_CONSTANTES[i - 1].ate + 1;
+      const faixa = f.ate >= 200 ? `${de}+` : `${de}–${f.ate}`;
+      return `  ${faixa} anos — H: c=${f.male[0]} m=${f.male[1]} · M: c=${f.female[0]} m=${f.female[1]}`;
+    }),
+    'Conversão: Siri — %G = 495/D − 450',
+  ],
+  sitios: () => ['biceps', 'triceps', 'subscapular', 'suprailiac'],
+  calcular: (m, idade, sexo) => {
+    const s = soma(m, DURNIN.sitios(sexo));
+    if (s === null || !(idade > 0)) return null;
+    const faixa = DW_CONSTANTES.find((f) => idade <= f.ate) ?? DW_CONSTANTES[DW_CONSTANTES.length - 1];
+    const [c, k] = faixa[sexo];
+    const d = c - k * Math.log10(s);
+    return arred(siri(d));
+  },
+};
+
+export const PROTOCOLOS: Protocolo[] = [JP3, JP7, FAULKNER, DURNIN];
 
 export const protocoloPorId = (id: string): Protocolo | undefined =>
   PROTOCOLOS.find((p) => p.id === id);
@@ -125,10 +189,6 @@ export const protocoloPorId = (id: string): Protocolo | undefined =>
 export const PENDENTES = [
   { nome: 'Petroski — 4 dobras', motivo: 'preciso confirmar os coeficientes na referência que você usa' },
   { nome: 'Guedes — 3 dobras', motivo: 'idem: coeficientes variam entre publicações' },
-  {
-    nome: 'Durnin & Womersley — 4 dobras',
-    motivo: 'depende de tabela de constantes por faixa etária e exige a dobra do bíceps, que ainda não existe no cadastro',
-  },
 ];
 
 /**
