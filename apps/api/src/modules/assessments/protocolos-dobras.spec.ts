@@ -1,6 +1,6 @@
 import {
-  PROTOCOLOS, protocoloPorId, siri, composicao, classificarGordura, PENDENTES,
-  type Sitio,
+  PROTOCOLOS, protocoloPorId, protocolosPara, siri, composicao,
+  classificarGordura, PENDENTES, type Sitio,
 } from '../../../../web/lib/protocolos-dobras';
 
 /**
@@ -179,6 +179,106 @@ describe('protocolos de dobras cutâneas', () => {
     });
   });
 
+  describe('Guedes 3 dobras (feminina)', () => {
+    const g = protocoloPorId('guedes_3')!;
+
+    it('usa coxa, supra-ilíaca e subescapular', () => {
+      expect(g.sitios('female')).toEqual(['thigh', 'suprailiac', 'subscapular']);
+    });
+
+    it('é logarítmica: dobrar o somatório não dobra o efeito', () => {
+      const a = g.calcular({ thigh: 10, suprailiac: 10, subscapular: 10 }, 30, 'female');
+      const b = g.calcular({ thigh: 20, suprailiac: 20, subscapular: 20 }, 30, 'female');
+      expect(b).toBeGreaterThan(a!);
+      expect(b! - a!).toBeLessThan(a!); // crescimento desacelera
+    });
+
+    it('NÃO calcula para homem — só a versão feminina foi verificada', () => {
+      // Aplicar a feminina a homem usaria a equação fora da população em que
+      // foi validada: produz número, não medida.
+      expect(g.calcular({ thigh: 15, suprailiac: 15, subscapular: 15 }, 30, 'male')).toBeNull();
+    });
+
+    it('não usa idade', () => {
+      const m = { thigh: 15, suprailiac: 15, subscapular: 15 };
+      expect(g.calcular(m, 20, 'female')).toBe(g.calcular(m, 60, 'female'));
+    });
+  });
+
+  describe('Petroski (feminina)', () => {
+    const p5 = protocoloPorId('petroski_5')!;
+    const p4 = protocoloPorId('petroski_4')!;
+    const p3 = protocoloPorId('petroski_3')!;
+    const antro = { pesoKg: 60, estaturaCm: 165 };
+
+    it('os sítios batem com a Tabela 2 da fonte', () => {
+      expect(p5.sitios('female')).toEqual(['subscapular', 'triceps', 'suprailiac', 'abdominal', 'calf']);
+      expect(p4.sitios('female')).toEqual(['subscapular', 'triceps', 'suprailiac', 'calf']);
+      expect(p3.sitios('female')).toEqual(['subscapular', 'suprailiac', 'thigh']);
+    });
+
+    it('todas exigem peso e estatura', () => {
+      for (const p of [p3, p4, p5]) expect(p.exigeAntropometria).toBe(true);
+    });
+
+    it('sem peso ou sem estatura, não calcula', () => {
+      const m = { subscapular: 15, triceps: 15, suprailiac: 15, abdominal: 15, calf: 15 };
+      expect(p5.calcular(m, 30, 'female', { pesoKg: 60 })).toBeNull();
+      expect(p5.calcular(m, 30, 'female', { estaturaCm: 165 })).toBeNull();
+      expect(p5.calcular(m, 30, 'female')).toBeNull();
+    });
+
+    it('5 dobras devolve percentual plausível', () => {
+      const m = { subscapular: 18, triceps: 20, suprailiac: 16, abdominal: 22, calf: 14 };
+      const r = p5.calcular(m, 30, 'female', antro);
+      expect(r).toBeGreaterThan(10);
+      expect(r).toBeLessThan(45);
+    });
+
+    it('o termo LINEAR existe — a versão sem ele é corrompida', () => {
+      // Circula uma transcrição da equação de 4 dobras só com o termo
+      // quadrático. Com Σ = 60 ela dá densidade NEGATIVA. Este teste prova
+      // que a nossa não tem esse defeito.
+      const m = { subscapular: 15, triceps: 15, suprailiac: 15, calf: 15 };
+      const r = p4.calcular(m, 30, 'female', antro);
+      expect(r).toBeGreaterThan(0);
+      expect(r).toBeLessThan(60);
+    });
+
+    it('somatório maior dá mais gordura', () => {
+      const magra = { subscapular: 8, triceps: 10, suprailiac: 8, abdominal: 10, calf: 8 };
+      const gorda = { subscapular: 25, triceps: 30, suprailiac: 28, abdominal: 35, calf: 20 };
+      expect(p5.calcular(gorda, 30, 'female', antro)!)
+        .toBeGreaterThan(p5.calcular(magra, 30, 'female', antro)!);
+    });
+
+    it('NÃO calculam para homem', () => {
+      const m = { subscapular: 15, triceps: 15, suprailiac: 15, abdominal: 15, calf: 15, thigh: 15 };
+      for (const p of [p3, p4, p5]) {
+        expect(p.calcular(m, 30, 'male', antro)).toBeNull();
+      }
+    });
+  });
+
+  describe('filtro por sexo', () => {
+    it('homem não vê Petroski nem Guedes', () => {
+      const ids = protocolosPara('male').map((p) => p.id);
+      expect(ids).not.toContain('guedes_3');
+      expect(ids).not.toContain('petroski_5');
+      expect(ids).toContain('jackson_pollock_3');
+    });
+
+    it('mulher vê todos', () => {
+      expect(protocolosPara('female')).toHaveLength(PROTOCOLOS.length);
+    });
+
+    it('sem sexo definido, só os que servem a ambos', () => {
+      const ids = protocolosPara(null).map((p) => p.id);
+      expect(ids).not.toContain('petroski_5');
+      expect(ids).toContain('faulkner_4');
+    });
+  });
+
   describe('composição corporal', () => {
     it('80 kg com 20% dá 16 kg de gordura e 64 de massa magra', () => {
       expect(composicao(20, 80)).toEqual({ massaGordaKg: 16, massaMagraKg: 64 });
@@ -210,11 +310,14 @@ describe('protocolos de dobras cutâneas', () => {
 
     it('só expõe protocolos que calculam de verdade', () => {
       for (const p of PROTOCOLOS) {
+        // Respeita o sexo para o qual a equação foi publicada.
+        const sexo = p.aplicaA ? p.aplicaA[0] : 'male';
         const medidas: Partial<Record<Sitio, number>> = {};
-        for (const s of p.sitios('male')) medidas[s] = 15;
-        const r = p.calcular(medidas, 30, 'male');
+        for (const s of p.sitios(sexo)) medidas[s] = 15;
+        const r = p.calcular(medidas, 30, sexo, { pesoKg: 65, estaturaCm: 165 });
         expect(typeof r).toBe('number');
         expect(r).toBeGreaterThan(0);
+        expect(r).toBeLessThan(70);
       }
     });
   });

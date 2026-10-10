@@ -19,7 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { AudioIntakeRecorder } from '@/components/AudioIntakeRecorder';
 import {
-  PROTOCOLOS, PENDENTES, protocoloPorId, ROTULO_SITIO, classificarGordura,
+  PENDENTES, protocolosPara, protocoloPorId, ROTULO_SITIO, classificarGordura,
   composicao, type Sitio,
 } from '@/lib/protocolos-dobras';
 
@@ -215,6 +215,7 @@ export default function PhysicalAssessmentNewPage() {
         chest: 'skinfoldChestMm',
         midaxillary: 'skinfoldMidaxillaryMm',
         biceps: 'skinfoldBicepsMm',
+        calf: 'skinfoldCalfMm',
       };
       const sfMap: Record<string, number> = {};
       for (const [sitio, valor] of Object.entries(medidasNum)) {
@@ -266,7 +267,14 @@ export default function PhysicalAssessmentNewPage() {
   ].filter(Boolean) as string[];
 
   // ─── Calculadora de % de gordura por dobras cutâneas ───────────────────────
-  const protocolo = protocoloPorId(protocoloId) ?? PROTOCOLOS[0];
+  // Só os protocolos válidos para o sexo do paciente. Petroski e Guedes têm
+  // apenas versão feminina verificada; oferecê-los para homem seria aplicar a
+  // equação fora da população em que foi validada.
+  const protocolosDisponiveis = protocolosPara(formGender);
+  const escolhido = protocoloPorId(protocoloId);
+  const protocolo = escolhido && protocolosDisponiveis.includes(escolhido)
+    ? escolhido
+    : protocolosDisponiveis[0];
   const sitiosExigidos: Sitio[] = protocolo.sitios(formGender ?? 'female');
 
   const medidasNum: Partial<Record<Sitio, number>> = {};
@@ -277,7 +285,10 @@ export default function PhysicalAssessmentNewPage() {
   const sfSum = sitiosExigidos.reduce((a, s) => a + (medidasNum[s] ?? 0), 0);
 
   const sfFat = formGender && formAge
-    ? protocolo.calcular(medidasNum, formAge, formGender)
+    ? protocolo.calcular(medidasNum, formAge, formGender, {
+        pesoKg: Number(wW) || null,
+        estaturaCm: Number(wH) || null,
+      })
     : null;
   const sfFatCls = sfFat !== null && formGender ? classificarGordura(sfFat, formGender) : null;
   const weightNum = Number(wW) || 0;
@@ -444,7 +455,7 @@ export default function PhysicalAssessmentNewPage() {
                 onChange={(e) => setProtocoloId(e.target.value)}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                {PROTOCOLOS.map((p) => (
+                {protocolosDisponiveis.map((p) => (
                   <option key={p.id} value={p.id}>{p.nome}</option>
                 ))}
               </select>
@@ -468,6 +479,13 @@ export default function PhysicalAssessmentNewPage() {
             {/* Um campo por sítio que ESTE protocolo exige. Mudando o
                 protocolo, mudam os campos — e o que já foi medido continua
                 guardado pelo nome do sítio, não se perde. */}
+            {protocolo.exigeAntropometria && !(Number(wW) > 0 && Number(wH) > 0) && (
+              <p className="rounded-lg border border-orange-200 bg-orange-50 p-2.5 text-[11px] text-orange-900">
+                Este protocolo usa <strong>peso e estatura</strong> na equação, além das
+                dobras. Preencha os dois acima para o cálculo sair.
+              </p>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {sitiosExigidos.map((sitio) => (
                 <div key={sitio}>

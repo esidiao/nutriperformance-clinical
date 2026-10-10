@@ -24,7 +24,7 @@ export type Sexo = 'male' | 'female';
 /** Chaves iguais às colunas de `physical_assessments`. */
 export type Sitio =
   | 'triceps' | 'subscapular' | 'suprailiac' | 'abdominal'
-  | 'thigh' | 'chest' | 'midaxillary' | 'biceps';
+  | 'thigh' | 'chest' | 'midaxillary' | 'biceps' | 'calf';
 
 export const ROTULO_SITIO: Record<Sitio, string> = {
   triceps: 'Tríceps',
@@ -35,6 +35,7 @@ export const ROTULO_SITIO: Record<Sitio, string> = {
   chest: 'Peitoral',
   midaxillary: 'Axilar média',
   biceps: 'Bíceps',
+  calf: 'Panturrilha medial',
 };
 
 export interface Protocolo {
@@ -53,8 +54,24 @@ export interface Protocolo {
   sitios: (sexo: Sexo) => Sitio[];
   /** Observação clínica curta, exibida junto da escolha. */
   nota: string;
+  /**
+   * Sexos para os quais a equação foi publicada. Ausente = ambos.
+   *
+   * Não é detalhe: as equações de Petroski e Guedes que consegui verificar
+   * foram desenvolvidas em amostras FEMININAS. Aplicá-las a homem seria usar
+   * uma equação fora da população em que foi validada — produz número, não
+   * medida.
+   */
+  aplicaA?: Sexo[];
+  /** Precisa de peso e estatura além das dobras. */
+  exigeAntropometria?: boolean;
   /** Percentual de gordura, ou null quando falta dado. */
-  calcular: (medidas: Partial<Record<Sitio, number>>, idade: number, sexo: Sexo) => number | null;
+  calcular: (
+    medidas: Partial<Record<Sitio, number>>,
+    idade: number,
+    sexo: Sexo,
+    antropometria?: { pesoKg?: number | null; estaturaCm?: number | null },
+  ) => number | null;
 }
 
 const soma = (medidas: Partial<Record<Sitio, number>>, sitios: Sitio[]): number | null => {
@@ -176,7 +193,104 @@ const DURNIN: Protocolo = {
   },
 };
 
-export const PROTOCOLOS: Protocolo[] = [JP3, JP7, FAULKNER, DURNIN];
+/**
+ * Guedes (1985) — 3 dobras, equação logarítmica, FEMININA.
+ *
+ * Lida em: Rev. Bras. de Nutrição Esportiva, artigo que reproduz
+ * "Guedes 3 dobras (Guedes, 1985)" como
+ * `DC = 1,16650 − 0,07063 · log(CX + SI + SB)`.
+ *
+ * A versão masculina não foi encontrada em fonte legível — por isso o
+ * protocolo é restrito a mulheres em vez de aplicar a feminina a todo mundo.
+ */
+const GUEDES3: Protocolo = {
+  id: 'guedes_3',
+  nome: 'Guedes — 3 dobras (feminina)',
+  nota: 'Desenvolvida em universitárias do RS. Só a versão feminina pôde ser verificada.',
+  aplicaA: ['female'],
+  constantes: [
+    'Mulheres: D = 1,16650 − 0,07063 · log₁₀(coxa + supra-ilíaca + subescapular)',
+    'Conversão: Siri — %G = 495/D − 450',
+    'Fonte: Guedes (1985), dissertação UFSM, reproduzida em artigo de acesso aberto.',
+  ],
+  sitios: () => ['thigh', 'suprailiac', 'subscapular'],
+  calcular: (m, _idade, sexo) => {
+    if (sexo !== 'female') return null;
+    const s = soma(m, GUEDES3.sitios(sexo));
+    if (s === null) return null;
+    return arred(siri(1.16650 - 0.07063 * Math.log10(s)));
+  },
+};
+
+/**
+ * Petroski (1995) — equações generalizadas quadráticas, FEMININAS.
+ *
+ * Lidas em: Martins MEA, Fernandes Filho J. "Validação de equações
+ * antropométricas generalizadas para a estimativa da densidade corporal em
+ * mulheres militares". Rev Bras Cineantropom Desempenho Hum, 8(1):22-28, 2006
+ * — Tabela 2, que reproduz as equações originais (n = 281, mulheres 18–51).
+ *
+ * ⚠️ Uma versão MUITO difundida da equação de 4 dobras circula SEM o termo
+ * linear em Σ, só com o quadrático. Ela é matematicamente impossível: com
+ * Σ = 60 mm a densidade fica negativa. Confirmei que a original tem os dois
+ * termos. Se você encontrar a versão sem o linear, é transcrição corrompida.
+ *
+ * Usam peso e estatura além das dobras — incomum, e é característica delas.
+ */
+const petroski = (
+  id: string, nome: string, nota: string, sitios: Sitio[],
+  c: [number, number, number, number, number, number],
+): Protocolo => ({
+  id, nome, nota,
+  aplicaA: ['female'],
+  exigeAntropometria: true,
+  constantes: [
+    `Mulheres: D = ${c[0]} − ${c[1]}·Σ + ${c[2]}·Σ² − ${c[3]}·idade − ${c[4]}·peso(kg) + ${c[5]}·estatura(cm)`,
+    `Σ = ${sitios.map((x) => ROTULO_SITIO[x].toLowerCase()).join(' + ')}`,
+    'Conversão: Siri — %G = 495/D − 450',
+    'Fonte: Petroski (1995), reproduzida em Martins & Fernandes Filho, RBCDH 8(1):22-28, 2006, Tabela 2.',
+    'Validada em 281 mulheres de 18 a 51 anos (RS/SC). Não desenvolvida para atletas.',
+  ],
+  sitios: () => sitios,
+  calcular: (m, idade, sexo, antro) => {
+    if (sexo !== 'female') return null;
+    const s = soma(m, sitios);
+    const peso = antro?.pesoKg;
+    const est = antro?.estaturaCm;
+    if (s === null || !(idade > 0) || !(peso! > 0) || !(est! > 0)) return null;
+    const d = c[0] - c[1] * s + c[2] * s * s - c[3] * idade - c[4] * peso! + c[5] * est!;
+    return arred(siri(d));
+  },
+});
+
+const PETROSKI5 = petroski(
+  'petroski_5', 'Petroski — 5 dobras (feminina)',
+  'A que apresentou melhor validade concorrente em mulheres militares. Usa peso e estatura.',
+  ['subscapular', 'triceps', 'suprailiac', 'abdominal', 'calf'],
+  [1.03091919, 0.00048584, 0.00000131, 0.00026016, 0.00056484, 0.00053716],
+);
+
+const PETROSKI4 = petroski(
+  'petroski_4', 'Petroski — 4 dobras (feminina)',
+  'Sem a abdominal. Usa peso e estatura.',
+  ['subscapular', 'triceps', 'suprailiac', 'calf'],
+  [1.02902361, 0.00067159, 0.00000242, 0.00026073, 0.00056009, 0.00054649],
+);
+
+const PETROSKI3 = petroski(
+  'petroski_3', 'Petroski — 3 dobras (feminina)',
+  'A mais curta. Usa peso e estatura.',
+  ['subscapular', 'suprailiac', 'thigh'],
+  [1.04127059, 0.00087756, 0.00000380, 0.00025821, 0.00059076, 0.00051050],
+);
+
+export const PROTOCOLOS: Protocolo[] = [
+  JP3, JP7, FAULKNER, DURNIN, GUEDES3, PETROSKI3, PETROSKI4, PETROSKI5,
+];
+
+/** Protocolos que servem ao sexo informado. */
+export const protocolosPara = (sexo: Sexo | null): Protocolo[] =>
+  PROTOCOLOS.filter((p) => !p.aplicaA || (sexo !== null && p.aplicaA.includes(sexo)));
 
 export const protocoloPorId = (id: string): Protocolo | undefined =>
   PROTOCOLOS.find((p) => p.id === id);
@@ -187,8 +301,10 @@ export const protocoloPorId = (id: string): Protocolo | undefined =>
  * registrado e por que ainda não está lá.
  */
 export const PENDENTES = [
-  { nome: 'Petroski — 4 dobras', motivo: 'preciso confirmar os coeficientes na referência que você usa' },
-  { nome: 'Guedes — 3 dobras', motivo: 'idem: coeficientes variam entre publicações' },
+  {
+    nome: 'Petroski e Guedes — versões MASCULINAS',
+    motivo: 'só as equações femininas foram encontradas em fonte legível. Aplicar a feminina a homem usaria a equação fora da população em que foi validada',
+  },
 ];
 
 /**

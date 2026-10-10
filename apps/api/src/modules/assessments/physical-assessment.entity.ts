@@ -44,6 +44,8 @@ export class PhysicalAssessment {
   @Column({ name: 'skinfold_abdominal_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldAbdominalMm: number | null;
   @Column({ name: 'skinfold_thigh_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldThighMm: number | null;
   @Column({ name: 'skinfold_chest_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldChestMm: number | null;
+  /** Panturrilha medial. Exigida por todas as variantes de Petroski. */
+  @Column({ name: 'skinfold_calf_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldCalfMm: number | null;
   /** Bíceps. Exigida pelo protocolo de Durnin & Womersley. */
   @Column({ name: 'skinfold_biceps_mm', type: 'numeric', precision: 4, scale: 1, nullable: true }) skinfoldBicepsMm: number | null;
   /**
