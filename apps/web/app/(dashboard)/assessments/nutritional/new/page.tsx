@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useStreamingText } from '@/hooks/useStreamingText';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,6 +16,7 @@ import { ShieldAlert, Coins, Calculator, Brain, TrendingUp, Activity } from 'luc
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { AudioIntakeRecorder } from '@/components/AudioIntakeRecorder';
+import { SeletorGastoEnergetico, type ResultadoGasto } from '@/components/SeletorGastoEnergetico';
 
 const schema = z.object({
   patientId: z.string().optional(),
@@ -29,8 +30,6 @@ const schema = z.object({
   heightCm: z.coerce.number().min(100).max(250, 'Altura inválida'),
   age: z.coerce.number().min(1).max(120),
   gender: z.enum(['male', 'female']),
-  activityLevel: z.enum(['sedentary','lightly_active','moderately_active','very_active','extremely_active']),
-  bmrFormula: z.enum(['mifflin', 'harris_benedict', 'who']).default('mifflin'),
   caloricTarget: z.coerce.number().min(500).max(10000).optional(),
   proteinTargetG: z.coerce.number().min(0).optional(),
   carbTargetG: z.coerce.number().min(0).optional(),
@@ -42,23 +41,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const PAL_FACTORS: Record<string, number> = {
-  sedentary: 1.2,
-  lightly_active: 1.375,
-  moderately_active: 1.55,
-  very_active: 1.725,
-  extremely_active: 1.9,
-};
-
-function calcMifflin(w: number, h: number, a: number, g: string) {
-  const base = 10 * w + 6.25 * h - 5 * a;
-  return g === 'male' ? base + 5 : base - 161;
-}
-function calcHarrisBenedict(w: number, h: number, a: number, g: string) {
-  return g === 'male'
-    ? 88.36 + 13.4 * w + 4.8 * h - 5.7 * a
-    : 447.6 + 9.2 * w + 3.1 * h - 4.3 * a;
-}
 function bmiClass(bmi: number) {
   if (bmi < 18.5) return { label: 'Abaixo do peso', color: 'text-blue-600' };
   if (bmi < 25)   return { label: 'Peso normal', color: 'text-green-600' };
@@ -68,7 +50,10 @@ function bmiClass(bmi: number) {
 }
 
 export default function NutritionalAssessmentNewPage() {
-  const [liveCalc, setLiveCalc] = useState<{ bmi: number; bmr: number; tee: number; protein: number } | null>(null);
+  const [liveCalc, setLiveCalc] = useState<
+    { bmi: number; bmr: number | null; tee: number | null; protein: number } | null>(null);
+  const [gasto, setGasto] = useState<ResultadoGasto | null>(null);
+  const [alvoEditado, setAlvoEditado] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tokensConsumed, setTokensConsumed] = useState<number | null>(null);
   const [patientId] = useState<string | null>(() =>
@@ -78,7 +63,7 @@ export default function NutritionalAssessmentNewPage() {
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { bmrFormula: 'mifflin', gender: 'female', activityLevel: 'moderately_active' },
+    defaultValues: { gender: 'female' },
   });
 
   // Preenche apenas os campos do schema que a transcrição extraiu; o resto do
@@ -95,24 +80,37 @@ export default function NutritionalAssessmentNewPage() {
   const h = watch('heightCm');
   const a = watch('age');
   const g = watch('gender');
-  const formula = watch('bmrFormula');
-  const activity = watch('activityLevel');
 
-  // ─── Real-time calculation ────────────────────────────────────────────────
+  /**
+   * IMC e proteina dependem so da antropometria; TMB e GET vem do seletor de
+   * formula, que e quem conhece a equacao escolhida e a escala de atividade
+   * que combina com ela.
+   */
   useEffect(() => {
     const wN = Number(w), hN = Number(h), aN = Number(a);
     if (!wN || !hN || !aN || wN < 20 || hN < 100 || aN < 1) {
       setLiveCalc(null);
       return;
     }
-    const bmr = formula === 'mifflin' ? calcMifflin(wN, hN, aN, g) : calcHarrisBenedict(wN, hN, aN, g);
-    const pal = PAL_FACTORS[activity] ?? 1.55;
-    const tee = Math.round(bmr * pal);
     const bmiVal = Math.round((wN / ((hN / 100) ** 2)) * 10) / 10;
-    const protein = Math.round(wN * 1.8);
-    setLiveCalc({ bmi: bmiVal, bmr: Math.round(bmr), tee, protein });
-    setValue('caloricTarget', tee);
-  }, [w, h, a, g, formula, activity]);
+    setLiveCalc((atual) => ({
+      bmi: bmiVal,
+      protein: Math.round(wN * 1.8),
+      bmr: atual?.bmr ?? null,
+      tee: atual?.tee ?? null,
+    }));
+  }, [w, h, a]);
+
+  /**
+   * O alvo calorico acompanha o GET enquanto a profissional nao o edita.
+   * Sobrescrever sempre apagaria um ajuste clinico deliberado — que e o
+   * motivo de existir um campo separado para o alvo.
+   */
+  const aplicarGasto = useCallback((r: ResultadoGasto | null) => {
+    setGasto(r);
+    setLiveCalc((atual) => (atual ? { ...atual, bmr: r?.tmb ?? null, tee: r?.get ?? null } : atual));
+    if (r?.get && !alvoEditado) setValue('caloricTarget', r.get);
+  }, [alvoEditado, setValue]);
 
   const FALLBACK_AI_TEXT =
     `Síntese nutricional de apoio (IA):\n\n` +
@@ -134,11 +132,14 @@ export default function NutritionalAssessmentNewPage() {
       // Mapeia para as colunas reais da entidade (TMB/GET calculados; peso/altura/idade são insumos).
       const dto: Record<string, unknown> = {
         patientId,
-        basalMetabolicRate: liveCalc?.bmr,
-        totalEnergyExpenditure: liveCalc?.tee,
-        palFactor: PAL_FACTORS[values.activityLevel] ?? undefined,
-        bmrFormula: values.bmrFormula,
-        caloricTarget: values.caloricTarget || liveCalc?.tee,
+        basalMetabolicRate: gasto?.tmb ?? undefined,
+        totalEnergyExpenditure: gasto?.get ?? undefined,
+        // Nulo quando a formula nao usa fator: no EER 2023 a categoria
+        // escolhe a equacao, e gravar 1,60 aqui faria o registro afirmar que
+        // o GET saiu de TMB x 1,60, o que nao aconteceu.
+        palFactor: gasto?.palFactor ?? undefined,
+        bmrFormula: gasto?.rotuloRegistro,
+        caloricTarget: values.caloricTarget || gasto?.get,
         proteinTargetG: values.proteinTargetG || liveCalc?.protein,
         carbTargetG: values.carbTargetG,
         fatTargetG: values.fatTargetG,
@@ -208,14 +209,14 @@ export default function NutritionalAssessmentNewPage() {
             <div className="flex items-center gap-1.5">
               <Calculator className="h-4 w-4 text-brand-50" />
               <span className="text-brand-50 text-xs">TMB</span>
-              <span className="text-white font-bold text-lg leading-none">{liveCalc.bmr}</span>
+              <span className="text-white font-bold text-lg leading-none">{liveCalc.bmr ?? '—'}</span>
               <span className="text-brand-100 text-xs">kcal</span>
             </div>
             <div className="w-px h-8 bg-brand-500" />
             <div className="flex items-center gap-1.5">
               <Activity className="h-4 w-4 text-brand-50" />
               <span className="text-brand-50 text-xs">GET</span>
-              <span className="text-white font-bold text-xl leading-none">{liveCalc.tee}</span>
+              <span className="text-white font-bold text-xl leading-none">{liveCalc.tee ?? '—'}</span>
               <span className="text-brand-100 text-xs">kcal/dia</span>
             </div>
             <div className="w-px h-8 bg-brand-500" />
@@ -306,25 +307,13 @@ export default function NutritionalAssessmentNewPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Nível de atividade física</Label>
-                <select {...register('activityLevel')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
-                  <option value="sedentary">Sedentário (PAL 1,2)</option>
-                  <option value="lightly_active">Levemente ativo (PAL 1,375)</option>
-                  <option value="moderately_active">Moderadamente ativo (PAL 1,55)</option>
-                  <option value="very_active">Muito ativo (PAL 1,725)</option>
-                  <option value="extremely_active">Extremamente ativo (PAL 1,9)</option>
-                </select>
-              </div>
-              <div>
-                <Label>Fórmula de TMB</Label>
-                <select {...register('bmrFormula')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
-                  <option value="mifflin">Mifflin-St Jeor (recomendada)</option>
-                  <option value="harris_benedict">Harris-Benedict revisada</option>
-                </select>
-              </div>
-            </div>
+            <SeletorGastoEnergetico
+              pesoKg={Number(w) || null}
+              alturaCm={Number(h) || null}
+              idade={Number(a) || null}
+              sexo={g as 'male' | 'female'}
+              onChange={aplicarGasto}
+            />
 
             {/* Live result card */}
             {liveCalc ? (
@@ -336,12 +325,12 @@ export default function NutritionalAssessmentNewPage() {
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-gray-500 dark:text-gray-400">TMB</p>
-                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{liveCalc.bmr}</p>
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{liveCalc.bmr ?? '—'}</p>
                   <p className="text-xs text-gray-400">kcal/dia</p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-gray-500 dark:text-gray-400">GET</p>
-                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{liveCalc.tee}</p>
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{liveCalc.tee ?? '—'}</p>
                   <p className="text-xs text-gray-400">kcal/dia</p>
                 </div>
                 <div className="text-center">
@@ -363,7 +352,19 @@ export default function NutritionalAssessmentNewPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t dark:border-gray-700">
               <div>
                 <Label htmlFor="caloricTarget">Meta calórica (kcal)</Label>
-                <Input id="caloricTarget" {...register('caloricTarget')} type="number" />
+                <Input
+                  id="caloricTarget" type="number"
+                  {...register('caloricTarget')}
+                  // A partir do primeiro toque, a meta para de seguir o GET:
+                  // um ajuste clínico deliberado não pode ser apagado pelo
+                  // recálculo seguinte.
+                  onInput={() => setAlvoEditado(true)}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {alvoEditado
+                    ? 'Valor definido por você — não acompanha mais o GET.'
+                    : 'Acompanha o GET calculado até você editar.'}
+                </p>
               </div>
               <div>
                 <Label htmlFor="proteinTargetG">Proteína alvo (g)</Label>
