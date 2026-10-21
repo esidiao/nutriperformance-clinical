@@ -242,6 +242,18 @@ export const api = {
   },
 
   // Planos alimentares
+  // Recordatorio de 24h — o que o paciente RELATOU ter comido. Instrumento de
+  // avaliacao de consumo; nao e prescricao e nao se assina.
+  recordatorios: {
+    list: (patientId: string) => api.get<any[]>(`/recordatorios/patient/${patientId}`),
+    get: (id: string) => api.get<any>(`/recordatorios/${id}`),
+    create: (dto: any) => api.post<any>('/recordatorios', dto),
+    addItem: (id: string, dto: any) => api.post<any>(`/recordatorios/${id}/items`, dto),
+    removeItem: (id: string, itemId: string) =>
+      api.delete<any>(`/recordatorios/${id}/items/${itemId}`),
+    remove: (id: string) => api.delete<any>(`/recordatorios/${id}`),
+  },
+
   mealPlans: {
     list: (patientId: string) => api.get<any[]>(`/meal-plans/patient/${patientId}`),
     get: (id: string) => api.get<any>(`/meal-plans/${id}`),

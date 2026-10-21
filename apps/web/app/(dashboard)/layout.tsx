@@ -34,6 +34,9 @@ const NAV_GROUPS = [
       { href: '/agenda', label: 'Agenda', icon: CalendarDays },
       { href: '/patients', label: 'Pacientes', icon: Users },
       { href: '/meal-plans', label: 'Planos Alimentares', icon: UtensilsCrossed },
+      // Logo abaixo do plano de proposito: sao o par avaliar/prescrever, e
+      // ficar junto ajuda a nao confundir um com o outro.
+      { href: '/recordatorios', label: 'Recordatório 24h', icon: ClipboardList },
       { href: '/goals', label: 'Metas', icon: Target },
     ],
   },
