@@ -2,6 +2,7 @@ import {
   FORMULAS, formulaPorId, calcular, faixaSchofield, ganhoPesoGDia,
   fatoresDe, fatorPorId, ESCALAS, PENDENTES, crescimentoEer,
   KCAL_POR_GRAMA_DE_CRESCIMENTO, REDUCAO_1_A_2_ANOS, IDADE_MINIMA_AJUSTE_INFANTIL,
+  DEPOSITO_GESTACIONAL, DEPOSITO_OBESIDADE_DIVERGENTE,
   type Formula, type Sexo,
 } from '../../../../web/lib/gasto-energetico';
 
@@ -286,6 +287,96 @@ describe('gasto energético', () => {
       };
       expect(calcular(eer(), entrada, null).get).toBe(2275);
       expect(calcular(eer(), entrada, 1.9).get).toBe(2275);
+    });
+  });
+
+  // ─── gestante e lactante ─────────────────────────────────────────────────
+
+  describe('EER 2023 — gestante', () => {
+    const g = () => f('eer_2023_gestante');
+    const base = {
+      pesoKg: 70, alturaCm: 165, idade: 30, sexo: 'female' as Sexo,
+      categoriaAtividade: 'inativo', semanaGestacional: 28,
+      estadoPreGestacional: 'eutrofia' as const,
+    };
+
+    it('soma a idade gestacional e a energia de depósito', () => {
+      // 1.131,20 − 2,04×30 + 0,34×165 + 12,15×70 + 9,16×28 + 200
+      expect(calcular(g(), base, null).get).toBe(2433);
+    });
+
+    it('cada semana de gestação vale 9,16 kcal', () => {
+      const s28 = calcular(g(), base, null).get!;
+      const s29 = calcular(g(), { ...base, semanaGestacional: 29 }, null).get!;
+      expect(s29 - s28).toBe(9);
+    });
+
+    it('o depósito muda com o estado pré-gestacional, e a diferença é exata', () => {
+      const dif = (e: 'baixo_peso' | 'sobrepeso' | 'obesidade') =>
+        calcular(g(), { ...base, estadoPreGestacional: e }, null).get!
+        - calcular(g(), base, null).get!;
+      expect(dif('baixo_peso')).toBe(100);   // 300 − 200
+      expect(dif('sobrepeso')).toBe(-50);    // 150 − 200
+      expect(dif('obesidade')).toBe(-150);   // 50 − 200
+    });
+
+    it('a divergência da obesidade continua declarada', () => {
+      // Catraca: se alguém trocar o valor sem resolver a divergência, isto
+      // cai. Resolver exige mudar o teste, e mudar o teste exige explicar.
+      expect(DEPOSITO_GESTACIONAL.obesidade).toBe(DEPOSITO_OBESIDADE_DIVERGENTE.usado);
+      expect(DEPOSITO_OBESIDADE_DIVERGENTE.alternativo).toBe(-50);
+      expect(g().constantes.join(' ')).toMatch(/diverge/i);
+    });
+
+    it('sem semana gestacional ou estado, cobra o dado', () => {
+      const semSemana = calcular(g(), { ...base, semanaGestacional: null }, null);
+      expect(semSemana.get).toBeNull();
+      expect(semSemana.faltando.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('EER 2023 — lactante', () => {
+    const l = () => f('eer_2023_lactante');
+    const base = {
+      pesoKg: 65, alturaCm: 165, idade: 30, sexo: 'female' as Sexo,
+      categoriaAtividade: 'pouco_ativo', mesesPosParto: 3,
+    };
+
+    it('é a equação da não lactante mais o custo do leite', () => {
+      // A relação é o que a fonte define; checá-la prova que a equação base
+      // é reaproveitada em vez de recopiada com um dígito trocado.
+      const naoLactante = calcular(f('eer_dri_2023'),
+        { pesoKg: 65, alturaCm: 165, idade: 30, sexo: 'female', categoriaAtividade: 'pouco_ativo' },
+        null).get!;
+      expect(calcular(l(), base, null).get).toBe(naoLactante + 540 - 140);
+    });
+
+    it('depois dos 6 meses some a mobilização e o acréscimo cai para 380', () => {
+      const ate6 = calcular(l(), base, null).get!;
+      const depois = calcular(l(), { ...base, mesesPosParto: 9 }, null).get!;
+      expect(ate6 - depois).toBe(400 - 380);
+    });
+
+    it('o corte dos 6 meses é inclusivo embaixo', () => {
+      const seis = calcular(l(), { ...base, mesesPosParto: 6 }, null).get!;
+      const sete = calcular(l(), { ...base, mesesPosParto: 7 }, null).get!;
+      expect(seis - sete).toBe(20);
+    });
+
+    it('abaixo de 19 anos usa o conjunto de adolescente', () => {
+      const adolescente = calcular(l(), { ...base, idade: 17 }, null).get!;
+      const adulta = calcular(l(), { ...base, idade: 19 }, null).get!;
+      expect(adolescente).not.toBe(adulta);
+    });
+
+    it('não se aplica a homem', () => {
+      const r = calcular(l(), { ...base, sexo: 'male' }, null);
+      expect(r.get).toBeNull();
+      expect(r.naoSeAplica).toMatch(/mulheres/);
+    });
+
+    it('recusa pós-parto fora de 0 a 12 meses', () => {
+      expect(calcular(l(), { ...base, mesesPosParto: 18 }, null).get).toBeNull();
     });
   });
 

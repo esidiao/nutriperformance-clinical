@@ -71,6 +71,12 @@ export interface Entrada {
    * multiplicá-la. Só o EER 2023 usa.
    */
   categoriaAtividade?: string | null;
+  /** Semanas de gestacao. So o protocolo de gestante usa. */
+  semanaGestacional?: number | null;
+  /** Estado nutricional pre-gestacional, que define a energia de deposito. */
+  estadoPreGestacional?: EstadoPreGestacional | null;
+  /** Meses desde o parto. So o protocolo de lactante usa. */
+  mesesPosParto?: number | null;
 }
 
 export interface Formula {
@@ -84,7 +90,8 @@ export interface Formula {
   /** De onde vieram os coeficientes. Aparece na tela. */
   fonte: string;
   /** Campos sem os quais não calcula. */
-  exige: Array<'peso' | 'altura' | 'idade' | 'sexo' | 'mlg' | 'valor'>;
+  exige: Array<'peso' | 'altura' | 'idade' | 'sexo' | 'mlg' | 'valor'
+    | 'semanaGestacional' | 'estadoPreGestacional' | 'mesesPosParto'>;
   /** A conta, em texto, para conferência contra a referência da profissional. */
   constantes: string[];
   nota?: string;
@@ -439,6 +446,151 @@ const EER_2023: Formula = {
     return arred(aplicar(coef));
   },
 };
+// ── EER 2023: gestante e lactante ───────────────────────────────────────────
+
+/**
+ * Tabelas 5-17 a 5-19.
+ *
+ * Conferidas em DUAS fontes independentes: a transcrição do relatório da
+ * NASEM e a tabela de referência da própria nutricionista. Todos os
+ * coeficientes batem entre as duas — com UMA exceção, declarada abaixo.
+ */
+
+/** Estado nutricional pré-gestacional, que define a energia de depósito. */
+export type EstadoPreGestacional = 'baixo_peso' | 'eutrofia' | 'sobrepeso' | 'obesidade';
+
+/**
+ * Energia de depósito da gestação, em kcal/dia.
+ *
+ * ⚠️ DIVERGÊNCIA NÃO RESOLVIDA, na obesidade.
+ *
+ * A tabela de referência da nutricionista publica "+50 kcal/dia". A
+ * transcrição do relatório original da NASEM registra "−50", tratando o caso
+ * como MOBILIZAÇÃO de energia, não depósito. Os outros três estados batem
+ * nas duas fontes.
+ *
+ * Cem kcal/dia de diferença no sentido oposto não é arredondamento, é
+ * interpretação clínica distinta. Enquanto não se confirma qual vale, o
+ * cálculo usa o valor da referência dela (+50) e a tela DIZ que há
+ * divergência, com os dois valores — porque escolher em silêncio seria
+ * decidir por ela uma questão que não é minha.
+ */
+export const DEPOSITO_GESTACIONAL: Record<EstadoPreGestacional, number> = {
+  baixo_peso: 300,
+  eutrofia: 200,
+  sobrepeso: 150,
+  obesidade: 50,
+};
+
+export const DEPOSITO_OBESIDADE_DIVERGENTE = {
+  usado: 50,
+  alternativo: -50,
+  aviso:
+    'Para obesidade pré-gestacional há divergência entre as fontes: a tabela '
+    + 'de referência traz +50 kcal/dia (depósito) e o relatório original da '
+    + 'NASEM traz −50 kcal/dia (mobilização). O cálculo usa +50. Confirme '
+    + 'qual adotar antes de prescrever.',
+};
+
+/** Custo energético da produção de leite, por fase do pós-parto. */
+export const LACTACAO = {
+  ate_6_meses: { producao: 540, mobilizacao: 140 },
+  de_7_a_12_meses: { producao: 380, mobilizacao: 0 },
+};
+
+/** Coeficiente da idade gestacional, em semanas. */
+const COEF_IDADE_GESTACIONAL = 9.16;
+
+/** Tabela 5-17 — gestante, 2º e 3º trimestres. */
+const EER_GESTANTE: Record<CategoriaEer, CoefEer> = {
+  inativo:     { intercepto: 1131.20, idade: -2.04, altura:  0.34, peso: 12.15 },
+  pouco_ativo: { intercepto:  693.35, idade: -2.04, altura:  5.73, peso: 10.20 },
+  ativo:       { intercepto: -223.84, idade: -2.04, altura: 13.23, peso:  8.15 },
+  muito_ativo: { intercepto: -779.72, idade: -2.04, altura: 18.45, peso:  8.73 },
+};
+
+const GESTANTE: Formula = {
+  id: 'eer_2023_gestante',
+  nome: 'EER / DRI 2023 — gestante (2º e 3º trimestres)',
+  estima: 'get',
+  escalaAtividade: 'eer_2023',
+  ajuste: 'seleciona_equacao',
+  verificacao: 'fonte_lida',
+  fonte: 'NASEM 2023, Tabela 5-17. Conferida contra a tabela de referência da profissional.',
+  exige: ['peso', 'altura', 'idade', 'semanaGestacional', 'estadoPreGestacional'],
+  constantes: [
+    'Idade em anos; peso em kg; altura em CENTÍMETROS; idade gestacional em SEMANAS.',
+    'Sedentário:   1.131,20 − 2,04·idade + 0,34·alt + 12,15·peso + 9,16·semanas + depósito',
+    'Leve:           693,35 − 2,04·idade + 5,73·alt + 10,20·peso + 9,16·semanas + depósito',
+    'Ativo:         −223,84 − 2,04·idade + 13,23·alt + 8,15·peso + 9,16·semanas + depósito',
+    'Muito ativo:   −779,72 − 2,04·idade + 18,45·alt + 8,73·peso + 9,16·semanas + depósito',
+    'Depósito por estado pré-gestacional: baixo peso +300, eutrofia +200, sobrepeso +150, obesidade +50.',
+    '⚠️ O valor da obesidade diverge entre as fontes (+50 ou −50). Confira antes de prescrever.',
+    'No 1º TRIMESTRE não se usa esta equação: usa-se a de mulher não gestante.',
+  ],
+  nota: 'Para gestante adolescente a fonte recomenda as equações de adulta, por escassez de dados.',
+  calcular: (e) => {
+    if (!ok(e.pesoKg) || !ok(e.alturaCm) || !ok(e.idade) || !ok(e.semanaGestacional)) return null;
+    if (!e.estadoPreGestacional) return null;
+    const cat = e.categoriaAtividade as CategoriaEer | null | undefined;
+    if (!cat) return null;
+    const c = EER_GESTANTE[cat];
+    if (!c) return null;
+    const deposito = DEPOSITO_GESTACIONAL[e.estadoPreGestacional];
+    if (deposito === undefined) return null;
+    return arred(
+      c.intercepto + c.idade * e.idade + c.altura * e.alturaCm + c.peso * e.pesoKg
+      + COEF_IDADE_GESTACIONAL * e.semanaGestacional + deposito,
+    );
+  },
+};
+
+/**
+ * Tabelas 5-18 e 5-19 — lactante.
+ *
+ * A equação é a da mulher NÃO lactante, mais o custo do leite e menos a
+ * mobilização. Por isso reutiliza EER_ADULTO e EER_JOVEM em vez de repetir
+ * coeficientes: repetidos, eles podem divergir numa correção futura, e
+ * ninguém notaria.
+ */
+const LACTANTE: Formula = {
+  id: 'eer_2023_lactante',
+  nome: 'EER / DRI 2023 — lactante',
+  estima: 'get',
+  escalaAtividade: 'eer_2023',
+  ajuste: 'seleciona_equacao',
+  verificacao: 'fonte_lida',
+  fonte: 'NASEM 2023, Tabelas 5-18 e 5-19. Conferidas contra a tabela de referência da profissional.',
+  exige: ['peso', 'altura', 'idade', 'mesesPosParto'],
+  aplicaA: ['female'],
+  constantes: [
+    'Parte da equação da mulher não lactante, da mesma categoria de atividade.',
+    'Aleitamento exclusivo (0 a 6 meses):  + 540 kcal de produção − 140 kcal de mobilização.',
+    'Aleitamento parcial (7 a 12 meses):   + 380 kcal, sem mobilização.',
+    'A mobilização some depois dos 6 meses porque a fonte assume peso estável a partir daí.',
+    'Abaixo de 19 anos usa o conjunto de adolescente, não o de adulta.',
+  ],
+  calcular: (e) => {
+    if (!ok(e.pesoKg) || !ok(e.alturaCm) || !ok(e.idade)) return null;
+    if (e.mesesPosParto === null || e.mesesPosParto === undefined || e.mesesPosParto < 0) return null;
+    if (e.mesesPosParto > 12) return null;
+    const cat = e.categoriaAtividade as CategoriaEer | null | undefined;
+    if (!cat) return null;
+
+    const tabela = e.idade < 19 ? EER_JOVEM : EER_ADULTO;
+    const c = tabela.female[cat];
+    if (!c) return null;
+
+    const fase = e.mesesPosParto <= 6 ? LACTACAO.ate_6_meses : LACTACAO.de_7_a_12_meses;
+    const crescimento = e.idade < 19 ? (crescimentoEer('female', e.idade) ?? 0) : 0;
+
+    return arred(
+      c.intercepto + c.idade * e.idade + c.altura * e.alturaCm + c.peso * e.pesoKg
+      + crescimento + fase.producao - fase.mobilizacao,
+    );
+  },
+};
+
 // ── equações de artigo, coeficientes de uso corrente ────────────────────────
 
 const MIFFLIN: Formula = {
@@ -513,7 +665,7 @@ const CUNNINGHAM: Formula = {
 
 export const FORMULAS: Formula[] = [
   TMB_MANUAL, GET_MANUAL, BOLSO,
-  EER_2023,
+  EER_2023, GESTANTE, LACTANTE,
   FAO_2004, FAO_CRIANCA,
   MIFFLIN, HB_1984,
   KATCH, CUNNINGHAM,
@@ -536,10 +688,6 @@ export const PENDENTES = [
   { nome: 'Mifflin-St Jeor por MLG (1990)', motivo: 'variante diferente da equação por peso' },
   { nome: 'Henry & Rees (1991)', motivo: 'preciso confirmar os coeficientes' },
   { nome: 'Tinsley (2018), por peso e por MLG', motivo: 'duas variantes; preciso confirmar as duas' },
-  {
-    nome: 'EER 2023 para gestante e lactante',
-    motivo: 'as equações JÁ estão verificadas (Tabelas 5-17 a 5-19); falta a tela pedir semana gestacional, IMC pré-gestacional e tempo de pós-parto, que nenhuma outra fórmula usa',
-  },
   { nome: 'Lactente (0 a 12 meses)', motivo: 'a FAO 2004 traz as equações de Butte; ainda não transcritas' },
 ];
 
@@ -606,8 +754,8 @@ const FAO_CRIANCA_FATORES: FatorAtividade[] = [
  * por isso o detalhe aparece na tela, e a escolha é clínica.
  */
 const EER_CATEGORIAS: FatorAtividade[] = [
-  { id: 'inativo', label: 'Inativo', valor: 1.40, detalhe: 'PAL de 1,00 a 1,53 — minimamente ativo, sem atividade ocupacional' },
-  { id: 'pouco_ativo', label: 'Pouco ativo', valor: 1.60, detalhe: 'PAL de 1,53 a 1,68' },
+  { id: 'inativo', label: 'Sedentário', valor: 1.40, detalhe: 'NAF inativo — PAL de 1,00 a 1,53; minimamente ativo, sem atividade ocupacional' },
+  { id: 'pouco_ativo', label: 'Leve', valor: 1.60, detalhe: 'NAF pouco ativo — PAL de 1,53 a 1,68' },
   { id: 'ativo', label: 'Ativo', valor: 1.75, detalhe: 'PAL de 1,68 a 1,85' },
   { id: 'muito_ativo', label: 'Muito ativo', valor: 2.05, detalhe: 'PAL de 1,85 a 2,50' },
 ];
@@ -668,6 +816,9 @@ export interface Resultado {
 const ROTULO_CAMPO: Record<string, string> = {
   peso: 'peso', altura: 'altura', idade: 'idade', sexo: 'sexo',
   mlg: 'massa livre de gordura', valor: 'o valor informado',
+  semanaGestacional: 'a semana gestacional',
+  estadoPreGestacional: 'o estado nutricional pré-gestacional',
+  mesesPosParto: 'os meses de pós-parto',
 };
 
 const ROTULO_SEXO: Record<Sexo, string> = { male: 'homens', female: 'mulheres' };
@@ -718,6 +869,12 @@ export function calcular(
       if (campo === 'idade') return !ok(entrada.idade);
       if (campo === 'sexo') return !entrada.sexo;
       if (campo === 'mlg') return !ok(entrada.mlgKg);
+      if (campo === 'semanaGestacional') return !ok(entrada.semanaGestacional);
+      if (campo === 'estadoPreGestacional') return !entrada.estadoPreGestacional;
+      // Zero é resposta válida aqui (recém-nascido), então não serve `ok`.
+      if (campo === 'mesesPosParto') {
+        return entrada.mesesPosParto === null || entrada.mesesPosParto === undefined;
+      }
       return !ok(entrada.valorInformado);
     })
     .map((c) => ROTULO_CAMPO[c]);
