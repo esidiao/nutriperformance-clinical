@@ -1,5 +1,7 @@
 'use client';
 
+import { textoPdf, protegerDocumento } from './texto-seguro';
+
 // ─── PDF injection / XSS sanitisation ────────────────────────────────────────
 // Strips null bytes and ASCII control characters (except \n and \t which jsPDF
 // handles gracefully). Enforces a maximum length to prevent DoS via huge PDFs.
@@ -16,7 +18,9 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  // Protege TODAS as chamadas de texto de uma vez: havia 31 chamadas de
+  // doc.text e 20 de limpeza, ou seja, onze ja estavam desprotegidas.
+  const doc = protegerDocumento(new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }));
 
   const W = 210; // page width mm
   const M = 18;  // margin
@@ -236,7 +240,7 @@ export async function generatePrescriptionPDF(data: PrescriptionData): Promise<v
     doc.setTextColor(...AMBER);
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('⚠  INTERAÇÕES E ALERTAS IDENTIFICADOS', M + 3, y + 4.8);
+    doc.text('ATENÇÃO — INTERAÇÕES E ALERTAS IDENTIFICADOS', M + 3, y + 4.8);
     y += 10;
 
     data.interactions.forEach((inter) => {
