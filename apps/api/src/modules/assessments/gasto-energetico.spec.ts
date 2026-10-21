@@ -2,7 +2,7 @@ import {
   FORMULAS, formulaPorId, calcular, faixaSchofield, ganhoPesoGDia,
   fatoresDe, fatorPorId, ESCALAS, PENDENTES, crescimentoEer,
   KCAL_POR_GRAMA_DE_CRESCIMENTO, REDUCAO_1_A_2_ANOS, IDADE_MINIMA_AJUSTE_INFANTIL,
-  DEPOSITO_GESTACIONAL, DEPOSITO_OBESIDADE_DIVERGENTE,
+  DEPOSITO_GESTACIONAL, DEPOSITO_OBESIDADE_DIVERGENTE, FAIXA_TABULADA_HB_1918,
   type Formula, type Sexo,
 } from '../../../../web/lib/gasto-energetico';
 
@@ -377,6 +377,67 @@ describe('gasto energético', () => {
 
     it('recusa pós-parto fora de 0 a 12 meses', () => {
       expect(calcular(l(), { ...base, mesesPosParto: 18 }, null).get).toBeNull();
+    });
+  });
+
+  // ─── Harris-Benedict: a original lida, a revisão não ─────────────────────
+
+  describe('Harris-Benedict', () => {
+    it('a de 1918 traz os coeficientes do artigo, dígito por dígito', () => {
+      // Transcritos do fac-símile da p. 373 (PNAS 1918;4(12):370-373).
+      // Repetir a conta aqui não valida o coeficiente — o que valida é o
+      // texto da equação estar na tela, conferível contra o artigo. Este
+      // teste trava que ele NÃO mude sem alguém reler a fonte.
+      const c = f('harris_benedict_1918').constantes.join(' ');
+      expect(c).toContain('66,4730');
+      expect(c).toContain('13,7516');
+      expect(c).toContain('5,0033');
+      expect(c).toContain('6,7550');
+      expect(c).toContain('655,0955');
+      expect(c).toContain('9,5634');
+      expect(c).toContain('1,8496');
+      expect(c).toContain('4,6756');
+      expect(c).toMatch(/CENTÍMETROS/);
+    });
+
+    it('calcula com os coeficientes de 1918', () => {
+      const h = calcular(f('harris_benedict_1918'),
+        { pesoKg: 70, alturaCm: 175, idade: 30, sexo: 'male' }, null);
+      expect(h.tmb).toBe(Math.round(66.4730 + 13.7516 * 70 + 5.0033 * 175 - 6.7550 * 30));
+
+      const m = calcular(f('harris_benedict_1918'),
+        { pesoKg: 60, alturaCm: 165, idade: 35, sexo: 'female' }, null);
+      expect(m.tmb).toBe(Math.round(655.0955 + 9.5634 * 60 + 1.8496 * 165 - 4.6756 * 35));
+    });
+
+    it('a original e a revisão de 1984 NÃO dão o mesmo valor', () => {
+      // As duas circulam com o mesmo nome. Se um dia alguém copiar os
+      // coeficientes de uma para a outra, isto cai.
+      const entrada = { pesoKg: 70, alturaCm: 175, idade: 30, sexo: 'male' as Sexo };
+      const original = calcular(f('harris_benedict_1918'), entrada, null).tmb!;
+      const revisada = calcular(f('harris_benedict_1984'), entrada, null).tmb!;
+      expect(original).not.toBe(revisada);
+      // Próximas, porém: uma diferença grande indicaria erro de transcrição.
+      expect(Math.abs(original - revisada)).toBeLessThan(60);
+    });
+
+    it('só a de 1918 está verificada; a revisão continua pendente', () => {
+      expect(f('harris_benedict_1918').verificacao).toBe('fonte_lida');
+      expect(f('harris_benedict_1918').fonte).toMatch(/1918/);
+      expect(f('harris_benedict_1984').verificacao).toBe('pendente');
+    });
+
+    it('a faixa tabulada pelo artigo fica registrada', () => {
+      expect(FAIXA_TABULADA_HB_1918.pesoKg).toEqual([25.0, 124.9]);
+      expect(FAIXA_TABULADA_HB_1918.estaturaCm).toEqual([151, 200]);
+      expect(FAIXA_TABULADA_HB_1918.idadeAnos).toEqual([21, 70]);
+      // Declarada, não imposta: o artigo diz onde TABULOU as equações, não
+      // que elas sejam inválidas fora disso. Bloquear uma paciente de 75
+      // anos seria inventar uma restrição que a fonte não faz.
+      const idosa = calcular(f('harris_benedict_1918'),
+        { pesoKg: 62, alturaCm: 158, idade: 75, sexo: 'female' }, null);
+      expect(idosa.tmb).not.toBeNull();
+      expect(idosa.naoSeAplica).toBeNull();
     });
   });
 

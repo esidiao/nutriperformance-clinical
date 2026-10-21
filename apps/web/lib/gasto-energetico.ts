@@ -613,6 +613,56 @@ const MIFFLIN: Formula = {
   },
 };
 
+/**
+ * Harris & Benedict ORIGINAL, lida no fac-símile do artigo.
+ *
+ * Fonte: Harris JA, Benedict FG. "A Biometric Study of Human Basal
+ * Metabolism". Proc Natl Acad Sci USA. 1918 Dec;4(12):370-373. As equações
+ * estão na página 373, lidas na digitalização do PMC (PMC1091498) — o
+ * artigo não tem camada de texto, então foram transcritas da imagem.
+ *
+ * DUAS CONFUSÕES COMUNS QUE ESTA ENTRADA DESFAZ
+ *
+ * 1. O que se chama de "Harris-Benedict 1919" são DUAS publicações
+ *    diferentes: esta nota de 4 páginas no PNAS, de dezembro de 1918, e a
+ *    monografia de 279 páginas da Carnegie Institution (Publicação 279,
+ *    1919). O próprio artigo anuncia a monografia no último parágrafo. Esta
+ *    ferramenta cita a nota do PNAS, que é onde as equações aparecem.
+ *
+ * 2. A ORIGINAL e a REVISÃO de 1984 não têm os mesmos coeficientes, e são
+ *    frequentemente trocadas uma pela outra. As duas estão aqui, separadas.
+ */
+const HB_1918: Formula = {
+  id: 'harris_benedict_1918',
+  nome: 'Harris-Benedict original (1918)',
+  estima: 'tmb',
+  escalaAtividade: 'generica',
+  ajuste: 'multiplica_tmb',
+  verificacao: 'fonte_lida',
+  fonte: 'Harris & Benedict, Proc Natl Acad Sci USA 1918;4(12):370-373, p. 373. Fac-símile lido no PMC1091498.',
+  exige: ['peso', 'altura', 'idade', 'sexo'],
+  constantes: [
+    'Homens:   h = 66,4730 + 13,7516·peso(kg) + 5,0033·estatura(cm) − 6,7550·idade',
+    'Mulheres: h = 655,0955 + 9,5634·peso(kg) + 1,8496·estatura(cm) − 4,6756·idade',
+    'h = produção total de calor em 24 horas; peso em kg; estatura em CENTÍMETROS; idade em anos.',
+    'O artigo tabula as equações para peso de 25,0 a 124,9 kg, estatura de 151 a 200 cm e idade de 21 a 70 anos.',
+  ],
+  nota: 'É a ORIGINAL de 1918, não a revisão de 1984 — os coeficientes diferem, e as duas circulam com o mesmo nome.',
+  calcular: (e) => {
+    if (!ok(e.pesoKg) || !ok(e.alturaCm) || !ok(e.idade) || !e.sexo) return null;
+    return arred(e.sexo === 'male'
+      ? 66.4730 + 13.7516 * e.pesoKg + 5.0033 * e.alturaCm - 6.7550 * e.idade
+      : 655.0955 + 9.5634 * e.pesoKg + 1.8496 * e.alturaCm - 4.6756 * e.idade);
+  },
+};
+
+/** Faixa em que o artigo de 1918 diz ter tabulado as equações. */
+export const FAIXA_TABULADA_HB_1918 = {
+  pesoKg: [25.0, 124.9] as const,
+  estaturaCm: [151, 200] as const,
+  idadeAnos: [21, 70] as const,
+};
+
 const HB_1984: Formula = {
   id: 'harris_benedict_1984',
   nome: 'Harris-Benedict revisada (Roza & Shizgal, 1984)',
@@ -620,13 +670,13 @@ const HB_1984: Formula = {
   escalaAtividade: 'generica',
   ajuste: 'multiplica_tmb',
   verificacao: 'pendente',
-  fonte: 'Coeficientes de uso corrente; a revisão de 1984 não foi lida aqui.',
+  fonte: 'Coeficientes de uso corrente; Roza & Shizgal, Am J Clin Nutr 1984;40(1):168-182, não foi lido aqui (acesso pago).',
   exige: ['peso', 'altura', 'idade', 'sexo'],
   constantes: [
     'Homens:   TMB = 88,362 + 13,397×peso + 4,799×altura(cm) − 5,677×idade',
     'Mulheres: TMB = 447,593 + 9,247×peso + 3,098×altura(cm) − 4,330×idade',
   ],
-  nota: 'É a REVISÃO de 1984, não a original de 1919 — os coeficientes diferem.',
+  nota: 'É a REVISÃO de 1984. A original de 1918 está disponível aqui ao lado, e foi conferida no artigo; esta revisão não — a AJCN é paga.',
   calcular: (e) => {
     if (!ok(e.pesoKg) || !ok(e.alturaCm) || !ok(e.idade) || !e.sexo) return null;
     return arred(e.sexo === 'male'
@@ -667,7 +717,7 @@ export const FORMULAS: Formula[] = [
   TMB_MANUAL, GET_MANUAL, BOLSO,
   EER_2023, GESTANTE, LACTANTE,
   FAO_2004, FAO_CRIANCA,
-  MIFFLIN, HB_1984,
+  MIFFLIN, HB_1918, HB_1984,
   KATCH, CUNNINGHAM,
 ];
 
@@ -680,7 +730,6 @@ export const formulaPorId = (id: string) => FORMULAS.find((f) => f.id === id);
  * profissional calcula pela referência dela e digita o valor.
  */
 export const PENDENTES = [
-  { nome: 'Harris-Benedict original (1919)', motivo: 'coeficientes diferentes da revisão de 1984; preciso confirmar na fonte' },
   {
     nome: 'EER/IOM 2005',
     motivo: 'o capítulo 5 do relatório de 2005 está publicado só como imagem digitalizada, sem camada de texto — não consegui transcrever nem as equações nem os coeficientes de atividade. Use o EER 2023, que é a atualização desse mesmo sistema',
