@@ -68,6 +68,21 @@ export class MealPlansController {
     return this.svc.listaCompras(req.user.workspaceId, id, dias ? Number(dias) : undefined);
   }
 
+  // ANTES de @Get(':id'), como a lista de compras: o Nest casa na ordem de
+  // declaração, e depois dela "substituicoes" seria lido como id de plano.
+  @NutritionistOnly()
+  @Get(':id/substituicoes')
+  @ApiOperation({
+    summary: 'Opções de substituição para cada item do plano',
+    description:
+      'Equivalência dentro do grupo alimentar, com a porção recalculada e a '
+      + 'divergência nos demais macronutrientes. Destina-se ao paciente: dar '
+      + 'opções de escolha e evitar monotonia.',
+  })
+  substituicoes(@Request() req: any, @Param('id') id: string) {
+    return this.svc.substituicoesDoPlano(req.user.workspaceId, id);
+  }
+
   @NutritionistOnly()
   @Get(':id')
   @ApiOperation({ summary: 'Plano com refeições e totais nutricionais' })

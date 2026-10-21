@@ -6,6 +6,7 @@ import { MealPlanItem } from './meal-plan-item.entity';
 import { Food } from '../foods/food.entity';
 import { AuditService } from '../audit/audit.service';
 import { montarListaCompras, ListaCompras } from './lista-compras';
+import { montarSubstituicoes } from './substituicoes';
 import { SupervisionService, PAPEL_ESTUDANTE } from '../supervision/supervision.service';
 import { somarMicronutrientes, type TotalMicronutriente } from './micronutrientes';
 import {
@@ -131,6 +132,80 @@ export class MealPlansService {
     }
 
     return montarListaCompras(itens, grupoPorFoodId, dias);
+  }
+
+  /**
+   * Opções de substituição para cada item do plano.
+   *
+   * Devolve o plano INTEIRO, não um item por vez, porque o destino da lista é
+   * o paciente: ele precisa ver, para cada coisa prescrita, por quais pode
+   * trocar. Uma consulta por item geraria dezenas de idas ao banco para
+   * montar uma folha só.
+   *
+   * Os candidatos vêm de UMA consulta por grupo alimentar, não por item: um
+   * plano com cinco cereais consulta o grupo "Cereais e derivados" uma vez.
+   *
+   * Item digitado à mão (sem `foodId`) não entra: sem vínculo com a base não
+   * há composição, e sem composição não há equivalência a calcular. Ele sai
+   * listado em `semVinculo` para que a tela possa dizer por que ficou de
+   * fora, em vez de o alimento simplesmente sumir da folha.
+   */
+  async substituicoesDoPlano(workspaceId: string, id: string) {
+    const plan = await this.planRepo.findOne({ where: { id, workspaceId, isActive: true } });
+    if (!plan) throw new NotFoundException('Plano alimentar não encontrado');
+
+    const itens = await this.itemRepo.find({ where: { mealPlanId: id, workspaceId } });
+
+    const comVinculo = itens.filter((i) => i.foodId);
+    const semVinculo = itens
+      .filter((i) => !i.foodId)
+      .map((i) => ({ itemId: i.id, nome: i.alimentoNome }));
+
+    if (!comVinculo.length) {
+      return { planoId: id, itens: [], semVinculo };
+    }
+
+    const idsOrigem = [...new Set(comVinculo.map((i) => i.foodId as string))];
+    const origens = await this.foodRepo.find({ where: idsOrigem.map((fid) => ({ id: fid })) });
+    const origemPorId = new Map(origens.map((f) => [f.id, f]));
+
+    // Um fetch por grupo, não por item.
+    const grupos = [...new Set(origens.map((f) => f.grupoAlimentar).filter(Boolean))] as string[];
+    const candidatosPorGrupo = new Map<string, Food[]>();
+    for (const grupo of grupos) {
+      candidatosPorGrupo.set(
+        grupo,
+        await this.foodRepo.find({ where: { grupoAlimentar: grupo, ativo: true } }),
+      );
+    }
+
+    const resultado = comVinculo.map((item) => {
+      const origem = origemPorId.get(item.foodId as string);
+      if (!origem) {
+        // O alimento saiu da base depois de prescrito. Não é erro do plano, e
+        // não pode derrubar a folha inteira.
+        return {
+          itemId: item.id,
+          refeicao: item.refeicao,
+          lista: {
+            origem: { foodId: item.foodId, nome: item.alimentoNome, quantidadeG: num(item.quantidadeG), grupo: null },
+            nutrienteReferencia: null, rotuloReferencia: null, referenciaOriginal: null,
+            substituicoes: [],
+            indisponivel: 'Este alimento não está mais na base de composição, então não há com que compará-lo.',
+          },
+        };
+      }
+      const candidatos = origem.grupoAlimentar
+        ? candidatosPorGrupo.get(origem.grupoAlimentar) ?? []
+        : [];
+      return {
+        itemId: item.id,
+        refeicao: item.refeicao,
+        lista: montarSubstituicoes(origem, num(item.quantidadeG), candidatos),
+      };
+    });
+
+    return { planoId: id, itens: resultado, semVinculo };
   }
 
   /**
