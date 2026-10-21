@@ -9,6 +9,7 @@ import { api } from '@/lib/api-client';
 import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
 import { RelatorioAdequacao } from '@/components/RelatorioAdequacao';
+import { SeletorMedidaCaseira } from '@/components/SeletorMedidaCaseira';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -181,23 +182,16 @@ export default function RecordatorioDetalhePage() {
                 </p>
               </div>
 
-              <div className="sm:col-span-2">
-                <Label htmlFor="qtd">Quantidade (g)</Label>
-                <Input
-                  id="qtd" type="number" min={0} step="1" inputMode="decimal"
-                  value={quantidade}
-                  onChange={(e) => setQuantidade(e.target.value)}
-                  placeholder="60"
-                />
-              </div>
-
-              <div className="sm:col-span-3">
-                <Label htmlFor="medida">Medida caseira</Label>
-                <Input
-                  id="medida" value={medidaCaseira}
-                  onChange={(e) => setMedidaCaseira(e.target.value)}
-                  placeholder="3 colheres de sopa"
-                  maxLength={60}
+              {/* Quantidade e medida caseira sao o mesmo campo agora: a
+                  paciente relata "uma concha", nao "225 gramas". A conversao
+                  fica visivel ao lado para a profissional conferir. */}
+              <div className="sm:col-span-5">
+                <SeletorMedidaCaseira
+                  id="qtd"
+                  medidas={alimento?.medidas ?? []}
+                  valorG={quantidade}
+                  onChangeG={setQuantidade}
+                  onChangeMedida={(d) => setMedidaCaseira(d ?? '')}
                 />
               </div>
             </div>

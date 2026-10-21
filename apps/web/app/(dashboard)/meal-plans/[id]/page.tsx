@@ -9,6 +9,7 @@ import {
 import { api } from '@/lib/api-client';
 import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
+import { SeletorMedidaCaseira } from '@/components/SeletorMedidaCaseira';
 import { ListaCompras } from '@/components/ListaCompras';
 import { SalvarComoModelo } from '@/components/ModelosDePlano';
 import { RelatorioAdequacao } from '@/components/RelatorioAdequacao';
@@ -146,19 +147,17 @@ function AddItemForm({ refeicao, planId, onDone }: {
         }}
         placeholder="Buscar alimento na base…"
       />
-      <div className="flex gap-2">
-        <div className="w-24">
-          <Input
-            type="number" min="1" value={qtd}
-            onChange={(e) => setQtd(e.target.value)}
-            placeholder="g" aria-label="Quantidade em gramas"
-          />
-        </div>
-        <Input
-          value={medida} onChange={(e) => setMedida(e.target.value)}
-          placeholder="medida caseira (opcional)" aria-label="Medida caseira"
-        />
-      </div>
+      {/* Prescrever em medida caseira e o que o paciente consegue seguir:
+          "2 colheres de servir", nao "90 g". A conversao fica visivel para a
+          profissional conferir, e a grama continua disponivel para quando ela
+          pesou -- a balanca vence a tabela. */}
+      <SeletorMedidaCaseira
+        id="item"
+        medidas={food?.medidas ?? []}
+        valorG={qtd}
+        onChangeG={setQtd}
+        onChangeMedida={(d) => setMedida(d ?? '')}
+      />
 
       {previa !== null && (
         <p className="text-[11px] text-muted-foreground">

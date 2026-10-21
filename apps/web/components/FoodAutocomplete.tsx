@@ -7,6 +7,8 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { Input } from '@/components/ui/input';
 import { Loader2, Search, BadgeCheck } from 'lucide-react';
 
+import type { MedidaCaseira } from './SeletorMedidaCaseira';
+
 export interface FoodResult {
   id: string;
   nome: string;
@@ -20,6 +22,8 @@ export interface FoodResult {
   fibrasG: number | null;
   fonte: string;
   fonteVersao: string | null;
+  /** Medidas caseiras. Vazio para a TACO, que nao as publica. */
+  medidas?: MedidaCaseira[];
   confiabilidade: string;
   // Micronutrientes: a API sempre devolveu, o tipo e que nao declarava — e
   // por isso o relatorio de adequacao nao existia na tela de prescricao.

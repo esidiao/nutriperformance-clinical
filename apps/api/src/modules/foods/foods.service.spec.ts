@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NotFoundException } from '@nestjs/common';
 import { FoodsService } from './foods.service';
 import { Food } from './food.entity';
+import { FoodMeasure } from './food-measure.entity';
 import { RagService } from '../rag/rag.service';
 
 describe('FoodsService', () => {
@@ -27,6 +28,9 @@ describe('FoodsService', () => {
       providers: [
         FoodsService,
         { provide: getRepositoryToken(Food), useValue: mockRepo },
+        // Alimento sem medida caseira devolve lista vazia — e o caso de toda
+        // a TACO, que nao as publica. Nao e erro, e a tela segue em gramas.
+        { provide: getRepositoryToken(FoodMeasure), useValue: { find: jest.fn().mockResolvedValue([]) } },
         { provide: ConfigService, useValue: { get: jest.fn() } },
         { provide: RagService, useValue: { indexChunk: jest.fn() } },
       ],

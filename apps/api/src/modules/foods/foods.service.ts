@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Food } from './food.entity';
+import { FoodMeasure } from './food-measure.entity';
 import { mapUsdaFood } from './usda-mapper';
 import { RagService } from '../rag/rag.service';
 import { buildFoodChunkText } from '../rag/rag-chunk.util';
@@ -99,7 +100,26 @@ export function extrairTermos(query: string): string[] {
 }
 
 // DTO público — expõe apenas o necessário ao cliente, sempre com proveniência.
-function toPublic(f: Food) {
+/**
+ * Medidas caseiras no formato que a tela usa.
+ *
+ * A medida PADRAO vem primeiro: para arroz a colher de servir, para feijoada
+ * a concha. Em ordem alfabetica, qualquer alimento comecaria em "bife" ou
+ * "caneca", e a profissional teria de procurar a que faz sentido em todas as
+ * vezes.
+ */
+function medidasPublicas(medidas: FoodMeasure[] = []) {
+  return [...medidas]
+    .sort((a, b) => Number(b.padrao) - Number(a.padrao)
+      || a.medida.localeCompare(b.medida, 'pt-BR'))
+    .map((m) => ({
+      medida: m.medida,
+      gramas: Number(m.gramas),
+      padrao: m.padrao,
+    }));
+}
+
+function toPublic(f: Food, medidas: FoodMeasure[] = []) {
   return {
     id: f.id,
     nome: f.nomePadronizado,
@@ -107,6 +127,11 @@ function toPublic(f: Food) {
     grupoAlimentar: f.grupoAlimentar,
     novaClassificacao: f.novaClassificacao,
     porcaoPadraoG: Number(f.porcaoPadraoG),
+    // `fonte` e `fonteVersao` já saíam daqui, mais abaixo. Importa agora que
+    // TACO e IBGE convivem e discordam para o mesmo alimento: sem a marca, a
+    // profissional não teria como saber de onde veio um número que ela
+    // contestasse.
+    medidas: medidasPublicas(medidas),
     energiaKcal: f.energiaKcal != null ? Number(f.energiaKcal) : null,
     carboidratosG: f.carboidratosG != null ? Number(f.carboidratosG) : null,
     proteinasG: f.proteinasG != null ? Number(f.proteinasG) : null,
@@ -138,6 +163,8 @@ export class FoodsService {
 
   constructor(
     @InjectRepository(Food) private readonly repo: Repository<Food>,
+    @InjectRepository(FoodMeasure)
+    private readonly medidasRepo: Repository<FoodMeasure>,
     private readonly config: ConfigService,
     private readonly ragService: RagService,
   ) {}
@@ -220,7 +247,7 @@ export class FoodsService {
         .indexChunk('usda', f.id, f.confiabilidade, buildFoodChunkText(f as any), { nome: f.nomePadronizado })
         .catch((e: any) => this.logger.warn(`Falha ao indexar alimento USDA no RAG (${f.id}): ${e?.message}`));
     }
-    return rows.map(toPublic);
+    return rows.map((f) => toPublic(f));
   }
 
   /**
@@ -263,14 +290,38 @@ export class FoodsService {
       .take(take)
       .getMany();
 
-    return rows.map(toPublic);
+    return this.comMedidas(rows);
+  }
+
+  /**
+   * Junta as medidas caseiras aos alimentos.
+   *
+   * UMA consulta para a lista toda, nao uma por alimento: buscar "arroz"
+   * devolve ate 50 resultados, e 50 idas ao banco por digitacao no
+   * autocompletar tornariam a busca inutilizavel.
+   *
+   * Alimento sem medida (toda a TACO, hoje) volta com lista vazia -- nao e
+   * erro, e a tela continua oferecendo gramas.
+   */
+  private async comMedidas(alimentos: Food[]) {
+    if (!alimentos.length) return [];
+    const medidas = await this.medidasRepo.find({
+      where: { foodId: In(alimentos.map((f) => f.id)) },
+    });
+    const porAlimento = new Map<string, FoodMeasure[]>();
+    for (const m of medidas) {
+      const lista = porAlimento.get(m.foodId);
+      if (lista) lista.push(m); else porAlimento.set(m.foodId, [m]);
+    }
+    return alimentos.map((f) => toPublic(f, porAlimento.get(f.id) ?? []));
   }
 
   async findById(id: string) {
     const food = await this.repo.findOne({ where: { id, ativo: true } });
     if (!food) throw new NotFoundException('Alimento não encontrado');
     if (food.confiabilidade === 'pendente') throw new NotFoundException('Alimento não disponível');
-    return toPublic(food);
+    const medidas = await this.medidasRepo.find({ where: { foodId: food.id } });
+    return toPublic(food, medidas);
   }
 
   /** Comparação lado a lado de 2 a 4 alimentos (valores por porção padrão / 100g). */

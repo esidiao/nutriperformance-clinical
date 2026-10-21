@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -21,6 +21,7 @@ import { PatientSupplementation } from './modules/supplementation/patient-supple
 import { LaboratoryExam } from './modules/laboratory/laboratory-exam.entity';
 import { PatientGoal } from './modules/goals/patient-goal.entity';
 import { Food } from './modules/foods/food.entity';
+import { FoodMeasure } from './modules/foods/food-measure.entity';
 import { IndustrializedProduct } from './modules/products/product.entity';
 import { SupplementCatalog } from './modules/supplements-catalog/supplement-catalog.entity';
 
@@ -76,6 +77,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 // Health check
 import { HealthController } from './health.controller';
+import { podeSincronizar, motivoDeNaoSincronizar } from './common/banco-local';
 
 @Module({
   imports: [
@@ -88,6 +90,28 @@ import { HealthController } from './health.controller';
       useFactory: (config: ConfigService) => {
         const databaseUrl = config.get<string>('DATABASE_URL');
         const isProduction = config.get('NODE_ENV') === 'production';
+
+        // O `synchronize` ALTERA o schema: remove coluna que nao esta no
+        // codigo, derruba chave estrangeira, apaga tipo. A guarda e sobre o
+        // DESTINO, nao sobre o modo — rodar em dev apontando para producao
+        // ligava a sincronizacao contra producao. Ver common/banco-local.ts.
+        const sincronizar = podeSincronizar({
+          nodeEnv: config.get('NODE_ENV'),
+          databaseUrl,
+          dbHost: config.get<string>('DB_HOST'),
+        });
+        if (!sincronizar) {
+          const motivo = motivoDeNaoSincronizar({
+            nodeEnv: config.get('NODE_ENV'),
+            databaseUrl,
+            dbHost: config.get<string>('DB_HOST'),
+          });
+          // Um aviso no boot, porque "minha entidade nova nao aparece" e o
+          // sintoma, e a causa precisa estar escrita em algum lugar.
+          new Logger('TypeORM').warn(
+            `synchronize DESLIGADO: ${motivo}. Mudancas de schema exigem migracao.`,
+          );
+        }
         const baseOptions = {
           type: 'postgres' as const,
           ssl: (isProduction && config.get('DB_SSL') !== 'false') ? { rejectUnauthorized: false } : false,
@@ -106,9 +130,9 @@ import { HealthController } from './health.controller';
             FoodDiaryLink, FoodDiaryEntry, SupervisionRequest, PatientPortalLink,
             ProgressPhoto,
             DietaryRecall, DietaryRecallItem,
-            Food, IndustrializedProduct, SupplementCatalog,
+            Food, FoodMeasure, IndustrializedProduct, SupplementCatalog,
           ],
-          synchronize: !isProduction,
+          synchronize: sincronizar,
           logging: !isProduction,
         };
         if (databaseUrl) {
