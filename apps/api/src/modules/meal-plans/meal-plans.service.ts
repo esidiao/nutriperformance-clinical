@@ -169,15 +169,25 @@ export class MealPlansService {
     const origens = await this.foodRepo.find({ where: idsOrigem.map((fid) => ({ id: fid })) });
     const origemPorId = new Map(origens.map((f) => [f.id, f]));
 
-    // Um fetch por grupo, não por item.
-    const grupos = [...new Set(origens.map((f) => f.grupoAlimentar).filter(Boolean))] as string[];
-    const candidatosPorGrupo = new Map<string, Food[]>();
-    for (const grupo of grupos) {
-      candidatosPorGrupo.set(
-        grupo,
-        await this.foodRepo.find({ where: { grupoAlimentar: grupo, ativo: true } }),
-      );
-    }
+    /**
+     * Carrega a base ativa INTEIRA, uma vez.
+     *
+     * O grupo de troca é derivado da composição, não existe como coluna, e
+     * portanto não dá para filtrar no banco. Consultar por grupo da TACO
+     * deixaria de fora exatamente as reclassificações — o abacate não
+     * estaria entre os candidatos de uma castanha, que é justamente o caso
+     * que a classificação por composição existe para resolver.
+     *
+     * São centenas de linhas de poucas colunas, e uma consulta por
+     * requisição, não por item.
+     */
+    const candidatos = await this.foodRepo.find({
+      where: { ativo: true },
+      select: [
+        'id', 'nomePadronizado', 'grupoAlimentar', 'energiaKcal',
+        'proteinasG', 'carboidratosG', 'lipidiosG', 'fibrasG',
+      ],
+    });
 
     const resultado = comVinculo.map((item) => {
       const origem = origemPorId.get(item.foodId as string);
@@ -195,9 +205,6 @@ export class MealPlansService {
           },
         };
       }
-      const candidatos = origem.grupoAlimentar
-        ? candidatosPorGrupo.get(origem.grupoAlimentar) ?? []
-        : [];
       return {
         itemId: item.id,
         refeicao: item.refeicao,

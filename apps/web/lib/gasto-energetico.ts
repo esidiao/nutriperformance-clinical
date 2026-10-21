@@ -482,14 +482,20 @@ export const DEPOSITO_GESTACIONAL: Record<EstadoPreGestacional, number> = {
   obesidade: 50,
 };
 
+/**
+ * A divergência continua registrada AQUI, mesmo tendo saído da tela.
+ *
+ * A nutricionista decidiu adotar +50, que é o valor da referência dela, e
+ * que o aviso não aparecesse mais para ela a cada cálculo. Isso resolve a
+ * escolha clínica; não apaga de onde o número veio. Quem for mexer nestes
+ * coeficientes precisa saber que existe uma segunda leitura publicada, ou
+ * vai "corrigir" para −50 achando que achou um erro de digitação.
+ */
 export const DEPOSITO_OBESIDADE_DIVERGENTE = {
   usado: 50,
   alternativo: -50,
-  aviso:
-    'Para obesidade pré-gestacional há divergência entre as fontes: a tabela '
-    + 'de referência traz +50 kcal/dia (depósito) e o relatório original da '
-    + 'NASEM traz −50 kcal/dia (mobilização). O cálculo usa +50. Confirme '
-    + 'qual adotar antes de prescrever.',
+  decidido: 'A profissional adotou +50 (tabela de referência dela) em 21/10/2026.',
+  origemAlternativo: 'NASEM 2023 registra −50, tratando o caso como mobilização.',
 };
 
 /** Custo energético da produção de leite, por fase do pós-parto. */
@@ -525,7 +531,6 @@ const GESTANTE: Formula = {
     'Ativo:         −223,84 − 2,04·idade + 13,23·alt + 8,15·peso + 9,16·semanas + depósito',
     'Muito ativo:   −779,72 − 2,04·idade + 18,45·alt + 8,73·peso + 9,16·semanas + depósito',
     'Depósito por estado pré-gestacional: baixo peso +300, eutrofia +200, sobrepeso +150, obesidade +50.',
-    '⚠️ O valor da obesidade diverge entre as fontes (+50 ou −50). Confira antes de prescrever.',
     'No 1º TRIMESTRE não se usa esta equação: usa-se a de mulher não gestante.',
   ],
   nota: 'Para gestante adolescente a fonte recomenda as equações de adulta, por escassez de dados.',

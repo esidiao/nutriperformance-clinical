@@ -1,8 +1,11 @@
 import {
-  montarSubstituicoes, NUTRIENTE_DO_GRUPO, GRUPOS_SEM_EQUIVALENCIA,
-  GRUPOS_COBERTOS, ROTULO_NUTRIENTE,
+  montarSubstituicoes,
   type AlimentoComposicao,
 } from './substituicoes';
+import {
+  classificarGrupoTroca, NUTRIENTE_DO_GRUPO, ROTULO_NUTRIENTE, GRUPOS_TROCA,
+  LIPIDIO_PURO, LIPIDIO_MAGRO, DENSIDADE_LACTEO,
+} from './grupos-troca';
 
 /**
  * O risco desta lista não é errar a aritmética — é propor uma troca que a
@@ -104,12 +107,11 @@ describe('lista de substituições', () => {
       expect(r.indisponivel).toMatch(/1 alimento/);
     });
 
-    it('grupo sem papel nutricional comum recusa em bloco', () => {
-      const preparado = alimento({ id: 'lasanha', grupoAlimentar: 'Alimentos preparados' });
-      const outro = alimento({ id: 'sopa', grupoAlimentar: 'Alimentos preparados' });
-      const r = montarSubstituicoes(preparado, 100, [outro]);
+    it('condimento recusa, porque nao e porcao de nada', () => {
+      const shoyu = alimento({ id: 'shoyu', grupoAlimentar: 'Miscelaneas' });
+      const r = montarSubstituicoes(shoyu, 100, [alimento({ id: 'o', grupoAlimentar: 'Miscelaneas' })]);
       expect(r.substituicoes).toHaveLength(0);
-      expect(r.indisponivel).toMatch(/Alimentos preparados/);
+      expect(r.indisponivel).toMatch(/condimento|tempero/i);
       expect(r.nutrienteReferencia).toBeNull();
     });
 
@@ -117,13 +119,13 @@ describe('lista de substituições', () => {
       const semGrupo = alimento({ id: 'sg', grupoAlimentar: null });
       const r = montarSubstituicoes(semGrupo, 100, [ARROZ, BATATA]);
       expect(r.substituicoes).toHaveLength(0);
-      expect(r.indisponivel).toMatch(/não tem grupo alimentar/);
+      expect(r.indisponivel).toMatch(/ainda não tem regra/);
     });
 
     it('toda lista vazia tem motivo: nunca silenciosa', () => {
       const casos: Array<[AlimentoComposicao, AlimentoComposicao[]]> = [
         [alimento({ grupoAlimentar: null }), [ARROZ]],
-        [alimento({ grupoAlimentar: 'Alimentos preparados' }), [ARROZ]],
+        [alimento({ grupoAlimentar: 'Miscelâneas' }), [ARROZ]],
         [alimento({ grupoAlimentar: 'Grupo Inventado' }), [ARROZ]],
         [alimento({ carboidratosG: 0 }), [ARROZ]],
         [ARROZ, []],
@@ -143,7 +145,7 @@ describe('lista de substituições', () => {
       const novo = alimento({ id: 'n', grupoAlimentar: 'Preparações regionais' });
       const r = montarSubstituicoes(novo, 100, [alimento({ id: 'm', grupoAlimentar: 'Preparações regionais' })]);
       expect(r.substituicoes).toHaveLength(0);
-      expect(r.indisponivel).toMatch(/ainda não tem nutriente de referência/);
+      expect(r.indisponivel).toMatch(/ainda não tem regra de classificação/);
     });
   });
 
@@ -179,49 +181,190 @@ describe('lista de substituições', () => {
     });
   });
 
-  describe('o mapa de grupos', () => {
-    it('cada um dos 15 grupos da base está coberto ou recusado, nunca omisso', () => {
-      // Os 15 grupos da TACO, conferidos em produção. Grupo que não esteja
-      // em nenhum dos dois mapas cai no caso genérico e some sem explicação.
-      const DA_BASE = [
-        'Carnes e derivados', 'Verduras, hortaliças e derivados', 'Frutas e derivados',
-        'Cereais e derivados', 'Pescados e frutos do mar', 'Alimentos preparados',
-        'Leguminosas e derivados', 'Leite e derivados', 'Produtos açucarados',
-        'Gorduras e óleos', 'Bebidas (alcoólicas e não alcoólicas)', 'Nozes e sementes',
-        'Miscelâneas', 'Ovos e derivados', 'Outros alimentos industrializados',
-      ];
-      for (const g of DA_BASE) {
-        const coberto = g in NUTRIENTE_DO_GRUPO;
-        const recusado = g in GRUPOS_SEM_EQUIVALENCIA;
-        expect(coberto || recusado).toBe(true);
-        expect(coberto && recusado).toBe(false);
+  describe('a taxonomia de troca', () => {
+    const classificar = (over: Partial<AlimentoComposicao>) =>
+      classificarGrupoTroca(alimento(over)).grupo;
+
+    it('tuberculo sai de hortalicas e vai para os cereais', () => {
+      // Decisao da profissional: batata-doce troca com arroz no almoco, nao
+      // com alface. A TACO guarda tuberculo em "Verduras e hortalicas".
+      for (const nome of ['Batata, doce, cozida', 'Mandioca, cozida', 'Inhame, cru', 'Cará, cozido']) {
+        expect(classificar({
+          nomePadronizado: nome, grupoAlimentar: 'Verduras, hortaliças e derivados',
+          energiaKcal: 77, carboidratosG: 18, proteinasG: 1, lipidiosG: 0.1,
+        })).toBe('Cereais, pães e tubérculos');
       }
-      expect(DA_BASE).toHaveLength(15);
-      expect(GRUPOS_COBERTOS.length + Object.keys(GRUPOS_SEM_EQUIVALENCIA).length).toBe(15);
+      expect(classificar({
+        nomePadronizado: 'Alface, crespa, crua', grupoAlimentar: 'Verduras, hortaliças e derivados',
+        energiaKcal: 15, carboidratosG: 2.4, proteinasG: 1.3, lipidiosG: 0.2,
+      })).toBe('Hortaliças e vegetais');
     });
 
-    it('fonte de proteína não se iguala por carboidrato', () => {
-      for (const g of ['Carnes e derivados', 'Pescados e frutos do mar', 'Ovos e derivados', 'Leite e derivados']) {
+    it('o limite de palavra acentuado funciona nos dois sentidos', () => {
+      // CATRACA. A versão anterior usava `\b`, que em JavaScript só conhece
+      // letras ASCII: "Cará, cozido" nunca casava, e o cará caía calado em
+      // hortaliças enquanto batata e inhame eram reclassificados. Metade da
+      // regra funcionando é pior que a regra ausente, porque ninguém
+      // desconfia. Estes dois casos provam o lookahead nos dois sentidos.
+      expect(classificar({
+        nomePadronizado: 'Cará, cozido', grupoAlimentar: 'Verduras, hortaliças e derivados',
+        energiaKcal: 97, carboidratosG: 23, proteinasG: 2, lipidiosG: 0.2,
+      })).toBe('Cereais, pães e tubérculos');
+
+      // E continua NÃO casando palavras que só começam igual.
+      for (const nome of ['Caramelo, bala', 'Caranguejo, cozido', 'Batatinha, doce']) {
+        expect(classificar({
+          nomePadronizado: nome, grupoAlimentar: 'Verduras, hortaliças e derivados',
+          energiaKcal: 40, carboidratosG: 8, proteinasG: 1, lipidiosG: 0.2,
+        })).toBe('Hortaliças e vegetais');
+      }
+    });
+
+    it('batata chips é ultraprocessado, não tubérculo', () => {
+      // Mesma razão do biscoito: oferecê-la como troca de arroz numa lista
+      // que vai para a mão do paciente é dar permissão. E ela escapava da
+      // regra da gordura por pouco — 58% da energia, contra o corte de 60.
+      expect(classificar({
+        nomePadronizado: 'Batata, frita, tipo chips, industrializada',
+        grupoAlimentar: 'Verduras, hortaliças e derivados',
+        energiaKcal: 543, carboidratosG: 50.3, proteinasG: 5.6, lipidiosG: 35,
+      })).toBe('Açúcares e ultraprocessados');
+
+      // A batata que não é chips continua tubérculo.
+      expect(classificar({
+        nomePadronizado: 'Batata, inglesa, cozida',
+        grupoAlimentar: 'Verduras, hortaliças e derivados',
+        energiaKcal: 52, carboidratosG: 11.9, proteinasG: 1.2, lipidiosG: 0,
+      })).toBe('Cereais, pães e tubérculos');
+    });
+
+    it('biscoito e bolo nao sao troca de arroz', () => {
+      // A lista vai para a mao do paciente: o que estiver nela e permissao.
+      for (const nome of ['Biscoito, doce, wafer, recheado', 'Bolo, pronto, coco', 'Bolo, mistura para']) {
+        expect(classificar({
+          nomePadronizado: nome, grupoAlimentar: 'Cereais e derivados',
+          energiaKcal: 502, carboidratosG: 67, proteinasG: 5, lipidiosG: 24,
+        })).toBe('Açúcares e ultraprocessados');
+      }
+      expect(classificar({
+        nomePadronizado: 'Arroz, integral, cozido', grupoAlimentar: 'Cereais e derivados',
+        energiaKcal: 124, carboidratosG: 25.8, proteinasG: 2.6, lipidiosG: 1,
+      })).toBe('Cereais, pães e tubérculos');
+    });
+
+    it('fruta gorda vai com as oleaginosas', () => {
+      // Abacate troca com castanha, nao com maca.
+      expect(classificar({
+        nomePadronizado: 'Abacate, cru', grupoAlimentar: 'Frutas e derivados',
+        energiaKcal: 96, carboidratosG: 6, proteinasG: 1.2, lipidiosG: 8.4,
+      })).toBe('Gorduras e oleaginosas');
+      expect(classificar({
+        nomePadronizado: 'Maçã, Fuji, com casca, crua', grupoAlimentar: 'Frutas e derivados',
+        energiaKcal: 56, carboidratosG: 15.2, proteinasG: 0.3, lipidiosG: 0,
+      })).toBe('Frutas');
+    });
+
+    it('carne gorda continua carne: origem manda sobre percentual', () => {
+      // Costela tem 81% da energia em gordura e nao e azeite.
+      expect(classificar({
+        nomePadronizado: 'Carne, bovina, costela, crua', grupoAlimentar: 'Carnes e derivados',
+        energiaKcal: 358, carboidratosG: 0, proteinasG: 16.9, lipidiosG: 32.3,
+      })).toBe('Proteínas gordas');
+      expect(classificar({
+        nomePadronizado: 'Frango, peito, grelhado', grupoAlimentar: 'Carnes e derivados',
+        energiaKcal: 159, carboidratosG: 0, proteinasG: 32, lipidiosG: 2.5,
+      })).toBe('Proteínas magras');
+    });
+
+    it('feijao e leguminosa, nao proteina', () => {
+      // Decisao da profissional: a origem manda, ainda que o feijao tenha
+      // proteina suficiente para cair no grupo das proteinas.
+      expect(classificar({
+        nomePadronizado: 'Feijão, carioca, cozido', grupoAlimentar: 'Leguminosas e derivados',
+        energiaKcal: 76, carboidratosG: 13.6, proteinasG: 4.8, lipidiosG: 0.5,
+      })).toBe('Leguminosas');
+    });
+
+    it('leite se separa de queijo por concentracao, nao por gordura', () => {
+      // Leite integral tem ~50% da energia em gordura e continua leite.
+      expect(classificar({
+        nomePadronizado: 'Leite, de vaca, integral', grupoAlimentar: 'Leite e derivados',
+        energiaKcal: 61, carboidratosG: 4.7, proteinasG: 3.2, lipidiosG: 3.3,
+      })).toBe('Leites e iogurtes');
+      expect(classificar({
+        nomePadronizado: 'Queijo, prato', grupoAlimentar: 'Leite e derivados',
+        energiaKcal: 360, carboidratosG: 1.9, proteinasG: 22.7, lipidiosG: 29.1,
+      })).toBe('Queijos');
+      expect(DENSIDADE_LACTEO).toBe(100);
+    });
+
+    it('preparacao pronta se classifica pelo macro dominante', () => {
+      expect(classificar({
+        nomePadronizado: 'Feijoada', grupoAlimentar: 'Alimentos preparados',
+        energiaKcal: 117, carboidratosG: 4, proteinasG: 8.6, lipidiosG: 7.1,
+      })).toBe('Proteínas gordas');
+      expect(classificar({
+        nomePadronizado: 'Tabule', grupoAlimentar: 'Alimentos preparados',
+        energiaKcal: 64, carboidratosG: 12, proteinasG: 1.6, lipidiosG: 1.1,
+      })).toBe('Cereais, pães e tubérculos');
+    });
+
+    it('condimento nao e porcao e fica fora, com motivo', () => {
+      const c = classificarGrupoTroca(alimento({
+        nomePadronizado: 'Shoyu', grupoAlimentar: 'Miscelâneas',
+        energiaKcal: 61, carboidratosG: 5.5, proteinasG: 6, lipidiosG: 0.1,
+      }));
+      expect(c.grupo).toBeNull();
+      expect(c.motivo).toMatch(/condimento|tempero/i);
+    });
+
+    it('alimento sem macros na base fica fora, com motivo', () => {
+      const c = classificarGrupoTroca(alimento({
+        nomePadronizado: 'Leite, de vaca, integral', grupoAlimentar: 'Leite e derivados',
+        energiaKcal: 61, carboidratosG: 0, proteinasG: 0, lipidiosG: 0,
+      }));
+      expect(c.grupo).toBeNull();
+      expect(c.motivo).toMatch(/macronutrientes/i);
+    });
+
+    it('marca as reclassificacoes, para a tela poder explicar', () => {
+      const abacate = classificarGrupoTroca(alimento({
+        nomePadronizado: 'Abacate, cru', grupoAlimentar: 'Frutas e derivados',
+        energiaKcal: 96, carboidratosG: 6, proteinasG: 1.2, lipidiosG: 8.4,
+      }));
+      expect(abacate.reclassificado).toBe(true);
+
+      const azeite = classificarGrupoTroca(alimento({
+        nomePadronizado: 'Azeite, de oliva, extra virgem', grupoAlimentar: 'Gorduras e óleos',
+        energiaKcal: 884, carboidratosG: 0, proteinasG: 0, lipidiosG: 100,
+      }));
+      expect(azeite.reclassificado).toBe(false);
+    });
+
+    it('todo grupo tem nutriente de referencia, e o mapa e exaustivo', () => {
+      // O Record<GrupoTroca, Nutriente> faz o compilador exigir isto; o
+      // teste trava que nenhum grupo caia num padrao silencioso em runtime.
+      expect(GRUPOS_TROCA).toHaveLength(11);
+      for (const g of GRUPOS_TROCA) {
+        expect(NUTRIENTE_DO_GRUPO[g]).toBeTruthy();
+        expect(ROTULO_NUTRIENTE[NUTRIENTE_DO_GRUPO[g]]).toBeTruthy();
+      }
+    });
+
+    it('fonte de proteina nao se iguala por carboidrato', () => {
+      for (const g of ['Proteínas magras', 'Proteínas gordas', 'Leites e iogurtes', 'Queijos'] as const) {
         expect(NUTRIENTE_DO_GRUPO[g]).toBe('proteinasG');
       }
     });
 
-    it('hortaliça se iguala por energia, não por carboidrato', () => {
+    it('hortalica se iguala por energia, nao por carboidrato', () => {
       // Igualar carboidrato entre alface e beterraba pede ~400 g de alface.
-      expect(NUTRIENTE_DO_GRUPO['Verduras, hortaliças e derivados']).toBe('energiaKcal');
+      expect(NUTRIENTE_DO_GRUPO['Hortaliças e vegetais']).toBe('energiaKcal');
     });
 
-    it('todo nutriente de referência tem rótulo em português', () => {
-      for (const n of Object.values(NUTRIENTE_DO_GRUPO)) {
-        expect(ROTULO_NUTRIENTE[n]).toBeTruthy();
-      }
-    });
-
-    it('todo grupo recusado explica o motivo', () => {
-      for (const [g, motivo] of Object.entries(GRUPOS_SEM_EQUIVALENCIA)) {
-        expect(g.trim()).not.toBe('');
-        expect(motivo.length).toBeGreaterThan(20);
-      }
+    it('os limiares sao constantes nomeadas, nao numeros soltos', () => {
+      expect(LIPIDIO_PURO).toBe(60);
+      expect(LIPIDIO_MAGRO).toBe(35);
     });
   });
 

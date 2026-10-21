@@ -32,71 +32,18 @@
  * nutricionista.
  */
 
+import {
+  classificarGrupoTroca, NUTRIENTE_DO_GRUPO, ROTULO_NUTRIENTE,
+  type GrupoTroca, type Nutriente, type ParaClassificar,
+} from './grupos-troca';
+
+export type { GrupoTroca, Nutriente };
+
 /** O subconjunto da tabela de alimentos que a conta usa. */
-export interface AlimentoComposicao {
+export interface AlimentoComposicao extends ParaClassificar {
   id: string;
-  nomePadronizado: string;
-  grupoAlimentar: string | null;
-  energiaKcal: number | null;
-  proteinasG: number | null;
-  carboidratosG: number | null;
-  lipidiosG: number | null;
   fibrasG: number | null;
 }
-
-export type Nutriente = 'carboidratosG' | 'proteinasG' | 'lipidiosG' | 'energiaKcal';
-
-/**
- * Qual nutriente define a equivalência, por grupo da TACO.
- *
- * Esta é uma decisão editorial declarada, não um dado da tabela: é o papel
- * que o grupo cumpre na refeição. Os 15 grupos abaixo são exatamente os que
- * existem na base (597 alimentos, conferidos em produção). Grupo que não
- * esteja aqui NÃO entra na lista — ver `GRUPOS_SEM_EQUIVALENCIA`.
- */
-export const NUTRIENTE_DO_GRUPO: Record<string, Nutriente> = {
-  'Cereais e derivados': 'carboidratosG',
-  'Leguminosas e derivados': 'carboidratosG',
-  'Frutas e derivados': 'carboidratosG',
-  'Produtos açucarados': 'carboidratosG',
-
-  'Carnes e derivados': 'proteinasG',
-  'Pescados e frutos do mar': 'proteinasG',
-  'Ovos e derivados': 'proteinasG',
-  'Leite e derivados': 'proteinasG',
-
-  'Gorduras e óleos': 'lipidiosG',
-  'Nozes e sementes': 'lipidiosG',
-
-  // Hortaliça se troca por volume/caloria: igualar carboidrato entre uma
-  // alface e uma beterraba pede 400 g de alface, que ninguém come.
-  'Verduras, hortaliças e derivados': 'energiaKcal',
-  'Bebidas (alcoólicas e não alcoólicas)': 'energiaKcal',
-};
-
-/**
- * Grupos deliberadamente fora, com o motivo que a tela mostra.
- *
- * São grupos cujos integrantes não compartilham papel nutricional: dentro de
- * "Alimentos preparados" convivem lasanha e sopa de legumes. Propor troca
- * entre eles por regra de três daria um número correto e uma orientação
- * errada.
- */
-export const GRUPOS_SEM_EQUIVALENCIA: Record<string, string> = {
-  'Alimentos preparados':
-    'são receitas inteiras, com composição que não representa um papel único na refeição',
-  'Outros alimentos industrializados':
-    'o grupo reúne produtos sem papel nutricional comum',
-  'Miscelâneas':
-    'o grupo é residual, por definição sem critério de equivalência',
-};
-
-export const ROTULO_NUTRIENTE: Record<Nutriente, string> = {
-  carboidratosG: 'carboidratos',
-  proteinasG: 'proteínas',
-  lipidiosG: 'lipídios',
-  energiaKcal: 'energia',
-};
 
 export interface Divergencia {
   /** Diferença absoluta na porção equivalente, não por 100 g. */
@@ -125,7 +72,12 @@ export interface Substituicao {
 }
 
 export interface ListaSubstituicoes {
-  origem: { foodId: string; nome: string; quantidadeG: number; grupo: string | null };
+  origem: {
+    foodId: string; nome: string; quantidadeG: number;
+    grupo: GrupoTroca | null;
+    /** A composicao contrariou a taxonomia da TACO. */
+    reclassificado: boolean;
+  };
   nutrienteReferencia: Nutriente | null;
   rotuloReferencia: string | null;
   /** Quanto do nutriente de referência a porção original entrega. */
@@ -159,8 +111,11 @@ const MAX_G = 600;
 /**
  * Monta a lista para UM item do plano.
  *
- * `candidatos` deve vir já filtrado pelo mesmo grupo do alimento de origem —
- * filtrar aqui exigiria carregar os 597 alimentos a cada item.
+ * `candidatos` pode vir com a base inteira: a filtragem pelo grupo de troca
+ * acontece AQUI, porque o grupo é derivado da composição e não existe como
+ * coluna para consultar. Passar uma lista já filtrada por grupo da TACO
+ * deixaria de fora justamente as reclassificações — o abacate não estaria
+ * entre os candidatos de uma castanha.
  */
 export function montarSubstituicoes(
   origem: AlimentoComposicao,
@@ -168,43 +123,29 @@ export function montarSubstituicoes(
   candidatos: AlimentoComposicao[],
   limite = 8,
 ): ListaSubstituicoes {
-  const grupo = origem.grupoAlimentar;
+  const classificacao = classificarGrupoTroca(origem);
+  const grupo = classificacao.grupo;
   const cabecalho = {
     origem: {
       foodId: origem.id,
       nome: origem.nomePadronizado,
       quantidadeG: arred1(quantidadeG),
       grupo,
+      /** Quando a composição contrariou a taxonomia da TACO. */
+      reclassificado: classificacao.reclassificado ?? false,
     },
   };
 
-  if (!grupo) {
-    return {
-      ...cabecalho,
-      nutrienteReferencia: null, rotuloReferencia: null, referenciaOriginal: null,
-      substituicoes: [],
-      indisponivel: 'Este alimento não tem grupo alimentar na base, então não há conjunto onde buscar equivalentes.',
-    };
-  }
+  const vazio = {
+    nutrienteReferencia: null, rotuloReferencia: null, referenciaOriginal: null,
+    substituicoes: [],
+  };
 
-  if (GRUPOS_SEM_EQUIVALENCIA[grupo]) {
-    return {
-      ...cabecalho,
-      nutrienteReferencia: null, rotuloReferencia: null, referenciaOriginal: null,
-      substituicoes: [],
-      indisponivel: `Não há substituição automática para "${grupo}": ${GRUPOS_SEM_EQUIVALENCIA[grupo]}.`,
-    };
+  if (!grupo) {
+    return { ...cabecalho, ...vazio, indisponivel: classificacao.motivo ?? null };
   }
 
   const nutriente = NUTRIENTE_DO_GRUPO[grupo];
-  if (!nutriente) {
-    return {
-      ...cabecalho,
-      nutrienteReferencia: null, rotuloReferencia: null, referenciaOriginal: null,
-      substituicoes: [],
-      indisponivel: `O grupo "${grupo}" ainda não tem nutriente de referência definido. Sem ele, qualquer troca proposta seria arbitrária.`,
-    };
-  }
 
   const rotulo = ROTULO_NUTRIENTE[nutriente];
   const refOrigem = escalar(origem[nutriente], quantidadeG);
@@ -231,6 +172,8 @@ export function montarSubstituicoes(
 
   for (const c of candidatos) {
     if (c.id === origem.id) continue;
+    // O grupo de troca é derivado, não consultável: filtra aqui.
+    if (classificarGrupoTroca(c).grupo !== grupo) continue;
 
     const porCem = num(c[nutriente]);
     // Divisão por zero devolveria Infinity, e Infinity formatado vira uma
@@ -311,3 +254,5 @@ function mesmoNutriente(chaveDivergencia: string, nutriente: Nutriente): boolean
 
 /** Grupos que a lista cobre. A tela usa para explicar a cobertura. */
 export const GRUPOS_COBERTOS = Object.keys(NUTRIENTE_DO_GRUPO);
+
+export { classificarGrupoTroca, NUTRIENTE_DO_GRUPO, ROTULO_NUTRIENTE };

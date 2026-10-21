@@ -325,7 +325,11 @@ describe('gasto energético', () => {
       // cai. Resolver exige mudar o teste, e mudar o teste exige explicar.
       expect(DEPOSITO_GESTACIONAL.obesidade).toBe(DEPOSITO_OBESIDADE_DIVERGENTE.usado);
       expect(DEPOSITO_OBESIDADE_DIVERGENTE.alternativo).toBe(-50);
-      expect(g().constantes.join(' ')).toMatch(/diverge/i);
+      // A profissional decidiu adotar +50 e tirar o aviso da tela. A
+      // segunda leitura publicada continua registrada no codigo, para que
+      // ninguem "corrija" o +50 achando que achou erro de digitacao.
+      expect(DEPOSITO_OBESIDADE_DIVERGENTE.decidido).toMatch(/\+50/);
+      expect(g().constantes.join(' ')).not.toMatch(/diverge/i);
     });
 
     it('sem semana gestacional ou estado, cobra o dado', () => {
