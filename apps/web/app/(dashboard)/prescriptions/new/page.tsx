@@ -13,6 +13,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
 import { SeletorDePaciente, type PacienteResumo } from '@/components/SeletorDePaciente';
 import { escalarMacros, emGramas, type Por100 } from '@/lib/escala-nutricional';
+import { micronutrientesPor100, escalarMicros, somarMicros } from '@/lib/micronutrientes-alimento';
+import { RelatorioAdequacao } from '@/components/RelatorioAdequacao';
 import type { PrescriptionData, PrescriptionItem, PrescriptionInteraction, PrescriptionMeal } from '@/lib/pdf/generatePrescription';
 import {
   FileText, Download, Plus, Trash2, Coins, ShieldAlert,
@@ -66,12 +68,14 @@ type MealFood = {
    * número prescrito não pode ser sobrescrito sem o profissional mandar.
    */
   por100: Por100 | null;
+  /** Micronutrientes por 100 g do alimento da base. Ausencia = sem dado. */
+  microsPor100: Record<string, number> | null;
 };
 type Meal = { name: string; time: string; foods: MealFood[] };
 
 const emptyMealFood = (): MealFood => ({
   name: '', quantidadeG: '', dose: '', notes: '',
-  kcal: '', prot: '', carb: '', fat: '', por100: null,
+  kcal: '', prot: '', carb: '', fat: '', por100: null, microsPor100: null,
 });
 
 const recalcular = (f: MealFood): MealFood =>
@@ -152,7 +156,10 @@ export default function PrescriptionNewPage() {
         // o profissional digitou.
         if (field === 'quantidadeG') return recalcular({ ...f, quantidadeG: val });
         if ((MACROS as readonly string[]).includes(field as string)) {
-          return { ...f, [field]: val, por100: null };
+          // Desfaz o vinculo com a base: a partir daqui os numeros sao do
+          // profissional. Os micros tambem saem — mantê-los seria afirmar
+          // composicao de um alimento cujos macros foram sobrescritos.
+          return { ...f, [field]: val, por100: null, microsPor100: null };
         }
         return { ...f, [field]: val };
       }),
@@ -182,6 +189,13 @@ export default function PrescriptionNewPage() {
           prot: food.proteinasG,
           carb: food.carboidratosG,
           fat: food.lipidiosG,
+        },
+        // Fibra e sodio entram junto: na DRI eles sao avaliados como os
+        // demais, e a base fornece os dois.
+        microsPor100: {
+          ...micronutrientesPor100(food),
+          ...(food.fibrasG != null ? { fibrasG: Number(food.fibrasG) } : {}),
+          ...(food.sodioMg != null ? { sodioMg: Number(food.sodioMg) } : {}),
         },
       })),
     }));
@@ -227,6 +241,17 @@ export default function PrescriptionNewPage() {
     const t = mealTotal(m);
     return { kcal: acc.kcal + t.kcal, prot: acc.prot + t.prot, carb: acc.carb + t.carb, fat: acc.fat + t.fat };
   }, { kcal: 0, prot: 0, carb: 0, fat: 0 });
+  // ─── Micronutrientes do dia, com COBERTURA ─────────────────────────────────
+  //
+  // Entram TODOS os alimentos com nome, inclusive os digitados a mao — e e
+  // proposital. Alimento digitado nao tem micronutriente conhecido, e contar
+  // so os da base faria a cobertura parecer completa quando nao e. O relatorio
+  // precisa poder dizer "3 de 10 alimentos nao tem este nutriente".
+  const alimentosDoDia = meals.flatMap((m) => m.foods.filter((f) => f.name.trim()));
+  const microsDoDia = somarMicros(
+    alimentosDoDia.map((f) => escalarMicros(f.microsPor100, emGramas(f.quantidadeG))),
+  );
+
   const macroKcal = totals.prot * 4 + totals.carb * 4 + totals.fat * 9;
   const macroPct = (v: number) => (macroKcal > 0 ? Math.round((v / macroKcal) * 100) : 0);
   const hasNutrition = totals.kcal > 0 || macroKcal > 0;
@@ -577,6 +602,22 @@ export default function PrescriptionNewPage() {
               ))}
             </CardContent>
           </Card>
+        )}
+
+        {/* Adequação de macro e micronutrientes.
+            Vem DEPOIS do resumo porque o resumo é o que se olha o tempo todo
+            enquanto monta; a adequação é a conferência do fim. */}
+        {docType === 'prescription' && patientId && hasContent && (
+          <RelatorioAdequacao
+            patientId={patientId}
+            // Proteina vem dos macros, que todo item tem. Fibra e sodio vem
+            // de `microsDoDia` COM cobertura — passar zero aqui afirmaria que
+            // a dieta nao fornece, que e diferente de nao haver o dado.
+            totais={{
+              proteinasG: totals.prot,
+              ...microsDoDia,
+            }}
+          />
         )}
 
         {/* Dashboard nutricional (calorias + macros) — prescrição nutricional */}

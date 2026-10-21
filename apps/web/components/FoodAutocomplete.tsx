@@ -21,6 +21,15 @@ export interface FoodResult {
   fonte: string;
   fonteVersao: string | null;
   confiabilidade: string;
+  // Micronutrientes: a API sempre devolveu, o tipo e que nao declarava — e
+  // por isso o relatorio de adequacao nao existia na tela de prescricao.
+  calcioMg?: number | null;
+  ferroMg?: number | null;
+  potassioMg?: number | null;
+  magnesioMg?: number | null;
+  zincoMg?: number | null;
+  /** `{ chave: { valor, unidade } }`, no formato da TACO. */
+  vitaminas?: Record<string, { valor: number; unidade?: string } | number> | null;
 }
 
 const CONF_BADGE: Record<string, string> = {
