@@ -5,8 +5,9 @@
  * (`POST /patients/:id/deletion-request`, LGPD), nao uma acao. A varredura de
  * escrita descobriu isso na pratica: o paciente de teste ficou em producao.
  *
- * So apaga paciente cujo `internal_code` comeca com "TESTE-", e remove antes
- * os registros que dependem dele. Lista o que achou e exige `--apagar`.
+ * So apaga paciente cujo `internal_code` comeca com "TESTE-" (varredura de
+ * escrita) ou "SONDA-" (varredura de acessos), e remove antes os registros que
+ * dependem dele. Lista o que achou e exige `--apagar`.
  *
  *   node scripts/limpar-teste-escrita.mjs            # so lista
  *   node scripts/limpar-teste-escrita.mjs --apagar
@@ -28,7 +29,7 @@ const h = {
   'Content-Type': 'application/json',
 };
 
-const r = await fetch(`${URL_}/rest/v1/patients?select=id,internal_code&internal_code=like.TESTE-*`, { headers: h });
+const r = await fetch(`${URL_}/rest/v1/patients?select=id,internal_code&or=(internal_code.like.TESTE-*,internal_code.like.SONDA-*)`, { headers: h });
 const alvos = await r.json();
 
 if (!Array.isArray(alvos) || !alvos.length) {
@@ -63,7 +64,7 @@ for (const p of alvos) {
   console.log(`  paciente ${p.internal_code}: HTTP ${dp.status}`);
 }
 
-const conf = await fetch(`${URL_}/rest/v1/patients?select=id&internal_code=like.TESTE-*`, { headers: h });
+const conf = await fetch(`${URL_}/rest/v1/patients?select=id&or=(internal_code.like.TESTE-*,internal_code.like.SONDA-*)`, { headers: h });
 const restam = await conf.json();
 console.log(`\nrestam ${Array.isArray(restam) ? restam.length : '?'} paciente(s) de teste`);
 process.exitCode = Array.isArray(restam) && restam.length ? 1 : 0;
