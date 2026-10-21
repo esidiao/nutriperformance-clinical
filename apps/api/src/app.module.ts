@@ -37,6 +37,9 @@ import { BioavailabilityModule } from './modules/bioavailability/bioavailability
 import { AssessmentsModule } from './modules/assessments/assessments.module';
 import { SupplementationModule } from './modules/supplementation/supplementation.module';
 import { MealPlansModule } from './modules/meal-plans/meal-plans.module';
+import { DietaryRecallModule } from './modules/dietary-recall/dietary-recall.module';
+import { DietaryRecall } from './modules/dietary-recall/dietary-recall.entity';
+import { DietaryRecallItem } from './modules/dietary-recall/dietary-recall-item.entity';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { ChargesModule } from './modules/charges/charges.module';
 import { Charge } from './modules/charges/charge.entity';
@@ -102,6 +105,7 @@ import { HealthController } from './health.controller';
             MealPlan, MealPlanItem, Appointment, Charge, PreConsultForm,
             FoodDiaryLink, FoodDiaryEntry, SupervisionRequest, PatientPortalLink,
             ProgressPhoto,
+            DietaryRecall, DietaryRecallItem,
             Food, IndustrializedProduct, SupplementCatalog,
           ],
           synchronize: !isProduction,
@@ -137,6 +141,7 @@ import { HealthController } from './health.controller';
     AssessmentsModule,
     SupplementationModule,
     MealPlansModule,
+    DietaryRecallModule,
     AppointmentsModule,
     ChargesModule,
     PreConsultModule,

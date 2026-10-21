@@ -7,9 +7,10 @@ import { Food } from '../foods/food.entity';
 import { AuditService } from '../audit/audit.service';
 import { montarListaCompras, ListaCompras } from './lista-compras';
 import { SupervisionService, PAPEL_ESTUDANTE } from '../supervision/supervision.service';
+import { somarMicronutrientes, type TotalMicronutriente } from './micronutrientes';
 import {
-  extrairDoAlimento, somarMicronutrientes, type TotalMicronutriente,
-} from './micronutrientes';
+  camposDoAlimento, camposManuais, exigirAlimentoUtilizavel, exigirQuantidade,
+} from './montar-item';
 
 export const REFEICOES = [
   'cafe_manha', 'lanche_manha', 'almoco', 'lanche_tarde',
@@ -205,54 +206,24 @@ export class MealPlansService {
         `Refeição inválida. Use uma de: ${REFEICOES.join(', ')}`,
       );
     }
-    const quantidade = num(dto.quantidadeG);
-    if (quantidade <= 0) throw new BadRequestException('quantidadeG deve ser maior que zero');
+    // A montagem mora em `montar-item.ts`: recordatorio de 24h usa a mesma
+    // conta, e duas copias divergiriam em silencio — os dois continuariam
+    // devolvendo numero, so que diferentes para o mesmo alimento.
+    const quantidade = exigirQuantidade(dto.quantidadeG);
 
-    let base: Partial<MealPlanItem> = {};
-
+    let base: Partial<MealPlanItem>;
     if (dto.foodId) {
-      // Mesmo filtro clínico das buscas: alimento bloqueado não entra em
-      // prescrição nova. Planos antigos seguem intactos porque guardam cópia.
-      const food = await this.foodRepo.findOne({ where: { id: dto.foodId, ativo: true } });
-      if (!food) throw new NotFoundException('Alimento não encontrado');
-      if ((food as any).confiabilidade === 'pendente') {
-        throw new BadRequestException(
-          'Alimento em revisão pela curadoria — não pode ser prescrito',
-        );
-      }
-
-      // A base guarda valores por 100 g
-      const f = quantidade / 100;
-      base = {
-        alimentoNome: dto.alimentoNome?.trim() || (food as any).nomePadronizado,
-        fonte: (food as any).fonte ?? null,
-        kcal: round2(num((food as any).energiaKcal) * f),
-        proteinasG: round2(num((food as any).proteinasG) * f),
-        carboidratosG: round2(num((food as any).carboidratosG) * f),
-        lipidiosG: round2(num((food as any).lipidiosG) * f),
-        fibrasG: round2(num((food as any).fibrasG) * f),
-        sodioMg: round2(num((food as any).sodioMg) * f),
-        // Mesma multiplicação dos macros. Só entram os nutrientes que a base
-        // realmente tem para este alimento — ausente não vira zero.
-        micronutrientes: extrairDoAlimento(food, quantidade),
-      };
+      // Mesmo filtro clinico das buscas: alimento bloqueado nao entra em
+      // prescricao nova. Planos antigos seguem intactos porque guardam copia.
+      const food = exigirAlimentoUtilizavel(
+        await this.foodRepo.findOne({ where: { id: dto.foodId, ativo: true } }),
+      );
+      base = camposDoAlimento(food, quantidade, dto.alimentoNome);
     } else {
       if (!dto.alimentoNome?.trim()) {
         throw new BadRequestException('Informe foodId ou alimentoNome');
       }
-      base = {
-        alimentoNome: dto.alimentoNome.trim(),
-        kcal: round2(num(dto.kcal)),
-        proteinasG: round2(num(dto.proteinasG)),
-        carboidratosG: round2(num(dto.carboidratosG)),
-        lipidiosG: round2(num(dto.lipidiosG)),
-        fibrasG: round2(num(dto.fibrasG)),
-        sodioMg: round2(num(dto.sodioMg)),
-        // Item digitado à mão não tem micronutriente conhecido. `{}` diz
-        // exatamente isso, e o relatório trata como cobertura incompleta em
-        // vez de somar zeros.
-        micronutrientes: {},
-      };
+      base = camposManuais(dto);
     }
 
     const item = this.itemRepo.create({
