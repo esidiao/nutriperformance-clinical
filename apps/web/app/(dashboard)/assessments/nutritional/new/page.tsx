@@ -53,6 +53,7 @@ export default function NutritionalAssessmentNewPage() {
   const [liveCalc, setLiveCalc] = useState<
     { bmi: number; bmr: number | null; tee: number | null; protein: number } | null>(null);
   const [gasto, setGasto] = useState<ResultadoGasto | null>(null);
+  const [mlgKg, setMlgKg] = useState<number | null>(null);
   const [alvoEditado, setAlvoEditado] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tokensConsumed, setTokensConsumed] = useState<number | null>(null);
@@ -60,6 +61,33 @@ export default function NutritionalAssessmentNewPage() {
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('patient') : null,
   );
   const { text: streamedAnalysis, isStreaming, simulateStream } = useStreamingText();
+
+  /**
+   * Massa livre de gordura, vinda da avaliacao fisica mais recente.
+   *
+   * Katch-McArdle e Cunningham dependem dela. Sem isto as duas apareceriam
+   * no menu e nunca calculariam — o profissional escolheria e veria "falta
+   * massa livre de gordura" sem saber que o dado ja existe noutra tela.
+   *
+   * A lista vem ordenada do mais recente; uma avaliacao sem massa magra
+   * registrada deixa o campo nulo, e as duas formulas dizem o que falta em
+   * vez de calcular com zero.
+   */
+  useEffect(() => {
+    if (!patientId) return;
+    let cancelado = false;
+    api.assessments.listPhysical(patientId)
+      .then((lista) => {
+        if (cancelado) return;
+        const recente = Array.isArray(lista) ? lista[0] : null;
+        const v = Number(recente?.leanMassKg);
+        setMlgKg(Number.isFinite(v) && v > 0 ? v : null);
+      })
+      // Sem avaliacao fisica, ou falha na busca, o calculo segue sem MLG.
+      // Derrubar a tela de avaliacao nutricional por causa disso seria pior.
+      .catch(() => { if (!cancelado) setMlgKg(null); });
+    return () => { cancelado = true; };
+  }, [patientId]);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -312,6 +340,7 @@ export default function NutritionalAssessmentNewPage() {
               alturaCm={Number(h) || null}
               idade={Number(a) || null}
               sexo={g as 'male' | 'female'}
+              mlgKg={mlgKg}
               onChange={aplicarGasto}
             />
 
