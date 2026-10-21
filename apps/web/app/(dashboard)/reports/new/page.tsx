@@ -46,12 +46,20 @@ NÃO constitui diagnóstico médico, prescrição ou tratamento.
 Deve ser interpretado exclusivamente pelo profissional de saúde habilitado responsável.
 CFN (Res. 599/2018) · CONFEF · LGPD (Lei 13.709/2018).`;
 
-// Fake AI-generated preview content
-const PREVIEW_CONTENT = `RELATÓRIO CLÍNICO COMPLETO
+/**
+ * EXEMPLO DE LAYOUT — todos os números abaixo são fictícios.
+ *
+ * Serve para mostrar o formato do relatório antes de gerar. Trazia
+ * "PACIENTE: PAC-SEED-001" e valores clínicos inventados num modal chamado
+ * "Prévia do Relatório", com um paciente real selecionado ao lado: quem
+ * abrisse podia ler TMB e IMC como sendo do paciente. Agora o cabeçalho e o
+ * aviso no modal dizem o que é.
+ */
+const PREVIEW_CONTENT = `EXEMPLO DE LAYOUT — VALORES FICTÍCIOS
 NutriPerformance Clinical — Ferramenta de Apoio
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PACIENTE: PAC-SEED-001 | DATA: 23/05/2026
+PACIENTE: (exemplo) | DATA: (data da geração)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1. AVALIAÇÃO NUTRICIONAL
@@ -215,10 +223,14 @@ export default function ReportNewPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
               <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
-                <h3 className="font-semibold text-sm">Prévia do Relatório</h3>
+                <h3 className="font-semibold text-sm">Exemplo de layout do relatório</h3>
                 <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-gray-600 text-lg font-bold">×</button>
               </div>
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded p-2.5">
+                  <strong>Os números abaixo são fictícios</strong> e não têm relação com o
+                  paciente selecionado. Isto mostra apenas o formato do relatório.
+                </p>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 font-mono whitespace-pre-wrap leading-relaxed">{PREVIEW_CONTENT}</pre>
               </div>
               <div className="px-5 py-3 border-t dark:border-gray-700 flex justify-end gap-2">

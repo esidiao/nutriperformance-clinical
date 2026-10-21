@@ -127,3 +127,6 @@ for (const op of precos.keys()) {
 
 console.log(problemas.length ? `\n=== ${problemas.length} PROBLEMA(S) ===` : '\ncodigo e tabela de precos batem');
 for (const p of problemas) console.log(`  ${p}`);
+
+// Codigo de saida para quem orquestra — ver nota em varredura-schema.mjs.
+process.exitCode = problemas.length ? 1 : 0;

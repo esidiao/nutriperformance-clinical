@@ -86,3 +86,8 @@ for (const e of entidades.sort((a, b) => a.tabela.localeCompare(b.tabela))) {
   }
 }
 console.log(`\n${problemas ? problemas + ' tabela(s) com problema' : 'nenhuma divergencia'}`);
+
+// Codigo de saida para quem orquestra. Antes so imprimia, e o orquestrador
+// tinha que farejar o texto — "nenhuma divergencia" contem "divergencia" e
+// dava falso positivo.
+process.exitCode = problemas ? 1 : 0;

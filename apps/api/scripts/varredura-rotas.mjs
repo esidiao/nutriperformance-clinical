@@ -100,3 +100,6 @@ if (quebradas.length) {
 } else {
   console.log('\nnenhuma rota devolveu erro de servidor');
 }
+
+// Codigo de saida para quem orquestra — ver nota em varredura-schema.mjs.
+process.exitCode = quebradas.length ? 1 : 0;
