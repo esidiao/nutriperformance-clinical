@@ -17,6 +17,12 @@ export const MICRONUTRIENTES = [
   'calcioMg', 'ferroMg', 'potassioMg', 'magnesioMg', 'zincoMg',
   'tiaminaMg', 'riboflavinaMg', 'niacinaMg', 'piridoxinaMg',
   'vitaminaCMg', 'vitaminaAMcg',
+  // Acrescentados com a importacao do IBGE, que traz a composicao que a
+  // TACO nao tem. A ordem precisa bater com a lista do backend: ha um teste
+  // que compara as duas, porque divergir aqui faz o relatorio somar um
+  // nutriente e cobrar outro.
+  'fosforoMg', 'selenioMcg', 'cobreMg', 'manganesMg',
+  'vitaminaEMg', 'cobalaminaMcg', 'folatoMcg',
 ] as const;
 
 export type Micronutriente = (typeof MICRONUTRIENTES)[number];
@@ -36,6 +42,13 @@ export const CAMPO_DIRETO: Partial<Record<Micronutriente, string>> = {
  * retinol, que não são equivalentes e não servem para comparar.
  */
 export const CHAVE_NO_JSONB: Partial<Record<Micronutriente, string>> = {
+  fosforoMg: 'fosforo_mg',
+  selenioMcg: 'selenio_mcg',
+  cobreMg: 'cobre_mg',
+  manganesMg: 'manganes_mg',
+  vitaminaEMg: 'vitamina_e_mg',
+  cobalaminaMcg: 'cobalamina_mcg',
+  folatoMcg: 'folato_dfe_mcg',
   tiaminaMg: 'tiamina_mg',
   riboflavinaMg: 'riboflavina_mg',
   niacinaMg: 'niacina_mg',

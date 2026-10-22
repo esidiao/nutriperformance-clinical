@@ -126,12 +126,17 @@ describe('micronutrientes no plano', () => {
   });
 
   describe('cobertura da lista', () => {
-    it('cobre os 11 nutrientes que a base fornece', () => {
-      expect(MICRONUTRIENTES).toHaveLength(11);
+    it('cobre os 18 nutrientes que a base fornece', () => {
+      // Eram 11 enquanto a base era so a TACO. A importacao do IBGE trouxe a
+      // composicao de mais sete, que ate entao apareciam no relatorio como
+      // lacuna declarada em vez de valor.
+      expect(MICRONUTRIENTES).toHaveLength(18);
       expect(MICRONUTRIENTES).toEqual(expect.arrayContaining([
         'calcioMg', 'ferroMg', 'potassioMg', 'magnesioMg', 'zincoMg',
         'tiaminaMg', 'riboflavinaMg', 'niacinaMg', 'piridoxinaMg',
         'vitaminaCMg', 'vitaminaAMcg',
+        'fosforoMg', 'selenioMcg', 'cobreMg', 'manganesMg',
+        'vitaminaEMg', 'cobalaminaMcg', 'folatoMcg',
       ]));
     });
   });

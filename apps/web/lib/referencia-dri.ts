@@ -70,6 +70,17 @@ export interface ValorReferencia {
 const IOM2011 = 'IOM (2011), Summary Tables, pp. 1103–1116';
 const NASEM2019 = 'NASEM (2019), DRIs for Sodium and Potassium, Tables S-1 e S-2';
 
+/**
+ * A compilação brasileira das DRI do IOM.
+ *
+ * Reúne os valores publicados pelo IOM entre 1997 e 2005. Para cálcio e
+ * vitamina D ela está SUPERADA pela revisão do IOM de 2011 — e é por isso que
+ * esses dois citam IOM2011 acima. Para os demais nutrientes, que a revisão de
+ * 2011 não tocou, continua sendo a referência vigente.
+ */
+const PADOVANI2006 = 'IOM, compilado em Padovani et al., Rev. Nutr. 19(6):741-760, '
+  + '2006, Tabelas 1 e 2 (lidas no fac-símile)';
+
 /** Atalho: mesmo valor nas quatro faixas. */
 const todas = (v: number): Record<FaixaEtaria, number> =>
   ({ '19-30': v, '31-50': v, '51-70': v, '70+': v });
@@ -172,6 +183,74 @@ export const REFERENCIAS: ValorReferencia[] = [
     fonte: IOM2011,
     nota: 'Em equivalentes de atividade de retinol (RAE). 1 RAE = 1 µg de retinol ou 12 µg de betacaroteno.',
   },
+
+  // ── acrescentados quando a base passou a ter o dado ──────────────────────
+  //
+  // Estes sete existiam na DRI e NÃO no relatório, porque a TACO não traz a
+  // composição deles. A importação do IBGE (POF 2008-2009) mudou isso, com
+  // cobertura medida: selênio em 89% dos alimentos, cobre 96%, manganês 94%,
+  // fósforo 96%, vitamina E 86%, folato 86%, B12 58%.
+  //
+  // Os valores foram LIDOS no fac-símile das Tabelas 1 e 2 de Padovani et
+  // al., não transcritos de memória nem do extrator automático: o extrator
+  // acerta os números e erra o rótulo da linha, e número certo com rótulo
+  // errado é pior que número ausente ("60% do EAR" quando aquilo era o UL
+  // inverte a leitura clínica).
+  //
+  // A revisão do IOM de 2011 cobriu APENAS cálcio e vitamina D. Para estes
+  // sete, a compilação de 2006 continua sendo a referência vigente.
+  {
+    nutriente: 'fosforoMg', rotulo: 'Fósforo', unidade: 'mg', tipo: 'RDA',
+    valores: { male: todas(700), female: todas(700) },
+    ul: { '19-30': 4000, '31-50': 4000, '51-70': 4000, '70+': 3000 },
+    ulNota:
+      'A fonte imprime "4" e "3" sob um cabeçalho que diz mg. Só pode ser '
+      + 'grama: um UL de 4 mg seria menor que a própria RDA de 700 mg. '
+      + 'Registrado aqui em mg (4.000 e 3.000).',
+    fonte: PADOVANI2006,
+  },
+  {
+    nutriente: 'selenioMcg', rotulo: 'Selênio', unidade: 'µg', tipo: 'RDA',
+    valores: { male: todas(55), female: todas(55) },
+    ul: 400, fonte: PADOVANI2006,
+  },
+  {
+    nutriente: 'cobreMg', rotulo: 'Cobre', unidade: 'mg', tipo: 'RDA',
+    // A fonte publica 900 µg e UL 10.000 µg. Convertido UMA vez, aqui, para
+    // a unidade em que a tabela de alimentos traz o cobre — converter na
+    // comparação espalharia o fator 1.000 por vários pontos do código, e
+    // basta esquecê-lo num deles para a adequação sair mil vezes errada.
+    valores: { male: todas(0.9), female: todas(0.9) },
+    ul: 10, fonte: PADOVANI2006,
+    nota: 'A fonte publica em µg (RDA 900, UL 10.000). Aqui em mg, que é a unidade da tabela de alimentos.',
+  },
+  {
+    nutriente: 'manganesMg', rotulo: 'Manganês', unidade: 'mg', tipo: 'AI',
+    valores: {
+      male: todas(2.3),
+      female: todas(1.8),
+    },
+    ul: 11, fonte: PADOVANI2006,
+    nota: 'É AI, não RDA: ingestão abaixo dela não permite concluir inadequação.',
+  },
+  {
+    nutriente: 'vitaminaEMg', rotulo: 'Vitamina E', unidade: 'mg', tipo: 'RDA',
+    valores: { male: todas(15), female: todas(15) },
+    ul: 1000, fonte: PADOVANI2006,
+    nota: 'Em α-tocoferol equivalentes, que é a forma que a tabela do IBGE traz.',
+  },
+  {
+    nutriente: 'cobalaminaMcg', rotulo: 'Vitamina B12', unidade: 'µg', tipo: 'RDA',
+    valores: { male: todas(2.4), female: todas(2.4) },
+    ul: null, ulNota: 'UL não determinável por falta de dados de efeito adverso.',
+    fonte: PADOVANI2006,
+  },
+  {
+    nutriente: 'folatoMcg', rotulo: 'Folato', unidade: 'µg DFE', tipo: 'RDA',
+    valores: { male: todas(400), female: todas(400) },
+    ul: 1000, fonte: PADOVANI2006,
+    nota: 'Em equivalentes dietéticos de folato (DFE), que é a forma da tabela do IBGE.',
+  },
 ];
 
 /** Limiar de redução de risco de doença crônica. Só o sódio tem. */
@@ -189,8 +268,12 @@ export const CDRR_SODIO = {
  * que a dieta não fornece o nutriente, quando o que não existe é o dado.
  */
 export const SEM_DADO_NA_BASE = [
-  'Vitamina D', 'Vitamina B12', 'Folato', 'Vitamina E', 'Vitamina K',
-  'Selênio', 'Fósforo', 'Cobre', 'Manganês', 'Iodo',
+  // A importacao do IBGE resolveu selenio, fosforo, cobre, manganes,
+  // vitamina E, B12 e folato. Sobraram estes:
+  'Vitamina K',  // nenhuma das duas tabelas de composicao traz
+  'Iodo',        // tem DRI (RDA 150 µg), mas nem a TACO nem o IBGE trazem
+  'Enxofre',     // a nutricionista pediu; o IOM nunca estabeleceu DRI
+  'Vitamina D',  // o IBGE TEM a composicao; falta a DRI revisada de 2011
 ];
 
 export const referenciaDe = (nutriente: string) =>

@@ -145,8 +145,19 @@ describe('adequação nutricional', () => {
     });
 
     it('declara os nutrientes que a base não cobre', () => {
+      // A lista ENCOLHEU com a importação do IBGE: B12, folato, vitamina E,
+      // selênio, fósforo, cobre e manganês saíram daqui e viraram valor de
+      // verdade. Ficaram só os que nenhuma das duas tabelas de composição
+      // traz — e a vitamina D, que é o caso inverso: a composição existe, o
+      // que falta é a DRI revisada de 2011.
       const r = avaliarAdequacao({}, 30, 'male');
-      expect(r.semDadoNaBase).toEqual(expect.arrayContaining(['Vitamina D', 'Vitamina B12', 'Folato']));
+      expect(r.semDadoNaBase).toEqual(
+        expect.arrayContaining(['Vitamina K', 'Iodo', 'Enxofre', 'Vitamina D']),
+      );
+      for (const saiu of ['Vitamina B12', 'Folato', 'Vitamina E', 'Selênio',
+        'Fósforo', 'Cobre', 'Manganês']) {
+        expect(r.semDadoNaBase).not.toContain(saiu);
+      }
     });
   });
 
