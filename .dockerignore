@@ -1,0 +1,64 @@
+# Contexto do build da imagem da API (render.yaml: dockerContext ".").
+#
+# O QUE ISTO RESOLVE, E O QUE NÃO RESOLVE
+#
+# No Render o contexto é o checkout do Git, que tem 1,6 MiB — lá isto não
+# muda praticamente nada, e NÃO é conserto para deploy que falhou. O ganho é
+# em build local: o diretório tem 1,8 GB por causa de `node_modules`, e sem
+# este arquivo o Docker empacota tudo antes de rodar a primeira linha.
+#
+# O ganho que vale em qualquer lugar é de SEGREDO: o Dockerfile faz
+# `COPY apps/api ./apps/api`, então um `apps/api/.env` presente no contexto
+# entraria numa camada da imagem — com a service-role key do Supabase e a
+# ENCRYPTION_KEY dentro. No Render isso não acontece (o arquivo é
+# git-ignored e nunca chega lá), mas num build local aconteceria, e a camada
+# fica na imagem mesmo que o arquivo seja apagado depois.
+#
+# ⚠️ O QUE O BUILD PRECISA, e por isso não pode ser excluído:
+#   package.json · pnpm-workspace.yaml · pnpm-lock.yaml
+#   apps/api/**          (COPY apps/api, inclui src E scripts: o tsconfig da
+#                         API não tem `include`, então scripts/ compila junto)
+#   apps/web/package.json (o `pnpm install --filter` precisa dele para
+#                          resolver o workspace — só o package.json)
+
+# ── dependências e saída de build: reinstaladas/regeradas dentro da imagem ──
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+**/coverage
+
+# ── segredo: nunca numa camada de imagem ────────────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+
+# ── histórico e automação: a imagem não usa ─────────────────────────────────
+.git
+.gitignore
+.github
+.dockerignore
+
+# ── apps/web NÃO entra na imagem da API, só o package.json ──────────────────
+#
+# A ordem importa: o Docker aplica as regras em sequência e a última que casa
+# decide. Conferido em 22/10/2026 com `tsc -p tsconfig.build.json --listFiles`:
+# o build da API compila 155 arquivos e NENHUM vem de apps/web.
+apps/web/**
+!apps/web/package.json
+
+# ── material que não vai para a imagem ──────────────────────────────────────
+docs
+infra
+README.md
+*.pdf
+railway-*.mjs
+
+# OS SPECS FICAM, de propósito.
+#
+# Excluir `**/*.spec.ts` economizaria alguns KB e armaria uma ratoeira: no dia
+# em que alguém acrescentar `RUN pnpm test` ao Dockerfile, o jest não
+# encontraria arquivo nenhum e passaria com "0 tests" — falso verde, que é o
+# defeito que mais vezes nos pegou neste projeto. O `tsconfig.build.json` já
+# exclui spec da compilação, então eles não entram no `dist` de todo jeito.
