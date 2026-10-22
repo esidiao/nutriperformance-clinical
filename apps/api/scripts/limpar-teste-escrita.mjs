@@ -46,19 +46,41 @@ if (!process.argv.includes('--apagar')) {
 }
 
 // Ordem importa: filhos antes do pai, senao a FK recusa.
+//
+// `meal_plan_items` NAO entra aqui: ela nao tem `patient_id`, e sim
+// `meal_plan_id`. Apagar por paciente devolvia 400 ("coluna nao existe"), o
+// passo era reportado como falha, e so a cascata da FK limpava os itens --
+// uma cascata que o script nunca verificou existir. Agora os itens sao
+// apagados pelos planos do paciente, explicitamente, antes dos planos.
 const DEPENDENTES = [
-  'meal_plan_items', 'meal_plans', 'patient_goals', 'patient_supplementations',
+  'meal_plans', 'patient_goals', 'patient_supplementations',
   'laboratory_exams', 'physical_assessments', 'nutritional_assessments',
   'clinical_alerts', 'audit_logs',
 ];
 
 console.log('\napagando:');
 for (const p of alvos) {
+  // Os itens de plano, pelos planos do paciente: eles nao tem patient_id.
+  const planos = await fetch(
+    `${URL_}/rest/v1/meal_plans?select=id&patient_id=eq.${p.id}`, { headers: h },
+  ).then((r) => (r.ok ? r.json() : []));
+  if (Array.isArray(planos) && planos.length) {
+    const lista = planos.map((x) => x.id).join(',');
+    const di = await fetch(
+      `${URL_}/rest/v1/meal_plan_items?meal_plan_id=in.(${lista})`,
+      { method: 'DELETE', headers: h },
+    );
+    console.log(`  ${'meal_plan_items'.padEnd(26)} ${di.ok ? 'limpo' : `HTTP ${di.status}`}`);
+  }
+
   for (const tabela of DEPENDENTES) {
     const d = await fetch(`${URL_}/rest/v1/${tabela}?patient_id=eq.${p.id}`, { method: 'DELETE', headers: h });
-    // 404 = a tabela nao tem patient_id; nao e erro.
+    // O PostgREST responde 400 quando a coluna nao existe na tabela, nao
+    // 404 -- o guard anterior esperava 404 e por isso o passo quebrado
+    // aparecia como falha sem que ninguem soubesse por que.
     if (d.ok) console.log(`  ${tabela.padEnd(26)} limpo`);
-    else if (d.status !== 404) console.log(`  ${tabela.padEnd(26)} HTTP ${d.status}`);
+    else if (d.status === 400) console.log(`  ${tabela.padEnd(26)} sem patient_id (ignorado)`);
+    else console.log(`  ${tabela.padEnd(26)} HTTP ${d.status}`);
   }
   const dp = await fetch(`${URL_}/rest/v1/patients?id=eq.${p.id}`, { method: 'DELETE', headers: h });
   console.log(`  paciente ${p.internal_code}: HTTP ${dp.status}`);

@@ -50,10 +50,24 @@ async function token(email) {
 }
 
 // ── quem testar: um por papel, em workspaces DIFERENTES ─────────────────────
+//
+// CONTAS DE TESTE, NAO DE PESSOAS REAIS.
+//
+// Esta varredura CRIA paciente de sonda no workspace de cada ator. Enquanto
+// apontava para contas reais, cada execucao escrevia no prontuario de
+// profissionais em exercicio e dependia de a limpeza funcionar — e a limpeza
+// tinha um passo quebrado, descoberto em 22/10/2026.
+//
+// As tres contas abaixo sao criadas por `scripts/conta-de-varredura.mjs`,
+// nos dois workspaces de demonstracao. Rode-o antes, se elas nao existirem.
+//
+// O workspace do educador fisico e OUTRO de proposito: o que esta varredura
+// prova e que um ator nao enxerga o prontuario de outra clinica. Com todos
+// no mesmo workspace ela passaria sem testar isolamento nenhum.
 const CONTAS = [
-  { email: 'sidiao@gmail.com', papel: 'admin' },
-  { email: 'daniela.santanasouza88@gmail.com', papel: 'nutritionist' },
-  { email: 'matheus.edfi@gmail.com', papel: 'fitness_professional' },
+  { email: 'varredura-admin@nutritest.com', papel: 'admin' },
+  { email: 'varredura@nutritest.com', papel: 'nutritionist' },
+  { email: 'varredura-fit@nutritest.com', papel: 'fitness_professional' },
 ];
 
 const atores = [];
@@ -123,6 +137,40 @@ function avaliar(desc, r, { deveriaPassar, porConteudo = false }) {
   console.log(`${certo ? 'OK   ' : '>>>>>'} ${desc.padEnd(58)} HTTP ${r.status}`);
   return certo;
 }
+
+/**
+ * Espera a API acordar ANTES de qualquer passo.
+ *
+ * O Render do plano gratuito hiberna por inatividade, e as primeiras
+ * requisicoes depois disso voltam 502 enquanto o processo sobe. Na execucao de
+ * 22/10/2026 os tres POST /patients do preparo cairam em 502, a varredura
+ * seguiu com "bloco de papel sera parcial" e os passos seguintes — feitos
+ * segundos depois, com a API ja de pe — passaram. Ou seja: o preparo degradou
+ * por causa do ambiente e a varredura testou menos do que diz testar, sem
+ * reprovar. E o mesmo falso verde que ja corrigimos na varredura de rotas.
+ *
+ * Aqui o despertar e explicito: se a API nao responder, a varredura PARA, em
+ * vez de medir meia coisa.
+ */
+async function esperarApi(tentativas = 12, esperaMs = 10000) {
+  for (let i = 1; i <= tentativas; i++) {
+    try {
+      const r = await fetch(`${API}/health`);
+      if (r.ok) {
+        const j = await r.json().catch(() => ({}));
+        console.log(`API de pe na tentativa ${i} — commit ${j.commit ?? '?'}`);
+        return j;
+      }
+      console.log(`  acordando a API... tentativa ${i}, HTTP ${r.status}`);
+    } catch (e) {
+      console.log(`  acordando a API... tentativa ${i}, ${e.message}`);
+    }
+    await new Promise((s) => setTimeout(s, esperaMs));
+  }
+  console.log('A API nao respondeu. Varredura ABORTADA — medir meia coisa e pior que nao medir.');
+  process.exit(1);
+}
+const saude = await esperarApi();
 
 // ── 1. paciente de sonda no proprio workspace de cada ator ──────────────────
 //
@@ -197,9 +245,30 @@ for (const a of atores) {
 
 // ── 3. papel: quem edita o que ──────────────────────────────────────────────
 console.log('\n── papel (dentro do proprio workspace) ──');
+//
+// SO ESCREVE EM PACIENTE DE SONDA.
+//
+// `porWs` comeca povoado com pacientes que JA existem em producao, para o
+// bloco de isolamento ter um alvo alheio. O bloco de papel, porem, CRIA
+// avaliacao e plano — e a limpeza so reconhece paciente com internal_code
+// "SONDA-". Quando o preparo falhava (502 na hibernacao do Render, em
+// 22/10/2026), este bloco caia no paciente preexistente e deixava cinco
+// registros no prontuario dele, invisiveis para a limpeza.
+//
+// Escrever no prontuario de alguem para testar permissao e inaceitavel mesmo
+// no workspace de demonstracao. Sem sonda, o bloco nao roda e diz que nao
+// rodou.
+const sondaPorWs = new Map(sondas.map((s) => [s.ator.ws, s.patientId]));
 for (const a of atores) {
-  const meu = porWs.get(a.ws);
-  if (!meu) continue;
+  const meu = sondaPorWs.get(a.ws);
+  if (!meu) {
+    console.log(`PULOU ${a.papel}: sem paciente de sonda — nao escrevo em prontuario preexistente`);
+    achados.push({
+      desc: `${a.papel}: bloco de papel nao rodou (sem paciente de sonda)`,
+      status: 0, esperado: 'rodar',
+    });
+    continue;
+  }
 
   // Avaliacao nutricional e NutritionistOnly: educador fisico NAO entra.
   avaliar(`${a.papel}: criar avaliacao NUTRICIONAL`,

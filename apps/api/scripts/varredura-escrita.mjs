@@ -74,9 +74,36 @@ async function chamar(metodo, caminho, corpo) {
   return { status: r.status, ok: r.ok, json, texto };
 }
 
+/**
+ * Passos em que o 403 e a RESPOSTA CERTA.
+ *
+ * A separacao entre nutricionista e educador fisico e deliberada: prescrever
+ * dieta e privativo do nutricionista (CFN), avaliar composicao corporal por
+ * dobras e do educador fisico (CONFEF). Esta varredura roda como
+ * nutricionista, entao o 403 na avaliacao fisica e o veto funcionando.
+ *
+ * Tratar isso como falha faria a varredura reprovar o sistema por fazer o
+ * certo -- e, pior, treinaria quem a le a ignorar o relatorio. Mas o 403
+ * tambem nao pode virar silencio: se um dia ele VIRAR 201, a separacao caiu
+ * e ninguem percebeu. Por isso o passo e registrado como veto esperado, e
+ * falha se o veto deixar de acontecer.
+ */
+const VETO_ESPERADO = new Set(['criar avaliacao fisica']);
+
 function registrar(nome, r, extra = '') {
-  const ok = r.ok;
-  passos.push({ nome, ok, status: r.status });
+  const vetoEsperado = VETO_ESPERADO.has(nome);
+  const ok = vetoEsperado ? r.status === 403 : r.ok;
+  passos.push({ nome, ok, status: r.status, vetoEsperado });
+
+  if (vetoEsperado) {
+    const rotulo = ok ? 'VETO ' : 'FALHA';
+    const nota = ok
+      ? ' (403 esperado: avaliacao fisica e do educador fisico)'
+      : ` — o veto NAO aconteceu: HTTP ${r.status}. A separacao de conselho caiu.`;
+    console.log(`${rotulo} ${nome.padEnd(42)} HTTP ${r.status}${nota}`);
+    return ok;
+  }
+
   const motivo = ok ? '' : ` — ${(r.json?.message ?? r.texto ?? '').toString().slice(0, 150)}`;
   console.log(`${ok ? 'OK   ' : 'FALHA'} ${nome.padEnd(42)} HTTP ${r.status}${extra}${motivo}`);
   return ok;
