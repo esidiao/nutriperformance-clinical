@@ -24,9 +24,10 @@ describe('mapeamento de micronutrientes — backend x frontend', () => {
     expect([...DO_FRONT]).toEqual([...DO_BACKEND]);
   });
 
-  it('cobre os 18 nutrientes que a base fornece', () => {
-    // 11 da TACO mais os sete que a importacao do IBGE trouxe.
-    expect(DO_BACKEND).toHaveLength(18);
+  it('cobre os 19 nutrientes que a base fornece', () => {
+    // 11 da TACO, mais os sete que o IBGE trouxe, mais a vitamina D — que
+    // so entrou depois que a DRI revisada de 2011 foi lida na fonte.
+    expect(DO_BACKEND).toHaveLength(19);
   });
 
   it('todo nutriente sai de um campo direto OU de uma chave do jsonb', () => {

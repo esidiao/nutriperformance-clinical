@@ -152,10 +152,10 @@ describe('adequação nutricional', () => {
       // que falta é a DRI revisada de 2011.
       const r = avaliarAdequacao({}, 30, 'male');
       expect(r.semDadoNaBase).toEqual(
-        expect.arrayContaining(['Vitamina K', 'Iodo', 'Enxofre', 'Vitamina D']),
+        expect.arrayContaining(['Vitamina K', 'Iodo', 'Enxofre']),
       );
       for (const saiu of ['Vitamina B12', 'Folato', 'Vitamina E', 'Selênio',
-        'Fósforo', 'Cobre', 'Manganês']) {
+        'Fósforo', 'Cobre', 'Manganês', 'Vitamina D']) {
         expect(r.semDadoNaBase).not.toContain(saiu);
       }
     });

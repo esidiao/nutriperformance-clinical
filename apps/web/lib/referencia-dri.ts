@@ -78,8 +78,20 @@ const NASEM2019 = 'NASEM (2019), DRIs for Sodium and Potassium, Tables S-1 e S-2
  * esses dois citam IOM2011 acima. Para os demais nutrientes, que a revisão de
  * 2011 não tocou, continua sendo a referência vigente.
  */
-const PADOVANI2006 = 'IOM, compilado em Padovani et al., Rev. Nutr. 19(6):741-760, '
-  + '2006, Tabelas 1 e 2 (lidas no fac-símile)';
+/**
+ * Lido nas Tabelas-Resumo do relatorio do IOM de 2011, no NCBI Bookshelf.
+ *
+ * Os valores destes nutrientes foram primeiro lidos no fac-simile da
+ * compilacao brasileira (Padovani et al., Rev. Nutr. 2006) e DEPOIS
+ * confirmados, um a um, nestas tabelas. As duas leituras batem em todos.
+ *
+ * A dupla conferencia nao foi zelo excessivo: ela resolveu o UL do fosforo,
+ * que a compilacao de 2006 imprime como "4" sob um cabecalho dizendo mg --
+ * o que seria menor que a propria RDA de 700 mg. A tabela do IOM rotula a
+ * coluna como g/d, confirmando que sao gramas.
+ */
+const IOM2011_TABELAS = 'IOM (2011), DRIs for Calcium and Vitamin D, '
+  + 'Summary Tables (NCBI Bookshelf NBK56068)';
 
 /** Atalho: mesmo valor nas quatro faixas. */
 const todas = (v: number): Record<FaixaEtaria, number> =>
@@ -204,15 +216,15 @@ export const REFERENCIAS: ValorReferencia[] = [
     valores: { male: todas(700), female: todas(700) },
     ul: { '19-30': 4000, '31-50': 4000, '51-70': 4000, '70+': 3000 },
     ulNota:
-      'A fonte imprime "4" e "3" sob um cabeçalho que diz mg. Só pode ser '
-      + 'grama: um UL de 4 mg seria menor que a própria RDA de 700 mg. '
-      + 'Registrado aqui em mg (4.000 e 3.000).',
-    fonte: PADOVANI2006,
+      'A compilação de 2006 imprime "4" e "3" sob um cabeçalho que diz mg, '
+      + 'o que seria menor que a própria RDA. A tabela do IOM rotula a coluna '
+      + 'como g/d: são gramas. Registrado aqui em mg (4.000 e 3.000).',
+    fonte: IOM2011_TABELAS,
   },
   {
     nutriente: 'selenioMcg', rotulo: 'Selênio', unidade: 'µg', tipo: 'RDA',
     valores: { male: todas(55), female: todas(55) },
-    ul: 400, fonte: PADOVANI2006,
+    ul: 400, fonte: IOM2011_TABELAS,
   },
   {
     nutriente: 'cobreMg', rotulo: 'Cobre', unidade: 'mg', tipo: 'RDA',
@@ -221,7 +233,7 @@ export const REFERENCIAS: ValorReferencia[] = [
     // comparação espalharia o fator 1.000 por vários pontos do código, e
     // basta esquecê-lo num deles para a adequação sair mil vezes errada.
     valores: { male: todas(0.9), female: todas(0.9) },
-    ul: 10, fonte: PADOVANI2006,
+    ul: 10, fonte: IOM2011_TABELAS,
     nota: 'A fonte publica em µg (RDA 900, UL 10.000). Aqui em mg, que é a unidade da tabela de alimentos.',
   },
   {
@@ -230,26 +242,46 @@ export const REFERENCIAS: ValorReferencia[] = [
       male: todas(2.3),
       female: todas(1.8),
     },
-    ul: 11, fonte: PADOVANI2006,
+    ul: 11, fonte: IOM2011_TABELAS,
     nota: 'É AI, não RDA: ingestão abaixo dela não permite concluir inadequação.',
   },
   {
     nutriente: 'vitaminaEMg', rotulo: 'Vitamina E', unidade: 'mg', tipo: 'RDA',
     valores: { male: todas(15), female: todas(15) },
-    ul: 1000, fonte: PADOVANI2006,
+    ul: 1000, ulNota: 'O UL vale só para formas sintéticas (suplemento ou alimento fortificado), não para o nutriente do alimento.',
+    fonte: IOM2011_TABELAS,
     nota: 'Em α-tocoferol equivalentes, que é a forma que a tabela do IBGE traz.',
   },
   {
     nutriente: 'cobalaminaMcg', rotulo: 'Vitamina B12', unidade: 'µg', tipo: 'RDA',
     valores: { male: todas(2.4), female: todas(2.4) },
     ul: null, ulNota: 'UL não determinável por falta de dados de efeito adverso.',
-    fonte: PADOVANI2006,
+    fonte: IOM2011_TABELAS,
   },
   {
     nutriente: 'folatoMcg', rotulo: 'Folato', unidade: 'µg DFE', tipo: 'RDA',
     valores: { male: todas(400), female: todas(400) },
-    ul: 1000, fonte: PADOVANI2006,
+    ul: 1000, ulNota: 'O UL vale só para formas sintéticas (suplemento ou alimento fortificado), não para o nutriente do alimento.',
+    fonte: IOM2011_TABELAS,
     nota: 'Em equivalentes dietéticos de folato (DFE), que é a forma da tabela do IBGE.',
+  },
+
+  {
+    nutriente: 'vitaminaDMcg', rotulo: 'Vitamina D', unidade: 'µg', tipo: 'RDA',
+    // A compilação de 2006 traz AI de 5 µg (19–50), 10 (51–70) e 15 (>70),
+    // com UL 50. São valores do IOM de 1997, SUPERADOS pela revisão de 2011:
+    // a referência triplicou, virou RDA em vez de AI, e o UL dobrou. Usar os
+    // de 1997 faria o relatório aprovar como adequada uma ingestão que a
+    // recomendação vigente considera um terço do necessário.
+    valores: {
+      male: { '19-30': 15, '31-50': 15, '51-70': 15, '70+': 20 },
+      female: { '19-30': 15, '31-50': 15, '51-70': 15, '70+': 20 },
+    },
+    ul: 100,
+    fonte: IOM2011_TABELAS,
+    nota: 'Como colecalciferol: 1 µg = 40 UI. A recomendação pressupõe '
+      + 'exposição solar mínima — quem se expõe ao sol sintetiza parte, e a '
+      + 'tabela não desconta isso.',
   },
 ];
 
@@ -273,7 +305,6 @@ export const SEM_DADO_NA_BASE = [
   'Vitamina K',  // nenhuma das duas tabelas de composicao traz
   'Iodo',        // tem DRI (RDA 150 µg), mas nem a TACO nem o IBGE trazem
   'Enxofre',     // a nutricionista pediu; o IOM nunca estabeleceu DRI
-  'Vitamina D',  // o IBGE TEM a composicao; falta a DRI revisada de 2011
 ];
 
 export const referenciaDe = (nutriente: string) =>

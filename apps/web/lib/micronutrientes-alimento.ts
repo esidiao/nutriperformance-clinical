@@ -22,7 +22,7 @@ export const MICRONUTRIENTES = [
   // que compara as duas, porque divergir aqui faz o relatorio somar um
   // nutriente e cobrar outro.
   'fosforoMg', 'selenioMcg', 'cobreMg', 'manganesMg',
-  'vitaminaEMg', 'cobalaminaMcg', 'folatoMcg',
+  'vitaminaEMg', 'cobalaminaMcg', 'folatoMcg', 'vitaminaDMcg',
 ] as const;
 
 export type Micronutriente = (typeof MICRONUTRIENTES)[number];
@@ -47,6 +47,7 @@ export const CHAVE_NO_JSONB: Partial<Record<Micronutriente, string>> = {
   cobreMg: 'cobre_mg',
   manganesMg: 'manganes_mg',
   vitaminaEMg: 'vitamina_e_mg',
+  vitaminaDMcg: 'vitamina_d_mcg',
   cobalaminaMcg: 'cobalamina_mcg',
   folatoMcg: 'folato_dfe_mcg',
   tiaminaMg: 'tiamina_mg',

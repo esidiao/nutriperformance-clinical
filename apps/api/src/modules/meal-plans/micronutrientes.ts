@@ -24,7 +24,7 @@ export const MICRONUTRIENTES = [
   // cobertura medida na tabela do IBGE: selenio 89%, cobre 96%, manganes
   // 94%, fosforo 96%, vitamina E 86%, folato 86%, B12 58%.
   'fosforoMg', 'selenioMcg', 'cobreMg', 'manganesMg',
-  'vitaminaEMg', 'cobalaminaMcg', 'folatoMcg',
+  'vitaminaEMg', 'cobalaminaMcg', 'folatoMcg', 'vitaminaDMcg',
 ] as const;
 
 export type Micronutriente = (typeof MICRONUTRIENTES)[number];
@@ -53,6 +53,7 @@ const CHAVE_NO_JSONB: Partial<Record<Micronutriente, string>> = {
   cobreMg: 'cobre_mg',
   manganesMg: 'manganes_mg',
   vitaminaEMg: 'vitamina_e_mg',
+  vitaminaDMcg: 'vitamina_d_mcg',
   cobalaminaMcg: 'cobalamina_mcg',
   folatoMcg: 'folato_dfe_mcg',
   tiaminaMg: 'tiamina_mg',
