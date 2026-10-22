@@ -190,8 +190,26 @@ const SCHOFIELD: Record<Sexo, Array<{ de: number; ate: number; a: number; b: num
   ],
 };
 
+/**
+ * Recusa o cálculo em vez de derrubar a tela.
+ *
+ * `SCHOFIELD[sexo]` é `undefined` para qualquer valor fora de male/female, e
+ * `undefined.find` é TypeError — que o React trata como erro de renderização e
+ * substitui a TELA INTEIRA pelo limite de erro. A profissional não vê "não dá
+ * para calcular": ela vê a avaliação desaparecer.
+ *
+ * Não é hipótese: `patients.gender` aceita `other` e `not_informed`. Hoje a
+ * tela de avaliação tem um select próprio com só dois valores, então o caminho
+ * está fechado por acidente — quem amanhã ligar o campo ao cadastro do
+ * paciente leva o erro sem aviso nenhum. Achado em 22/10/2026 abrindo a tela
+ * na bancada de verificação; os 1054 testes passavam, porque todos chamam com
+ * male/female.
+ *
+ * O tipo `Sexo` não protege: o chamador usa `g as 'male' | 'female'`, e uma
+ * asserção de tipo é promessa, não verificação.
+ */
 export function faixaSchofield(sexo: Sexo, idade: number) {
-  return SCHOFIELD[sexo].find((f) => idade >= f.de && idade < f.ate) ?? null;
+  return SCHOFIELD[sexo]?.find((f) => idade >= f.de && idade < f.ate) ?? null;
 }
 
 const FAO_2004: Formula = {
@@ -251,8 +269,9 @@ const GANHO_PESO_G_DIA: Record<Sexo, Array<{ de: number; ate: number; gDia: numb
   ],
 };
 
+/** Mesmo motivo de `faixaSchofield`: sexo não mapeado recusa, não explode. */
 export function ganhoPesoGDia(sexo: Sexo, idade: number): number | null {
-  const f = GANHO_PESO_G_DIA[sexo].find((x) => idade >= x.de && idade < x.ate);
+  const f = GANHO_PESO_G_DIA[sexo]?.find((x) => idade >= x.de && idade < x.ate);
   return f ? f.gDia : null;
 }
 

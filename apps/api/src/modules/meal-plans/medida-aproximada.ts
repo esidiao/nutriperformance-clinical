@@ -19,6 +19,8 @@
  * "0,3 concha" não é instrução que alguém execute.
  */
 
+import { descreverQuantidade } from '../../../../web/lib/medida-caseira';
+
 export interface MedidaDisponivel {
   medida: string;
   gramas: number;
@@ -108,62 +110,13 @@ function melhorQue(a: MedidaAproximada, b: MedidaAproximada): boolean {
   return a.quantidade < b.quantidade;
 }
 
-/** "2 colheres de sopa", "1 concha", "1,5 fatia". */
-export function descreverMedida(m: MedidaAproximada): string {
-  const q = m.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
-  const plural = m.quantidade > 1 && !/s$/i.test(m.medida);
-  return `${q} ${plural ? pluralizar(m.medida) : m.medida}`;
-}
-
 /**
- * Plural da primeira palavra, que é o substantivo: "colheres de sopa", não
- * "colher de sopas".
+ * "2 colheres de sopa", "1 concha", "1,5 fatia".
  *
- * COBRE O QUE A BASE TEM, E SÓ
- *
- * As 87 medidas do IBGE terminam em vogal (55), em ")" (29, como
- * "lata (n. e.)"), em "r" (2) ou em "s" (1). Não há nenhuma terminada em
- * "l" nem em "ão" — os dados vêm sem acento, então é "porcao", não "porção".
- *
- * Uma versão anterior tinha regras para "ão" e "l". Eram código morto
- * fingindo cobrir casos que não existem, e a de "l" produzia "pasteis" em
- * vez de "pastéis" — errado se um dia ocorresse. O que não se sabe
- * flexionar fica no singular, que é feio e honesto, em vez de inventado.
+ * A regra de plural mora em `apps/web/lib/medida-caseira.ts`, porque a TELA
+ * escreve a mesma frase e escrevia sem flexionar ("3 colher de sopa"). Uma
+ * regra, dois chamadores.
  */
-/** Onde a flexão para: depois da preposição vem locução, que não concorda. */
-const PREPOSICAO = /^(de|da|do|das|dos|em|com|para|a|ao)$/i;
-
-function pluralizar(medida: string): string {
-  const palavras = medida.split(' ');
-
-  // "lata (n. e.)" e parentéticos: qualquer flexão vira disparate.
-  if (palavras.some((p) => /[)(]/.test(p))) return medida;
-
-  const saida: string[] = [];
-  let parou = false;
-
-  for (const palavra of palavras) {
-    // "colher de sopa" vira "colheres de sopa", nunca "colheres de sopas":
-    // depois da preposição está a locução, que fica no singular. Mas
-    // "unidade media" vira "unidades medias", porque ali "media" é
-    // adjetivo e concorda. É a preposição que separa os dois casos.
-    if (PREPOSICAO.test(palavra)) parou = true;
-    saida.push(parou ? palavra : flexionar(palavra));
-  }
-
-  return saida.join(' ');
-}
-
-function flexionar(p: string): string {
-  if (/s$/i.test(p)) return p;                 // já plural: "gomos"
-  // "ão" fica no SINGULAR, e não é preguiça: o plural não é derivável da
-  // palavra. São três padrões — pão/pães, limão/limões, irmão/irmãos — e
-  // nada na forma escrita diz qual. Eu cheguei a escrever a regra "ões",
-  // que acerta limão e erra pão. Sem a regra, "2 pão" é feio; com ela,
-  // "2 pões" é errado, e errado com cara de certo. A base do IBGE não tem
-  // nenhuma medida terminada em ão, então isto nunca dispara em produção.
-  if (/ão$/i.test(p)) return p;
-  if (/[aeiou]$/i.test(p)) return `${p}s`;
-  if (/r$|z$/i.test(p)) return `${p}es`;
-  return p;                                     // não sei: não invento
+export function descreverMedida(m: MedidaAproximada): string {
+  return descreverQuantidade(m.quantidade, m.medida);
 }

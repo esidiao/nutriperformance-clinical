@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { descreverQuantidade } from '@/lib/medida-caseira';
 
 /**
  * Quantidade em medida caseira, convertida para gramas.
@@ -82,7 +83,10 @@ export function SeletorMedidaCaseira({
     const n = numero(quantas);
     if (n === null) return;
     onChangeG(String(Math.round(n * medida.gramas * 10) / 10));
-    onChangeMedida?.(`${formatar(n)} ${medida.medida}`);
+    // A descricao GRAVADA passa pela mesma regra da frase exibida. Antes
+    // guardava "3 colher de sopa" no registro, e o registro e o que a
+    // profissional (e o paciente, na lista) le depois.
+    onChangeMedida?.(descreverQuantidade(n, medida.medida));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [escolhida, quantas, medida?.gramas]);
 
@@ -138,9 +142,18 @@ export function SeletorMedidaCaseira({
       {/* A conta, visível. Sem ela a profissional não tem como conferir. */}
       {!emGramas && medida && (
         <p className="col-span-2 text-[11px] text-muted-foreground">
-          {formatar(numero(quantas) ?? 0)} {medida.medida} ={' '}
+          {descreverQuantidade(numero(quantas) ?? 0, medida.medida)} ={' '}
           <strong>{formatar((numero(quantas) ?? 0) * medida.gramas)} g</strong>
-          <span className="text-gray-400"> · 1 {medida.medida} = {formatar(medida.gramas)} g</span>
+          {/*
+            A taxa por unidade só acrescenta quando a quantidade NÃO é 1. Com
+            quantas = 1 — que é o estado inicial do controle — as duas metades
+            eram a mesma frase: "1 colher de sopa = 25 g · 1 colher de sopa =
+            25 g". Repetir a afirmação não confirma nada; só faz a profissional
+            reler para descobrir que leu a mesma coisa.
+          */}
+          {(numero(quantas) ?? 0) !== 1 && (
+            <span className="text-gray-400"> · 1 {medida.medida} = {formatar(medida.gramas)} g</span>
+          )}
         </p>
       )}
     </div>
