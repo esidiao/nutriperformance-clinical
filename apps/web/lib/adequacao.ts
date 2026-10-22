@@ -1,6 +1,6 @@
 import {
   REFERENCIAS, CDRR_SODIO, SEM_DADO_NA_BASE, faixaDaIdade,
-  type Sexo, type ValorReferencia,
+  type Sexo, type ValorReferencia, type GrupoNutriente,
 } from './referencia-dri';
 
 /**
@@ -50,6 +50,7 @@ const normalizar = (o: Oferta | undefined | null) => {
 export interface LinhaAdequacao {
   nutriente: string;
   rotulo: string;
+  grupo: GrupoNutriente;
   unidade: string;
   tipo: 'RDA' | 'AI' | '—';
   ofertado: number | null;
@@ -92,6 +93,7 @@ export function avaliarAdequacao(
     const base = {
       nutriente: ref.nutriente,
       rotulo: ref.rotulo,
+      grupo: ref.grupo,
       unidade: ref.unidade,
       fonte: ref.fonte,
       nota: ref.nota,

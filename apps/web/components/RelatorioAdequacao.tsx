@@ -20,6 +20,12 @@ import { avaliarAdequacao, resumir, type LinhaAdequacao, type Situacao } from '@
  * significam a mesma coisa.
  */
 
+const SECOES: Array<{ grupo: 'macro' | 'mineral' | 'vitamina'; titulo: string }> = [
+  { grupo: 'macro', titulo: 'Macronutrientes' },
+  { grupo: 'mineral', titulo: 'Minerais' },
+  { grupo: 'vitamina', titulo: 'Vitaminas' },
+];
+
 const ESTILO: Record<Situacao, { cor: string; chip: string; rotulo: string }> = {
   adequado:      { cor: 'text-green-700',  chip: 'bg-green-100 text-green-800',   rotulo: 'Atinge' },
   abaixo:        { cor: 'text-orange-700', chip: 'bg-orange-100 text-orange-800', rotulo: 'Abaixo' },
@@ -104,6 +110,14 @@ export function RelatorioAdequacao({
   };
 
   const { linhas, faixa, semDadoNaBase } = avaliarAdequacao(entrada, idade, sexo);
+  const [soFora, setSoFora] = useState(true);
+
+  // "Fora da faixa" inclui o dado INCOMPLETO de proposito: um total parcial
+  // nao pode ser declarado adequado, e esconde-lo faria a profissional supor
+  // que foi avaliado e passou.
+  const estaFora = (l: { situacao: string }) => l.situacao !== 'adequado';
+  const visiveis = soFora ? linhas.filter(estaFora) : linhas;
+  const ocultos = linhas.length - visiveis.length;
   const r = resumir(linhas);
 
   if (faixa === null) {
@@ -141,31 +155,76 @@ export function RelatorioAdequacao({
 
         {aberto && (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-[10px] uppercase tracking-wide text-gray-400 border-b">
-                    <th className="text-left font-medium py-1">Nutriente</th>
-                    <th className="text-right font-medium py-1">Dieta</th>
-                    <th className="text-right font-medium py-1">Recomendado</th>
-                    <th className="text-right font-medium py-1">%</th>
-                    <th className="text-left font-medium py-1 pl-2">Leitura</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linhas.map((l) => <Linha key={l.nutriente} l={l} />)}
-                </tbody>
-              </table>
+            {/* COM 19 NUTRIENTES, MOSTRAR TUDO ESCONDE O QUE IMPORTA.
+                O padrão é só o que está fora da faixa: o que está adequado
+                não pede decisão. O contador ao lado diz quantos ficaram de
+                fora da vista, para que "não aparece" nunca seja confundido
+                com "não foi avaliado". */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="inline-flex rounded-md border overflow-hidden text-[11px]">
+                <button
+                  onClick={() => setSoFora(true)}
+                  className={`px-2.5 py-1 ${soFora ? 'bg-brand-600 text-white' : 'bg-background text-gray-600'}`}
+                >
+                  Só o que está fora
+                </button>
+                <button
+                  onClick={() => setSoFora(false)}
+                  className={`px-2.5 py-1 ${!soFora ? 'bg-brand-600 text-white' : 'bg-background text-gray-600'}`}
+                >
+                  Todos ({linhas.length})
+                </button>
+              </div>
+              {soFora && ocultos > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  {ocultos} dentro da faixa, ocultos
+                </p>
+              )}
             </div>
+
+            {visiveis.length === 0 ? (
+              <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2.5">
+                Nenhum nutriente fora da faixa entre os {linhas.length} avaliados.
+              </p>
+            ) : (
+              <div className="overflow-x-auto space-y-3">
+                {SECOES.map(({ grupo, titulo }) => {
+                  const daSecao = visiveis.filter((l) => l.grupo === grupo);
+                  if (!daSecao.length) return null;
+                  return (
+                    <div key={grupo}>
+                      <p className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mb-0.5">
+                        {titulo}
+                      </p>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-[10px] uppercase tracking-wide text-gray-400 border-b">
+                            <th className="text-left font-medium py-1">Nutriente</th>
+                            <th className="text-right font-medium py-1">Dieta</th>
+                            <th className="text-right font-medium py-1">Recomendado</th>
+                            <th className="text-right font-medium py-1">%</th>
+                            <th className="text-left font-medium py-1 pl-2">Leitura</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {daSecao.map((l) => <Linha key={l.nutriente} l={l} />)}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* O que a base NÃO cobre. Omitir faria a lista parecer completa. */}
             <div className="text-[11px] text-gray-600 bg-gray-50 border rounded p-2.5 space-y-1">
               <p className="flex items-start gap-1.5">
                 <Info className="h-3 w-3 mt-0.5 shrink-0 text-gray-400" />
                 <span>
-                  <strong>Não avaliados:</strong> {semDadoNaBase.join(', ')}. A base de
-                  composição (TACO) não publica esses nutrientes — não é que a dieta não os
-                  forneça, é que não há o dado.
+                  <strong>Não avaliados:</strong> {semDadoNaBase.join(', ')}. Nenhuma das
+                  tabelas de composição (TACO e IBGE) publica esses nutrientes — não é que a
+                  dieta não os forneça, é que não há o dado. O enxofre entra aqui por outro
+                  motivo: o IOM nunca estabeleceu DRI para ele.
                 </span>
               </p>
               <p className="pl-[18px]">

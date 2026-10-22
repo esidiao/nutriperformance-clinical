@@ -53,9 +53,21 @@ export function faixaDaIdade(idade: number): FaixaEtaria | null {
  */
 export type TipoReferencia = 'RDA' | 'AI';
 
+/**
+ * Agrupamento para a tela.
+ *
+ * Com 19 nutrientes, a tabela unica vira uma parede de numeros em que o que
+ * importa -- o que esta fora da faixa -- se perde no meio do que esta certo.
+ * O grupo e declarado aqui, e nao deduzido do nome no componente, porque
+ * deduzir erraria em "vitaminaAMcg" vs "vitaminaCMg" no dia em que alguem
+ * acrescentasse um nutriente com nome parecido e papel diferente.
+ */
+export type GrupoNutriente = 'macro' | 'mineral' | 'vitamina';
+
 export interface ValorReferencia {
   nutriente: string;
   rotulo: string;
+  grupo: GrupoNutriente;
   unidade: string;
   tipo: TipoReferencia;
   /** Por sexo e faixa etária. */
@@ -99,13 +111,13 @@ const todas = (v: number): Record<FaixaEtaria, number> =>
 
 export const REFERENCIAS: ValorReferencia[] = [
   {
-    nutriente: 'proteinasG', rotulo: 'Proteína', unidade: 'g', tipo: 'RDA',
+    nutriente: 'proteinasG', rotulo: 'Proteína', grupo: 'macro', unidade: 'g', tipo: 'RDA',
     valores: { male: todas(56), female: todas(46) },
     ul: null, fonte: IOM2011,
     nota: 'Baseado em 0,8 g/kg de peso para o peso de referência. Para peso fora da referência, calcular pelo peso do paciente.',
   },
   {
-    nutriente: 'fibrasG', rotulo: 'Fibra total', unidade: 'g', tipo: 'AI',
+    nutriente: 'fibrasG', rotulo: 'Fibra total', grupo: 'macro', unidade: 'g', tipo: 'AI',
     valores: {
       male: { '19-30': 38, '31-50': 38, '51-70': 30, '70+': 30 },
       female: { '19-30': 25, '31-50': 25, '51-70': 21, '70+': 21 },
@@ -113,7 +125,7 @@ export const REFERENCIAS: ValorReferencia[] = [
     ul: null, fonte: IOM2011,
   },
   {
-    nutriente: 'calcioMg', rotulo: 'Cálcio', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'calcioMg', rotulo: 'Cálcio', grupo: 'mineral', unidade: 'mg', tipo: 'RDA',
     valores: {
       male: { '19-30': 1000, '31-50': 1000, '51-70': 1000, '70+': 1200 },
       female: { '19-30': 1000, '31-50': 1000, '51-70': 1200, '70+': 1200 },
@@ -122,7 +134,7 @@ export const REFERENCIAS: ValorReferencia[] = [
     fonte: IOM2011,
   },
   {
-    nutriente: 'ferroMg', rotulo: 'Ferro', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'ferroMg', rotulo: 'Ferro', grupo: 'mineral', unidade: 'mg', tipo: 'RDA',
     valores: {
       male: todas(8),
       female: { '19-30': 18, '31-50': 18, '51-70': 8, '70+': 8 },
@@ -131,7 +143,7 @@ export const REFERENCIAS: ValorReferencia[] = [
     nota: 'A queda de 18 para 8 mg nas mulheres acompanha a menopausa, não a idade em si.',
   },
   {
-    nutriente: 'magnesioMg', rotulo: 'Magnésio', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'magnesioMg', rotulo: 'Magnésio', grupo: 'mineral', unidade: 'mg', tipo: 'RDA',
     valores: {
       male: { '19-30': 400, '31-50': 420, '51-70': 420, '70+': 420 },
       female: { '19-30': 310, '31-50': 320, '51-70': 320, '70+': 320 },
@@ -140,43 +152,43 @@ export const REFERENCIAS: ValorReferencia[] = [
     fonte: IOM2011,
   },
   {
-    nutriente: 'zincoMg', rotulo: 'Zinco', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'zincoMg', rotulo: 'Zinco', grupo: 'mineral', unidade: 'mg', tipo: 'RDA',
     valores: { male: todas(11), female: todas(8) },
     ul: 40, fonte: IOM2011,
   },
   {
-    nutriente: 'potassioMg', rotulo: 'Potássio', unidade: 'mg', tipo: 'AI',
+    nutriente: 'potassioMg', rotulo: 'Potássio', grupo: 'mineral', unidade: 'mg', tipo: 'AI',
     valores: { male: todas(3400), female: todas(2600) },
     ul: null, fonte: NASEM2019,
     nota: 'Valor de 2019. Substitui o AI de 4.700 mg de 2005, que ainda circula em tabelas antigas.',
   },
   {
-    nutriente: 'sodioMg', rotulo: 'Sódio', unidade: 'mg', tipo: 'AI',
+    nutriente: 'sodioMg', rotulo: 'Sódio', grupo: 'mineral', unidade: 'mg', tipo: 'AI',
     valores: { male: todas(1500), female: todas(1500) },
     ul: null, fonte: NASEM2019,
     nota: 'Em 2019 o sódio DEIXOU de ter UL. No lugar entrou o CDRR: reduzir a ingestão se acima de 2.300 mg/dia. São categorias diferentes — o CDRR vem de risco de doença crônica, o UL vinha de toxicidade.',
   },
   {
-    nutriente: 'tiaminaMg', rotulo: 'Tiamina (B1)', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'tiaminaMg', rotulo: 'Tiamina (B1)', grupo: 'vitamina', unidade: 'mg', tipo: 'RDA',
     valores: { male: todas(1.2), female: todas(1.1) },
     ul: null, ulNota: 'UL não determinável por falta de dados de efeito adverso.',
     fonte: IOM2011,
   },
   {
-    nutriente: 'riboflavinaMg', rotulo: 'Riboflavina (B2)', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'riboflavinaMg', rotulo: 'Riboflavina (B2)', grupo: 'vitamina', unidade: 'mg', tipo: 'RDA',
     valores: { male: todas(1.3), female: todas(1.1) },
     ul: null, ulNota: 'UL não determinável por falta de dados de efeito adverso.',
     fonte: IOM2011,
   },
   {
-    nutriente: 'niacinaMg', rotulo: 'Niacina (B3)', unidade: 'mg NE', tipo: 'RDA',
+    nutriente: 'niacinaMg', rotulo: 'Niacina (B3)', grupo: 'vitamina', unidade: 'mg NE', tipo: 'RDA',
     valores: { male: todas(16), female: todas(14) },
     ul: 35, ulNota: 'O UL vale só para formas sintéticas (suplemento ou alimento fortificado).',
     fonte: IOM2011,
     nota: 'Em equivalentes de niacina (NE). 1 mg de niacina = 60 mg de triptofano.',
   },
   {
-    nutriente: 'piridoxinaMg', rotulo: 'Piridoxina (B6)', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'piridoxinaMg', rotulo: 'Piridoxina (B6)', grupo: 'vitamina', unidade: 'mg', tipo: 'RDA',
     valores: {
       male: { '19-30': 1.3, '31-50': 1.3, '51-70': 1.7, '70+': 1.7 },
       female: { '19-30': 1.3, '31-50': 1.3, '51-70': 1.5, '70+': 1.5 },
@@ -184,12 +196,12 @@ export const REFERENCIAS: ValorReferencia[] = [
     ul: 100, fonte: IOM2011,
   },
   {
-    nutriente: 'vitaminaCMg', rotulo: 'Vitamina C', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'vitaminaCMg', rotulo: 'Vitamina C', grupo: 'vitamina', unidade: 'mg', tipo: 'RDA',
     valores: { male: todas(90), female: todas(75) },
     ul: 2000, fonte: IOM2011,
   },
   {
-    nutriente: 'vitaminaAMcg', rotulo: 'Vitamina A', unidade: 'µg RAE', tipo: 'RDA',
+    nutriente: 'vitaminaAMcg', rotulo: 'Vitamina A', grupo: 'vitamina', unidade: 'µg RAE', tipo: 'RDA',
     valores: { male: todas(900), female: todas(700) },
     ul: 3000, ulNota: 'O UL vale só para vitamina A pré-formada (retinol).',
     fonte: IOM2011,
@@ -212,7 +224,7 @@ export const REFERENCIAS: ValorReferencia[] = [
   // A revisão do IOM de 2011 cobriu APENAS cálcio e vitamina D. Para estes
   // sete, a compilação de 2006 continua sendo a referência vigente.
   {
-    nutriente: 'fosforoMg', rotulo: 'Fósforo', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'fosforoMg', rotulo: 'Fósforo', grupo: 'mineral', unidade: 'mg', tipo: 'RDA',
     valores: { male: todas(700), female: todas(700) },
     ul: { '19-30': 4000, '31-50': 4000, '51-70': 4000, '70+': 3000 },
     ulNota:
@@ -222,12 +234,12 @@ export const REFERENCIAS: ValorReferencia[] = [
     fonte: IOM2011_TABELAS,
   },
   {
-    nutriente: 'selenioMcg', rotulo: 'Selênio', unidade: 'µg', tipo: 'RDA',
+    nutriente: 'selenioMcg', rotulo: 'Selênio', grupo: 'mineral', unidade: 'µg', tipo: 'RDA',
     valores: { male: todas(55), female: todas(55) },
     ul: 400, fonte: IOM2011_TABELAS,
   },
   {
-    nutriente: 'cobreMg', rotulo: 'Cobre', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'cobreMg', rotulo: 'Cobre', grupo: 'mineral', unidade: 'mg', tipo: 'RDA',
     // A fonte publica 900 µg e UL 10.000 µg. Convertido UMA vez, aqui, para
     // a unidade em que a tabela de alimentos traz o cobre — converter na
     // comparação espalharia o fator 1.000 por vários pontos do código, e
@@ -237,7 +249,7 @@ export const REFERENCIAS: ValorReferencia[] = [
     nota: 'A fonte publica em µg (RDA 900, UL 10.000). Aqui em mg, que é a unidade da tabela de alimentos.',
   },
   {
-    nutriente: 'manganesMg', rotulo: 'Manganês', unidade: 'mg', tipo: 'AI',
+    nutriente: 'manganesMg', rotulo: 'Manganês', grupo: 'mineral', unidade: 'mg', tipo: 'AI',
     valores: {
       male: todas(2.3),
       female: todas(1.8),
@@ -246,20 +258,20 @@ export const REFERENCIAS: ValorReferencia[] = [
     nota: 'É AI, não RDA: ingestão abaixo dela não permite concluir inadequação.',
   },
   {
-    nutriente: 'vitaminaEMg', rotulo: 'Vitamina E', unidade: 'mg', tipo: 'RDA',
+    nutriente: 'vitaminaEMg', rotulo: 'Vitamina E', grupo: 'vitamina', unidade: 'mg', tipo: 'RDA',
     valores: { male: todas(15), female: todas(15) },
     ul: 1000, ulNota: 'O UL vale só para formas sintéticas (suplemento ou alimento fortificado), não para o nutriente do alimento.',
     fonte: IOM2011_TABELAS,
     nota: 'Em α-tocoferol equivalentes, que é a forma que a tabela do IBGE traz.',
   },
   {
-    nutriente: 'cobalaminaMcg', rotulo: 'Vitamina B12', unidade: 'µg', tipo: 'RDA',
+    nutriente: 'cobalaminaMcg', rotulo: 'Vitamina B12', grupo: 'vitamina', unidade: 'µg', tipo: 'RDA',
     valores: { male: todas(2.4), female: todas(2.4) },
     ul: null, ulNota: 'UL não determinável por falta de dados de efeito adverso.',
     fonte: IOM2011_TABELAS,
   },
   {
-    nutriente: 'folatoMcg', rotulo: 'Folato', unidade: 'µg DFE', tipo: 'RDA',
+    nutriente: 'folatoMcg', rotulo: 'Folato', grupo: 'vitamina', unidade: 'µg DFE', tipo: 'RDA',
     valores: { male: todas(400), female: todas(400) },
     ul: 1000, ulNota: 'O UL vale só para formas sintéticas (suplemento ou alimento fortificado), não para o nutriente do alimento.',
     fonte: IOM2011_TABELAS,
@@ -267,7 +279,7 @@ export const REFERENCIAS: ValorReferencia[] = [
   },
 
   {
-    nutriente: 'vitaminaDMcg', rotulo: 'Vitamina D', unidade: 'µg', tipo: 'RDA',
+    nutriente: 'vitaminaDMcg', rotulo: 'Vitamina D', grupo: 'vitamina', unidade: 'µg', tipo: 'RDA',
     // A compilação de 2006 traz AI de 5 µg (19–50), 10 (51–70) e 15 (>70),
     // com UL 50. São valores do IOM de 1997, SUPERADOS pela revisão de 2011:
     // a referência triplicou, virou RDA em vez de AI, e o UL dobrou. Usar os

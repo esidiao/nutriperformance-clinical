@@ -1,5 +1,5 @@
 import { avaliarAdequacao, resumir } from '../../../../web/lib/adequacao';
-import { referenciaDe, faixaDaIdade, CDRR_SODIO } from '../../../../web/lib/referencia-dri';
+import { referenciaDe, faixaDaIdade, CDRR_SODIO, REFERENCIAS } from '../../../../web/lib/referencia-dri';
 
 /**
  * O motor de adequação decide como LER cada resultado, e é aí que mora o risco
@@ -225,6 +225,46 @@ describe('adequação nutricional', () => {
       expect(s.acimaDoLimite).toBeGreaterThanOrEqual(1);
       expect(s.indeterminados).toBeGreaterThanOrEqual(1);
       expect(s.semDado).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('agrupamento para a tela', () => {
+    // Com 19 micronutrientes a tabela unica vira uma parede de numeros, e o
+    // que importa -- o que esta fora da faixa -- se perde no meio do que
+    // esta certo.
+
+    it('toda referencia declara um grupo, e so os tres existentes', () => {
+      // O grupo e DECLARADO, nao deduzido do nome: deduzir erraria no dia em
+      // que alguem acrescentasse um nutriente com nome parecido e papel
+      // diferente.
+      const validos = ['macro', 'mineral', 'vitamina'];
+      for (const ref of REFERENCIAS) {
+        expect(validos).toContain(ref.grupo);
+      }
+    });
+
+    it('cada grupo tem pelo menos um nutriente', () => {
+      // Secao vazia na tela seria um titulo sem conteudo.
+      for (const g of ['macro', 'mineral', 'vitamina']) {
+        expect(REFERENCIAS.some((r) => r.grupo === g)).toBe(true);
+      }
+    });
+
+    it('o grupo chega na linha, que e o que a tela le', () => {
+      const r = avaliarAdequacao({ proteinasG: 60, calcioMg: 900 }, 30, 'male');
+      expect(linha(r, 'proteinasG').grupo).toBe('macro');
+      expect(linha(r, 'calcioMg').grupo).toBe('mineral');
+      expect(linha(r, 'vitaminaDMcg').grupo).toBe('vitamina');
+    });
+
+    it('nutriente classificado no grupo certo', () => {
+      const porChave = new Map(REFERENCIAS.map((r) => [r.nutriente, r.grupo]));
+      expect(porChave.get('fibrasG')).toBe('macro');
+      expect(porChave.get('selenioMcg')).toBe('mineral');
+      expect(porChave.get('cobreMg')).toBe('mineral');
+      expect(porChave.get('folatoMcg')).toBe('vitamina');
+      expect(porChave.get('vitaminaDMcg')).toBe('vitamina');
+      expect(porChave.get('cobalaminaMcg')).toBe('vitamina');
     });
   });
 });
