@@ -65,6 +65,18 @@ export interface Protocolo {
   aplicaA?: Sexo[];
   /** Precisa de peso e estatura além das dobras. */
   exigeAntropometria?: boolean;
+  /**
+   * Faixa etária em que a equação foi DESENVOLVIDA E VALIDADA.
+   *
+   * Não bloqueia o cálculo: bloquear impediria a profissional de avaliar uma
+   * paciente de 55 anos com Petroski, decisão que é dela e não minha. Mas
+   * aplicar uma equação fora da amostra em que foi construída produz um
+   * número que parece medida e não é — então a tela avisa.
+   *
+   * As faixas vêm da apostila de antropometria que a profissional usa, que
+   * as declara protocolo a protocolo.
+   */
+  faixaEtaria?: { de: number; ate: number; porSexo?: Partial<Record<Sexo, { de: number; ate: number }>> };
   /** Percentual de gordura, ou null quando falta dado. */
   calcular: (
     medidas: Partial<Record<Sitio, number>>,
@@ -97,6 +109,10 @@ export const brozek = (densidade: number): number => 457 / densidade - 414.2;
 
 const JP3: Protocolo = {
   id: 'jackson_pollock_3',
+  faixaEtaria: {
+    de: 18, ate: 61,
+    porSexo: { male: { de: 18, ate: 61 }, female: { de: 18, ate: 55 } },
+  },
   nome: 'Jackson & Pollock — 3 dobras',
   nota: 'O mais usado na rotina. Sítios diferentes para homem e mulher.',
   constantes: [
@@ -119,6 +135,10 @@ const JP3: Protocolo = {
 
 const JP7: Protocolo = {
   id: 'jackson_pollock_7',
+  faixaEtaria: {
+    de: 18, ate: 61,
+    porSexo: { male: { de: 18, ate: 61 }, female: { de: 18, ate: 55 } },
+  },
   nome: 'Jackson & Pollock — 7 dobras',
   nota: 'Mais sítios, menor erro. Mesmos 7 pontos para ambos os sexos.',
   constantes: [
@@ -205,6 +225,7 @@ const DURNIN: Protocolo = {
  */
 const GUEDES3: Protocolo = {
   id: 'guedes_3',
+  faixaEtaria: { de: 17, ate: 27 },
   nome: 'Guedes — 3 dobras (feminina)',
   nota: 'Desenvolvida em universitárias do RS. Só a versão feminina pôde ser verificada.',
   aplicaA: ['female'],
@@ -244,6 +265,7 @@ const petroski = (
   id, nome, nota,
   aplicaA: ['female'],
   exigeAntropometria: true,
+  faixaEtaria: { de: 18, ate: 51 },
   constantes: [
     `Mulheres: D = ${c[0]} − ${c[1]}·Σ + ${c[2]}·Σ² − ${c[3]}·idade − ${c[4]}·peso(kg) + ${c[5]}·estatura(cm)`,
     `Σ = ${sitios.map((x) => ROTULO_SITIO[x].toLowerCase()).join(' + ')}`,
@@ -294,6 +316,23 @@ export const protocolosPara = (sexo: Sexo | null): Protocolo[] =>
 
 export const protocoloPorId = (id: string): Protocolo | undefined =>
   PROTOCOLOS.find((p) => p.id === id);
+
+/**
+ * Aviso quando o paciente está fora da faixa de validação, ou null.
+ *
+ * Avisa, NÃO bloqueia. A escolha de usar uma equação fora da amostra em que
+ * foi construída é clínica, e é dela. O que não pode acontecer é o número
+ * sair com a mesma cara de sempre, sem nada indicando que ali a equação está
+ * extrapolando.
+ */
+export function foraDaFaixa(protocolo: Protocolo, idade: number, sexo: Sexo | null): string | null {
+  const f = protocolo.faixaEtaria;
+  if (!f || !(idade > 0)) return null;
+  const faixa = (sexo && f.porSexo?.[sexo]) || f;
+  if (idade >= faixa.de && idade <= faixa.ate) return null;
+  return `Esta equação foi desenvolvida em pessoas de ${faixa.de} a ${faixa.ate} anos. `
+    + `O paciente tem ${idade}: o resultado é uma extrapolação, não uma medida validada.`;
+}
 
 /**
  * Protocolos pedidos e ainda NÃO implementados, com o motivo. Exibir esta

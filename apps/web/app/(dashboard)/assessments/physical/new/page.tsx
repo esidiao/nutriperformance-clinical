@@ -13,13 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { ShieldAlert, Coins, Activity, TrendingUp } from 'lucide-react';
+import { ShieldAlert, Coins, Activity, TrendingUp, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { AudioIntakeRecorder } from '@/components/AudioIntakeRecorder';
 import {
   PENDENTES, protocolosPara, protocoloPorId, ROTULO_SITIO, classificarGordura,
+  foraDaFaixa,
   composicao, type Sitio,
 } from '@/lib/protocolos-dobras';
 
@@ -276,6 +277,7 @@ export default function PhysicalAssessmentNewPage() {
     ? escolhido
     : protocolosDisponiveis[0];
   const sitiosExigidos: Sitio[] = protocolo.sitios(formGender ?? 'female');
+  const avisoFaixa = foraDaFaixa(protocolo, formAge, formGender);
 
   const medidasNum: Partial<Record<Sitio, number>> = {};
   for (const [k, v] of Object.entries(medidas)) {
@@ -460,6 +462,17 @@ export default function PhysicalAssessmentNewPage() {
                 ))}
               </select>
               <p className="text-[11px] text-muted-foreground mt-1">{protocolo.nota}</p>
+
+              {/* A equacao fora da faixa em que foi construida devolve um
+                  numero com a mesma cara de sempre. O aviso existe para que
+                  isso nao passe calado -- mas nao bloqueia: usar ou nao e
+                  decisao clinica. */}
+              {avisoFaixa && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-1 flex items-start gap-1.5">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0 text-amber-600" />
+                  <span>{avisoFaixa}</span>
+                </p>
+              )}
 
               {/* As constantes ficam à vista para conferência contra a
                   referência da profissional. Coeficiente errado não dá erro:

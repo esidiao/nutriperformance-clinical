@@ -1,6 +1,6 @@
 import {
   PROTOCOLOS, protocoloPorId, protocolosPara, siri, composicao,
-  classificarGordura, PENDENTES, type Sitio,
+  classificarGordura, PENDENTES, type Sitio, foraDaFaixa,
 } from '../../../../web/lib/protocolos-dobras';
 
 /**
@@ -318,6 +318,56 @@ describe('protocolos de dobras cutâneas', () => {
         expect(typeof r).toBe('number');
         expect(r).toBeGreaterThan(0);
         expect(r).toBeLessThan(70);
+      }
+    });
+  });
+
+  describe('faixa etaria de validacao', () => {
+    // As faixas vem da apostila de antropometria que a profissional usa,
+    // que as declara protocolo a protocolo. Aplicar uma equacao fora da
+    // amostra em que foi construida produz um numero que PARECE medida.
+
+    it('avisa fora da faixa, e nao avisa dentro', () => {
+      const petroski = protocoloPorId('petroski_4')!;
+      expect(foraDaFaixa(petroski, 30, 'female')).toBeNull();
+      expect(foraDaFaixa(petroski, 60, 'female')).toMatch(/18 a 51/);
+      expect(foraDaFaixa(petroski, 15, 'female')).toMatch(/extrapola/i);
+    });
+
+    it('AVISA, mas nao bloqueia: a decisao e clinica', () => {
+      // O calculo continua saindo. Travar impediria a profissional de
+      // avaliar uma paciente de 55 anos com Petroski, decisao que e dela.
+      const petroski = protocoloPorId('petroski_4')!;
+      const r = petroski.calcular(
+        { subscapular: 15, triceps: 20, suprailiac: 18, calf: 14 },
+        60, 'female', { pesoKg: 65, estaturaCm: 162 },
+      );
+      expect(r).not.toBeNull();
+      expect(foraDaFaixa(petroski, 60, 'female')).not.toBeNull();
+    });
+
+    it('a faixa muda por sexo quando a fonte distingue', () => {
+      // Jackson & Pollock: homens ate 61, mulheres ate 55.
+      const jp = protocoloPorId('jackson_pollock_3')!;
+      expect(foraDaFaixa(jp, 58, 'male')).toBeNull();
+      expect(foraDaFaixa(jp, 58, 'female')).toMatch(/18 a 55/);
+    });
+
+    it('Guedes tem a faixa mais estreita: universitarios de 17 a 27', () => {
+      const g = protocoloPorId('guedes_3')!;
+      expect(foraDaFaixa(g, 22, 'female')).toBeNull();
+      expect(foraDaFaixa(g, 40, 'female')).toMatch(/17 a 27/);
+    });
+
+    it('protocolo sem faixa declarada nao inventa aviso', () => {
+      const d = protocoloPorId('durnin_womersley_4')!;
+      expect(foraDaFaixa(d, 70, 'female')).toBeNull();
+    });
+
+    it('idade invalida nao vira aviso', () => {
+      const p = protocoloPorId('petroski_4')!;
+      for (const idade of [0, -1, Number.NaN]) {
+        expect(foraDaFaixa(p, idade, 'female')).toBeNull();
       }
     });
   });
