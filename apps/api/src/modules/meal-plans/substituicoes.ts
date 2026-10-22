@@ -40,6 +40,7 @@ import {
   classificarGrupoTroca, NUTRIENTE_DO_GRUPO, ROTULO_NUTRIENTE,
   type GrupoTroca, type Nutriente, type ParaClassificar,
 } from './grupos-troca';
+import { nomeBase } from './familias-por-nome';
 
 export type { GrupoTroca, Nutriente };
 
@@ -186,8 +187,25 @@ export function montarSubstituicoes(
 
   const brutas: Substituicao[] = [];
 
+  /**
+   * O MESMO alimento em outra preparação não é substituição.
+   *
+   * O IBGE cadastra cada preparação como um registro próprio: "BATATA-INGLESA,
+   * cozido(a)", "BATATA-INGLESA, cru(a)", "BATATA-INGLESA, assado(a)". Com a
+   * classificação por nome em funcionamento, as oito primeiras opções de
+   * batata cozida vinham a ser... batata. "Troque batata cozida por batata
+   * crua" ocupa a lista e não dá escolha nenhuma ao paciente — e a lista
+   * existe justamente para evitar monotonia.
+   *
+   * Visto rodando contra a base real em 22/10/2026, depois de a classificação
+   * passar a funcionar. Nenhum teste pegaria: os testes usam alimentos
+   * fabricados, com nomes todos diferentes.
+   */
+  const baseDaOrigem = nomeBase(origem.nomePadronizado);
+
   for (const c of candidatos) {
     if (c.id === origem.id) continue;
+    if (baseDaOrigem && nomeBase(c.nomePadronizado) === baseDaOrigem) continue;
     // O grupo de troca é derivado, não consultável: filtra aqui.
     if (classificarGrupoTroca(c).grupo !== grupo) continue;
 
@@ -246,7 +264,31 @@ export function montarSubstituicoes(
   }
 
   const viaveis = brutas.filter((s) => !s.porcaoImplausivel);
-  const ordenadas = viaveis.sort((a, b) => a.distancia - b.distancia).slice(0, limite);
+
+  /**
+   * Uma opção por ALIMENTO, não por preparação.
+   *
+   * O IBGE cadastra cada preparação como registro próprio, e sem isto as oito
+   * opções de carne seca eram: carne seca cozida, charque assado, charque cru,
+   * charque cozido… Três alimentos ocupando oito lugares. A lista existe para
+   * dar escolha ao paciente — "evita monotonia", nas palavras da
+   * nutricionista —, e repetir o mesmo alimento em quatro cozimentos é
+   * exatamente a monotonia que ela quis evitar.
+   *
+   * Fica a de MENOR distância de cada alimento, porque a ordenação já põe à
+   * frente a troca mais parecida.
+   */
+  const porAlimento = new Set<string>();
+  const ordenadas = viaveis
+    .sort((a, b) => a.distancia - b.distancia)
+    .filter((s) => {
+      const base = nomeBase(s.nome);
+      if (!base) return true;
+      if (porAlimento.has(base)) return false;
+      porAlimento.add(base);
+      return true;
+    })
+    .slice(0, limite);
 
   let indisponivel: string | null = null;
   if (!ordenadas.length) {

@@ -27,6 +27,8 @@
  * envelheceria em silêncio quando a composição fosse corrigida.
  */
 
+import { familiaDoNome } from './familias-por-nome';
+
 export type GrupoTroca =
   | 'Cereais, pães e tubérculos'
   | 'Frutas'
@@ -58,6 +60,14 @@ export interface Classificacao {
   motivo?: string;
   /** Marca os casos em que a composição contrariou a taxonomia da TACO. */
   reclassificado?: boolean;
+  /**
+   * O grupo saiu do NOME, porque o alimento não tem grupo da TACO.
+   *
+   * A tela mostra isto: é uma dedução minha sobre a origem do alimento, não
+   * um dado da base. A profissional precisa poder desconfiar da troca antes
+   * de mandá-la para o paciente.
+   */
+  derivadoDoNome?: boolean;
 }
 
 // ── limiares ────────────────────────────────────────────────────────────────
@@ -152,6 +162,56 @@ export function classificarGrupoTroca(a: ParaClassificar): Classificacao {
   // 61 kcal de arroz.
   if (/^Miscel/i.test(taco)) {
     return { grupo: null, motivo: 'É condimento ou tempero, não uma porção de alimento.' };
+  }
+
+  // ── Sem grupo da TACO: a origem vem do NOME ───────────────────────────────
+  //
+  // O IBGE não publica grupo alimentar, e eram 1971 de 2568 alimentos assim.
+  // Todo o resto desta função decide a partir de `taco`, então sem ele o
+  // alimento caía no `return` final sem grupo — e os poucos que escapavam
+  // escapavam ERRADO, pela regra de lipídio: "CARNE SECA", 65% da energia em
+  // gordura, era oferecida como troca de azeite e castanha.
+  //
+  // A classificação por nome vem ANTES das regras de composição justamente
+  // por isso: origem manda sobre percentual, igual ao caminho da TACO. Ver
+  // `familias-por-nome.ts` para as famílias e para o freio.
+  if (!taco) {
+    const familia = familiaDoNome(nome);
+    if (familia) {
+      switch (familia.decisao.tipo) {
+        case 'sem_porcao':
+          return { grupo: null, motivo: familia.decisao.motivo };
+        case 'proteina':
+          return { grupo: magra ? 'Proteínas magras' : 'Proteínas gordas', derivadoDoNome: true };
+        case 'lacteo':
+          return {
+            grupo: kcal < DENSIDADE_LACTEO ? 'Leites e iogurtes' : 'Queijos',
+            derivadoDoNome: true,
+          };
+        case 'grupo':
+          return { grupo: familia.decisao.grupo, derivadoDoNome: true };
+      }
+    }
+    // AQUI NÃO ENTRA REGRA DE COMPOSIÇÃO, E ISSO FOI MEDIDO.
+    //
+    // Minha primeira versão caía na regra de lipídio quase puro quando nenhuma
+    // família casava. Conferindo os 87 nomes que isso produziu em
+    // "Gorduras e oleaginosas", **mais da metade estava errada**: bisteca,
+    // cupim, rabada, paio, chouriço, morcela, patê e pé de galinha viravam
+    // troca de azeite; muçarela e creme de queijo também; e bomba, pavê,
+    // rocambole e biscoito de polvilho entravam como gordura em vez de doce.
+    //
+    // Era o mesmo defeito do "CARNE SECA" que motivou este arquivo, só mais
+    // adiante na função. Percentual de gordura não diz origem, e sem origem a
+    // troca é arbitrária. Então o que não tem família declarada fica sem
+    // grupo: óleo, azeite, castanha, amendoim e as frutas gordurosas estão
+    // nomeados na família de gorduras, de propósito.
+    return {
+      grupo: null,
+      motivo: 'O nome deste alimento não casa com nenhuma família conhecida, e '
+        + 'a composição sozinha não diz a origem. Propor troca aqui seria '
+        + 'arbitrário.',
+    };
   }
 
   // 1. ORIGEM manda sobre percentual. Carne gorda continua carne; feijão

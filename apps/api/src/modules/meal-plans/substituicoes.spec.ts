@@ -115,11 +115,64 @@ describe('lista de substituições', () => {
       expect(r.nutrienteReferencia).toBeNull();
     });
 
-    it('alimento sem grupo recusa, em vez de comparar com a base toda', () => {
-      const semGrupo = alimento({ id: 'sg', grupoAlimentar: null });
+    it('alimento sem grupo E com nome desconhecido recusa, em vez de comparar com a base toda', () => {
+      // O motivo mudou de texto em 22/10/2026, nao de sentido: alimento sem
+      // grupo da TACO passou a tentar a classificacao por NOME antes de
+      // desistir (familias-por-nome.ts). Com nome que nenhuma familia
+      // reivindica, a recusa continua -- e e ela que este teste protege.
+      const semGrupo = alimento({
+        id: 'sg', grupoAlimentar: null, nomePadronizado: 'XIRIMBABO DO AGRESTE',
+      });
       const r = montarSubstituicoes(semGrupo, 100, [ARROZ, BATATA]);
       expect(r.substituicoes).toHaveLength(0);
-      expect(r.indisponivel).toMatch(/ainda não tem regra/);
+      expect(r.indisponivel).toMatch(/nao casa com nenhuma familia|não casa com nenhuma família/);
+    });
+
+    it('alimento sem grupo mas com nome conhecido agora RECEBE troca', () => {
+      // O outro lado da mudanca, e o motivo dela: 1971 dos 2568 alimentos da
+      // base nao tem grupo da TACO (o IBGE nao publica grupo), e TODOS os 1967
+      // que tem medida caseira estavam entre eles. Sem isto, a lista de trocas
+      // nao servia para 77% da base.
+      const batataIbge = alimento({
+        id: 'bi', grupoAlimentar: null, nomePadronizado: 'BATATA-INGLESA, cozido(a)',
+        carboidratosG: 20, proteinasG: 2, lipidiosG: 0.1, energiaKcal: 90,
+      });
+      const r = montarSubstituicoes(batataIbge, 100, [ARROZ, BATATA]);
+      expect(r.indisponivel).toBeFalsy();
+      expect(r.substituicoes.length).toBeGreaterThan(0);
+    });
+
+    it('o MESMO alimento em outra preparacao nao conta como troca', () => {
+      // O IBGE cadastra cada preparacao como registro proprio. Sem o filtro,
+      // as primeiras opcoes de batata cozida eram batata crua, batata assada
+      // e batata grelhada -- a lista ocupada sem dar escolha nenhuma.
+      const cozida = alimento({
+        id: 'b1', grupoAlimentar: null, nomePadronizado: 'BATATA-INGLESA, cozido(a)',
+        carboidratosG: 20, proteinasG: 2, lipidiosG: 0.1, energiaKcal: 90,
+      });
+      const crua = alimento({
+        id: 'b2', grupoAlimentar: null, nomePadronizado: 'BATATA-INGLESA, cru(a)',
+        carboidratosG: 20, proteinasG: 2, lipidiosG: 0.1, energiaKcal: 90,
+      });
+      const r = montarSubstituicoes(cozida, 100, [crua, ARROZ]);
+      expect(r.substituicoes.map((x) => x.foodId)).not.toContain('b2');
+    });
+
+    it('uma opcao por ALIMENTO, nao uma por preparacao', () => {
+      // Tres preparacoes do mesmo alimento ocupavam tres lugares da lista.
+      // "Evita monotonia" foi o pedido da nutricionista, e repetir o mesmo
+      // alimento em quatro cozimentos e justamente a monotonia.
+      const origem = alimento({
+        id: 'o', grupoAlimentar: null, nomePadronizado: 'FEIJAO (PRETO)',
+        carboidratosG: 14, proteinasG: 5, lipidiosG: 0.5, energiaKcal: 77,
+      });
+      const preparacoes = ['cru(a)', 'cozido(a)', 'ensopado'].map((prep, i) => alimento({
+        id: `l${i}`, grupoAlimentar: null, nomePadronizado: `LENTILHA, ${prep}`,
+        carboidratosG: 16, proteinasG: 6, lipidiosG: 0.5, energiaKcal: 93,
+      }));
+      const r = montarSubstituicoes(origem, 100, preparacoes);
+      const lentilhas = r.substituicoes.filter((x) => x.nome.startsWith('LENTILHA'));
+      expect(lentilhas).toHaveLength(1);
     });
 
     it('toda lista vazia tem motivo: nunca silenciosa', () => {
@@ -167,8 +220,11 @@ describe('lista de substituições', () => {
     it('a distância ignora a referência, que está igualada', () => {
       // Dois candidatos idênticos no resto: mesma distância, embora a
       // porção equivalente de cada um seja diferente.
-      const a = alimento({ id: 'a', carboidratosG: 28, energiaKcal: 128, proteinasG: 2.5, lipidiosG: 0.2 });
-      const b = alimento({ id: 'b', carboidratosG: 14, energiaKcal: 64, proteinasG: 1.25, lipidiosG: 0.1 });
+      // Nomes DISTINTOS de proposito: a lista passou a devolver uma opcao por
+      // alimento, e o `alimento()` nomeia todo mundo igual por padrao. Na base
+      // real nao existem dois registros com o mesmo nome.
+      const a = alimento({ id: 'a', nomePadronizado: 'Alimento A', carboidratosG: 28, energiaKcal: 128, proteinasG: 2.5, lipidiosG: 0.2 });
+      const b = alimento({ id: 'b', nomePadronizado: 'Alimento B', carboidratosG: 14, energiaKcal: 64, proteinasG: 1.25, lipidiosG: 0.1 });
       const r = montarSubstituicoes(ARROZ, 100, [a, b]);
       expect(r.substituicoes[0].distancia).toBeCloseTo(r.substituicoes[1].distancia, 3);
       expect(r.substituicoes.find((s) => s.foodId === 'b')!.quantidadeG).toBeCloseTo(200, 0);
@@ -176,7 +232,10 @@ describe('lista de substituições', () => {
 
     it('respeita o limite de sugestões', () => {
       const muitos = Array.from({ length: 30 }, (_, i) =>
-        alimento({ id: `c${i}`, carboidratosG: 20 + i * 0.1, energiaKcal: 100 + i }));
+        alimento({
+          id: `c${i}`, nomePadronizado: `Alimento ${i}`,
+          carboidratosG: 20 + i * 0.1, energiaKcal: 100 + i,
+        }));
       expect(montarSubstituicoes(ARROZ, 100, muitos, 5).substituicoes).toHaveLength(5);
     });
   });
