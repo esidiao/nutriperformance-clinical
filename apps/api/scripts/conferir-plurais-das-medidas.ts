@@ -7,7 +7,7 @@
  *
  * POR QUE EXISTE
  *
- * O comentario de `medida-caseira.ts` afirmava que a base nao tinha medida
+ * O comentario de `medida-aproximada.ts` afirmava que a base nao tinha medida
  * terminada em "ao"/"ão", e por isso a regra podia deixar esse caso de lado.
  * Em 22/10/2026 eu fui conferir na base: tem duas — `copo de requeijao` e
  * `porcao`. A primeira flexiona certo (o "ao" esta na locucao, depois da
@@ -24,7 +24,11 @@
  *     por ja terminar em "s" — ou seja, caso que a regra nao soube flexionar.
  */
 import { readFileSync } from 'node:fs';
-import { pluralizarMedida } from '../../web/lib/medida-caseira';
+// A copia da API, de proposito: e ela que escreve a lista do paciente, e
+// script COMPILA junto com a API (sem `include` no tsconfig). Importar de
+// `apps/web` daqui re-enraiza a saida do build para `dist/api/src/main.js`
+// e o CMD do contêiner passa a apontar para arquivo que nao existe.
+import { pluralizar } from '../src/modules/meal-plans/medida-aproximada';
 
 function carregarEnv(c: string) {
   try {
@@ -59,7 +63,7 @@ async function principal() {
 
   const suspeitas: Array<[string, string, string]> = [];
   for (const m of medidas) {
-    const plural = pluralizarMedida(m);
+    const plural = pluralizar(m);
     const parentetico = /[)(]/.test(m);
     const jaPlural = /s$/i.test(m);
 
@@ -80,7 +84,7 @@ async function principal() {
     }
     console.log(
       '\nO plural de "ão" nao e derivavel (pao/paes, limao/limoes, irmao/irmaos).\n'
-      + 'Acrescentar a palavra em PLURAIS_CONHECIDOS, em medida-caseira.ts, com o\n'
+      + 'Acrescentar a palavra em PLURAIS_CONHECIDOS, em medida-aproximada.ts, com o\n'
       + 'plural escrito a mao — ou deixar no singular, que e feio e honesto.',
     );
     process.exitCode = 1;
