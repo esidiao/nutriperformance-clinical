@@ -4,9 +4,11 @@ import { Repository, DataSource } from 'typeorm';
 import { MealPlan } from './meal-plan.entity';
 import { MealPlanItem } from './meal-plan-item.entity';
 import { Food } from '../foods/food.entity';
+import { FoodMeasure } from '../foods/food-measure.entity';
 import { AuditService } from '../audit/audit.service';
 import { montarListaCompras, ListaCompras } from './lista-compras';
 import { montarSubstituicoes } from './substituicoes';
+import type { MedidaDisponivel } from './medida-aproximada';
 import { SupervisionService, PAPEL_ESTUDANTE } from '../supervision/supervision.service';
 import { somarMicronutrientes, type TotalMicronutriente } from './micronutrientes';
 import {
@@ -40,6 +42,8 @@ export class MealPlansService {
     @InjectRepository(MealPlan) private readonly planRepo: Repository<MealPlan>,
     @InjectRepository(MealPlanItem) private readonly itemRepo: Repository<MealPlanItem>,
     @InjectRepository(Food) private readonly foodRepo: Repository<Food>,
+    @InjectRepository(FoodMeasure)
+    private readonly medidasRepo: Repository<FoodMeasure>,
     private readonly auditService: AuditService,
     private readonly dataSource: DataSource,
     private readonly supervisionService: SupervisionService,
@@ -189,6 +193,21 @@ export class MealPlansService {
       ],
     });
 
+    // As medidas caseiras, numa consulta so. Sem elas a lista sai em gramas,
+    // e "235 g de batata" exige balanca -- a troca correta vira troca nao
+    // feita. Uma consulta por alimento seriam centenas por requisicao.
+    const todasMedidas = await this.medidasRepo.find();
+    const medidasPorFood = new Map<string, MedidaDisponivel[]>();
+    for (const m of todasMedidas) {
+      const lista = medidasPorFood.get(m.foodId);
+      const item = { medida: m.medida, gramas: Number(m.gramas), padrao: m.padrao };
+      if (lista) lista.push(item); else medidasPorFood.set(m.foodId, [item]);
+    }
+    const comMedidas = candidatos.map((f) => ({
+      ...f,
+      medidas: medidasPorFood.get(f.id) ?? [],
+    }));
+
     const resultado = comVinculo.map((item) => {
       const origem = origemPorId.get(item.foodId as string);
       if (!origem) {
@@ -208,7 +227,7 @@ export class MealPlansService {
       return {
         itemId: item.id,
         refeicao: item.refeicao,
-        lista: montarSubstituicoes(origem, num(item.quantidadeG), candidatos),
+        lista: montarSubstituicoes(origem, num(item.quantidadeG), comMedidas),
       };
     });
 

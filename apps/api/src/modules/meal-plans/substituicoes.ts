@@ -33,6 +33,10 @@
  */
 
 import {
+  aproximarEmMedida, descreverMedida,
+  type MedidaDisponivel, type MedidaAproximada,
+} from './medida-aproximada';
+import {
   classificarGrupoTroca, NUTRIENTE_DO_GRUPO, ROTULO_NUTRIENTE,
   type GrupoTroca, type Nutriente, type ParaClassificar,
 } from './grupos-troca';
@@ -43,6 +47,8 @@ export type { GrupoTroca, Nutriente };
 export interface AlimentoComposicao extends ParaClassificar {
   id: string;
   fibrasG: number | null;
+  /** Medidas caseiras do alimento. Vazio para a TACO, que nao as publica. */
+  medidas?: MedidaDisponivel[];
 }
 
 export interface Divergencia {
@@ -69,6 +75,16 @@ export interface Substituicao {
   distancia: number;
   /** Porção fora do que se come numa refeição — some, não é erro. */
   porcaoImplausivel: boolean;
+  /**
+   * A mesma quantidade em medida caseira, quando alguma chega perto.
+   *
+   * `null` quando nenhuma medida representa a quantidade dentro do desvio
+   * aceitavel -- forçar "0,3 concha" nao e instrucao que alguem execute. A
+   * tela entao mostra so as gramas.
+   */
+  medidaCaseira: MedidaAproximada | null;
+  /** A mesma coisa escrita: "2 colheres de sopa". */
+  medidaTexto: string | null;
 }
 
 export interface ListaSubstituicoes {
@@ -206,10 +222,14 @@ export function montarSubstituicoes(
         : Math.min(Math.abs(atual[k]) / 10, 3);
     }
 
+    const medida = aproximarEmMedida(gramas, c.medidas ?? []);
+
     brutas.push({
       foodId: c.id,
       nome: c.nomePadronizado,
       quantidadeG: arred1(gramas),
+      medidaCaseira: medida,
+      medidaTexto: medida ? descreverMedida(medida) : null,
       calculo:
         `${arred1(quantidadeG)} g × (${arred1(num(origem[nutriente]))} ÷ ${arred1(porCem)}) = ` +
         `${arred1(gramas)} g — iguala ${arred1(refOrigem)} de ${rotulo}`,

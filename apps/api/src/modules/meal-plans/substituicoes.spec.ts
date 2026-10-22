@@ -400,4 +400,53 @@ describe('lista de substituições', () => {
       expect(Number.isFinite(s.distancia)).toBe(true);
     });
   });
+
+  describe('a medida caseira na sugestao', () => {
+    // A lista vai para a mao do paciente: "235 g de batata" exige balanca,
+    // e a troca correta vira troca nao feita.
+
+    const BATATA_COM_MEDIDA = {
+      ...BATATA,
+      medidas: [
+        { medida: 'colher de servir', gramas: 60, padrao: true },
+        { medida: 'unidade media', gramas: 120, padrao: false },
+      ],
+    };
+
+    it('traduz a quantidade equivalente para medida caseira', () => {
+      // 100 g de arroz = 28 g de carboidrato = 235,3 g de batata.
+      // 2 unidades medias pesam 240 g: 2% de desvio, dentro do aceitavel.
+      const s = montarSubstituicoes(ARROZ, 100, [BATATA_COM_MEDIDA]).substituicoes[0];
+      expect(s.medidaCaseira).not.toBeNull();
+      expect(s.medidaTexto).toBe('2 unidades medias');
+      expect(s.medidaCaseira!.gramasReais).toBe(240);
+    });
+
+    it('o peso REAL da medida vem junto, nao o alvo', () => {
+      // Sem isto a aproximacao viraria afirmacao falsa: a tela diria
+      // "2 unidades" como se pesassem os 235,3 g que a conta pediu.
+      const s = montarSubstituicoes(ARROZ, 100, [BATATA_COM_MEDIDA]).substituicoes[0];
+      expect(s.medidaCaseira!.gramasReais).not.toBe(s.quantidadeG);
+      expect(s.medidaCaseira!.desvioG).toBeGreaterThan(0);
+    });
+
+    it('alimento sem medida devolve null, e a tela mostra gramas', () => {
+      // E o caso de toda a TACO, que nao publica medida caseira.
+      const s = montarSubstituicoes(ARROZ, 100, [BATATA]).substituicoes[0];
+      expect(s.medidaCaseira).toBeNull();
+      expect(s.medidaTexto).toBeNull();
+      expect(s.quantidadeG).toBeGreaterThan(0);
+    });
+
+    it('recusa a medida quando nenhuma chega perto, em vez de forcar', () => {
+      const soConcha = { ...BATATA, medidas: [{ medida: 'concha', gramas: 500, padrao: true }] };
+      const s = montarSubstituicoes(ARROZ, 100, [soConcha]).substituicoes[0];
+      // 235 g contra uma concha de 500: metade sao 250, 6% de desvio -> cabe.
+      // Entao o caso de recusa precisa de uma medida ainda mais distante.
+      const soEnorme = { ...BATATA, medidas: [{ medida: 'saco', gramas: 5000, padrao: true }] };
+      const t = montarSubstituicoes(ARROZ, 100, [soEnorme]).substituicoes[0];
+      expect(t.medidaCaseira).toBeNull();
+      expect(s.medidaCaseira).not.toBeNull();
+    });
+  });
 });

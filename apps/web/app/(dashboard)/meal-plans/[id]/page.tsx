@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { FoodAutocomplete, type FoodResult } from '@/components/FoodAutocomplete';
 import { SeletorMedidaCaseira } from '@/components/SeletorMedidaCaseira';
 import { ListaCompras } from '@/components/ListaCompras';
+import { ListaSubstituicoes } from '@/components/ListaSubstituicoes';
 import { SalvarComoModelo } from '@/components/ModelosDePlano';
 import { RelatorioAdequacao } from '@/components/RelatorioAdequacao';
 import { SupervisaoDoTrabalho } from '@/components/Supervisao';
@@ -427,6 +428,11 @@ export default function MealPlanPage() {
 
         {/* Depois do cardápio, não antes: a lista é consequência do plano. */}
         <ListaCompras planoId={planId} />
+
+        {/* A lista de trocas vem logo após, porque é a outra folha que sai
+            desta tela para a mão do paciente — a de compras diz o que levar
+            do mercado, esta diz por que trocar o que já está no prato. */}
+        <ListaSubstituicoes planoId={planId} />
 
         {/* Antes do "salvar como modelo": a situação da supervisão é o que
             decide se este plano pode chegar ao paciente. */}

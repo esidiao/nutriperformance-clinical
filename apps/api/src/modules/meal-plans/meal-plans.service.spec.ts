@@ -6,6 +6,7 @@ import { MealPlansService } from './meal-plans.service';
 import { MealPlan } from './meal-plan.entity';
 import { MealPlanItem } from './meal-plan-item.entity';
 import { Food } from '../foods/food.entity';
+import { FoodMeasure } from '../foods/food-measure.entity';
 import { AuditService } from '../audit/audit.service';
 import { SupervisionService } from '../supervision/supervision.service';
 
@@ -68,6 +69,9 @@ describe('MealPlansService', () => {
         { provide: getRepositoryToken(MealPlan), useValue: planRepo },
         { provide: getRepositoryToken(MealPlanItem), useValue: itemRepo },
         { provide: getRepositoryToken(Food), useValue: foodRepo },
+        // Sem medidas caseiras a lista de trocas sai em gramas: e o caso de
+        // toda a TACO, e nao e erro.
+        { provide: getRepositoryToken(FoodMeasure), useValue: { find: jest.fn().mockResolvedValue([]) } },
         { provide: AuditService, useValue: audit },
         { provide: DataSource, useValue: dataSource },
         { provide: SupervisionService, useValue: supervision },
