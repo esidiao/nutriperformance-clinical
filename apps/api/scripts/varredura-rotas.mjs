@@ -86,6 +86,35 @@ for (const r of rotas) {
 const quebradas = resultados.filter((x) => x.status >= 500 || x.status === -1);
 const ok = resultados.filter((x) => x.status < 500 && x.status !== -1);
 
+/**
+ * AUTENTICOU MESMO?
+ *
+ * Esta varredura procura erro 500. Se o token nao for aceito, TODAS as rotas
+ * devolvem 401 -- e ai ela nao encontra nenhum 500 e anuncia sucesso, tendo
+ * exercitado exatamente nada. Foi o que aconteceu: a conta semeada
+ * dra.ana@nutritest.com tem vinculo divergente, a API respondeu 401 em tudo,
+ * e a varredura concluiu "nenhuma rota devolveu erro de servidor".
+ *
+ * Varredura que nao testou nada nao pode parecer varredura que passou.
+ */
+const autenticadas = resultados.filter((x) => x.status !== 401);
+const proporcaoNegada = resultados.length
+  ? (resultados.length - autenticadas.length) / resultados.length
+  : 0;
+
+if (proporcaoNegada > 0.9) {
+  const amostra = resultados.find((x) => x.status === 401);
+  console.log(`\n=== A VARREDURA NAO AUTENTICOU ===`);
+  console.log(`${resultados.length - autenticadas.length} de ${resultados.length} rotas`
+    + ` devolveram 401. Nenhum 500 poderia ser encontrado assim.`);
+  if (amostra) console.log(`\nresposta da API:\n  ${amostra.corpo}`);
+  console.log(`\nConta usada: ${process.argv[2]}`);
+  console.log('Confira se o perfil dela tem identidade de acesso vinculada'
+    + ' (auth_id batendo com o usuario de autenticacao) e workspace.');
+  process.exitCode = 1;
+  process.exit();
+}
+
 console.log(`${resultados.length} rotas GET exercitadas com token valido\n`);
 for (const x of ok.sort((a, b) => a.url.localeCompare(b.url))) {
   console.log(`  ${String(x.status).padEnd(4)} ${x.url}`);
