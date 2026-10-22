@@ -259,4 +259,48 @@ describe('PatientsService', () => {
       expect(updateArg.isActive).toBe(false);
     });
   });
+
+  describe('registro ilegivel nao derruba a lista', () => {
+    // Encontrado por varredura em producao: um paciente com o nome gravado
+    // como texto cru dentro da coluna cifrada fazia /patients, /goals e
+    // /supplementation devolverem 500. Um registro corrompido tirava a
+    // profissional do acesso a TODOS os pacientes.
+
+    it('lista os demais quando um registro nao decifra', async () => {
+      // Cifra pelo proprio servico, para o teste nao reimplementar a cifra.
+      const cifrar = (t: string) => (service as any).encrypt(t);
+      const linhas = [
+        { id: 'p1', nameEncrypted: cifrar('Maria Silva'), workspaceId: 'w1', isActive: true },
+        // Texto cru dentro da coluna cifrada: exatamente o que a varredura
+        // encontrou em producao.
+        { id: 'p2', nameEncrypted: Buffer.from('TEXTO CRU NAO CIFRADO'), workspaceId: 'w1', isActive: true },
+        { id: 'p3', nameEncrypted: cifrar('Joao Souza'), workspaceId: 'w1', isActive: true },
+      ];
+      mockPatientRepo.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([linhas, 3]),
+      });
+
+      const r: any = await service.listByWorkspace('w1', { requestingUserId: 'u1' });
+
+      // Os tres aparecem: o corrompido nao leva os outros junto.
+      expect(r.items).toHaveLength(3);
+      expect(r.items[0].name).toBe('Maria Silva');
+      expect(r.items[2].name).toBe('Joao Souza');
+      // E o corrompido aparece marcado, nao some nem vira vazio.
+      expect(r.items[1].name).toBe(PatientsService.ILEGIVEL);
+    });
+
+    it('o ilegivel e MARCADO, nao confundido com campo vazio', () => {
+      // Campo vazio e ausencia de dado; ilegivel e dado que existe e nao
+      // pode ser lido. Mostrar os dois como "—" esconderia uma chave de
+      // criptografia errada atras de uma tela de aparencia normal.
+      expect(PatientsService.ILEGIVEL).not.toBe('—');
+      expect(PatientsService.ILEGIVEL).toMatch(/ler|ilegiv/i);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
@@ -37,6 +37,7 @@ export interface CreatePatientDto {
 
 @Injectable()
 export class PatientsService {
+  private readonly logger = new Logger(PatientsService.name);
   private readonly encryptionKey: Buffer;
   private readonly cpfSalt: string;
   private readonly ivLength = 16;
@@ -82,6 +83,48 @@ export class PatientsService {
     const encrypted = encryptedBuffer.subarray(this.ivLength);
     const decipher = createDecipheriv('aes-256-cbc', this.encryptionKey, iv);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+  }
+
+  /** O que a tela mostra quando um registro não pôde ser lido. */
+  static readonly ILEGIVEL = '(não foi possível ler)';
+
+  /**
+   * Decifra sem derrubar a requisição inteira.
+   *
+   * POR QUE ISTO EXISTE
+   *
+   * `decrypt` lança quando os bytes não são uma cifra válida, e a listagem
+   * chamava `patients.map((p) => this.decrypt(...))` direto. Resultado: UM
+   * registro ilegível devolvia 500 e a profissional perdia o acesso a TODOS
+   * os pacientes. Num sistema clínico isso é inaceitável — o prontuário dos
+   * outros não tem culpa do registro corrompido.
+   *
+   * Encontrado por varredura em produção: no workspace de teste havia um
+   * paciente com o nome gravado como texto cru dentro da coluna cifrada, e
+   * /patients, /goals e /supplementation devolviam 500 por causa dele.
+   *
+   * POR QUE NÃO DEVOLVE SÓ "—"
+   *
+   * Porque "—" é o que já aparece para campo vazio, e as duas situações são
+   * diferentes: campo vazio é ausência de dado, registro ilegível é dado que
+   * existe e não pôde ser lido. Confundir os dois esconderia uma chave de
+   * criptografia errada — que faria TODOS os nomes falharem — atrás de uma
+   * tela de aparência normal.
+   *
+   * Por isso também o warn: um registro ilegível é um incidente, mesmo que
+   * a tela continue de pé.
+   */
+  private decifrarOuMarcar(buffer: Buffer | null | undefined, patientId: string): string {
+    if (!buffer) return '—';
+    try {
+      return this.decrypt(buffer);
+    } catch (e) {
+      this.logger.warn(
+        `Paciente ${patientId}: campo cifrado ilegível (${(e as Error).message}). `
+        + 'O registro continua listado, marcado como ilegível.',
+      );
+      return PatientsService.ILEGIVEL;
+    }
   }
 
   private hashCpf(cpf: string): string {
@@ -161,8 +204,10 @@ export class PatientsService {
       ...(origemExterna ? { changes: { origem: origemExterna } } : {}),
     });
 
-    const name = patient.nameEncrypted ? this.decrypt(patient.nameEncrypted) : '—';
-    const email = patient.emailEncrypted ? this.decrypt(patient.emailEncrypted) : undefined;
+    const name = this.decifrarOuMarcar(patient.nameEncrypted, patient.id);
+    const email = patient.emailEncrypted
+      ? this.decifrarOuMarcar(patient.emailEncrypted, patient.id)
+      : undefined;
 
     return this.toPublicDto(patient, name, email);
   }
@@ -195,7 +240,7 @@ export class PatientsService {
     });
 
     const updated = await this.patientRepo.findOne({ where: { id: patientId, workspaceId } });
-    const name = updated?.nameEncrypted ? this.decrypt(updated.nameEncrypted) : '—';
+    const name = this.decifrarOuMarcar(updated?.nameEncrypted, updated?.id ?? 'desconhecido');
     return this.toPublicDto(updated!, name);
   }
 
@@ -244,7 +289,7 @@ export class PatientsService {
 
     return {
       items: patients.map((p) => {
-        const name = p.nameEncrypted ? this.decrypt(p.nameEncrypted) : '—';
+        const name = this.decifrarOuMarcar(p.nameEncrypted, p.id);
         return this.toPublicDto(p, name);
       }),
       total,
@@ -325,7 +370,7 @@ export class PatientsService {
     return new Map(pacientes.map((p) => [
       p.id,
       {
-        nome: p.nameEncrypted ? this.decrypt(p.nameEncrypted) : '—',
+        nome: this.decifrarOuMarcar(p.nameEncrypted, p.id),
         codigo: p.internalCode ?? null,
       },
     ]));
