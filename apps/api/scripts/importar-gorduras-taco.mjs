@@ -83,21 +83,41 @@ try {
 // Mono e poli so existem no banco a partir da migracao
 // docs/migrations/2026-10-29-gordura-mono-poli.sql -- este script FALHA alto
 // se elas nao estiverem aplicadas, em vez de gravar metade calado.
+//
+// `casas` e a ESCALA REAL da coluna no banco, e nao preferencia de
+// apresentacao. Medido em 29/10/2026 lendo 1000 linhas: nenhum valor de
+// gordura_saturada_g, gordura_trans_g, lipidios_g ou energia_kcal tem 3
+// casas -- essas colunas sao numeric de escala 2. As duas novas foram
+// criadas numeric(6,3).
+//
+// Arredondar UMA VEZ, na escala da coluna, conserta tambem um erro de
+// 0,01 g que a importacao anterior deixou em producao: ela arredondava em 3
+// casas e o Postgres arredondava ESSE resultado para 2. Porco, bisteca,
+// frita tem 5,974666 na planilha; virou 5,975 e depois 5,98, quando o certo
+// e 5,97. Arredondamento duplo nao e empate de precisao, e um valor errado.
+//
+// Arredondar aqui, na escala da coluna, e o que torna o script IDEMPOTENTE.
+// Sem isso o Postgres arredondava calado na gravacao (2.095 virava 2.1), a
+// comparacao da proxima execucao achava 2.1 != 2.095 e o script anunciava
+// "84 saturadas a gravar" para sempre, regravando as mesmas linhas toda vez.
+// Um numero de trabalho pendente que nunca chega a zero e um numero que nao
+// quer dizer nada.
 const CAMPOS = [
-  { json: 'saturadaG', coluna: 'gordura_saturada_g' },
-  { json: 'transG', coluna: 'gordura_trans_g' },
-  { json: 'monoinsaturadaG', coluna: 'gordura_monoinsaturada_g' },
-  { json: 'poliinsaturadaG', coluna: 'gordura_poliinsaturada_g' },
+  { json: 'saturadaG', coluna: 'gordura_saturada_g', casas: 2 },
+  { json: 'transG', coluna: 'gordura_trans_g', casas: 2 },
+  { json: 'monoinsaturadaG', coluna: 'gordura_monoinsaturada_g', casas: 3 },
+  { json: 'poliinsaturadaG', coluna: 'gordura_poliinsaturada_g', casas: 3 },
 ];
 
 // `null` significa NAO ANALISADO e tem de continuar null ate o banco:
 // converter para 0 aqui afirmaria ausencia de gordura no alimento.
 //
-// Arredondo em 3 casas porque a soma dos dois trans traz ruido de ponto
-// flutuante (7.800000000000001) e a TACO publica com 1-3 casas: quero o
-// numero, nao o artefato da soma.
-function tresCasas(v) {
-  return v === null || v === undefined ? null : Math.round(v * 1000) / 1000;
+// O arredondamento tambem tira o ruido de ponto flutuante da soma dos dois
+// trans (7.800000000000001): quero o numero, nao o artefato da soma.
+function naEscala(v, casas) {
+  if (v === null || v === undefined) return null;
+  const f = 10 ** casas;
+  return Math.round(v * f) / f;
 }
 
 const daTaco = new Map();
@@ -105,7 +125,7 @@ for (const [numero, v] of Object.entries(bruto)) {
   const d = {};
   let temAlgum = false;
   for (const c of CAMPOS) {
-    d[c.coluna] = tresCasas(v?.[c.json]);
+    d[c.coluna] = naEscala(v?.[c.json], c.casas);
     if (d[c.coluna] !== null) temAlgum = true;
   }
   if (!temAlgum) continue;
@@ -153,6 +173,11 @@ for (const a of nossos) {
   if (!d) { semPar++; continue; }
   // Ja preenchido com o mesmo valor: nao reescreve. `null` na planilha
   // significa nao analisado e NAO apaga o que ja estiver no banco.
+  //
+  // O teste de coluna nula vem ANTES do Number() de proposito: a versao
+  // anterior comparava `Number(a[coluna]) !== v` direto, e `Number(null)` e
+  // 0 -- entao zero de verdade (o `Tr` da TACO) parecia ja gravado e 6
+  // alimentos ficaram nulos sem ninguem perceber.
   const corpo = {};
   for (const c of CAMPOS) {
     const v = d[c.coluna];

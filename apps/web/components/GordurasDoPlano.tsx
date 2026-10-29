@@ -45,9 +45,11 @@ export function GordurasDoPlano({ gorduras }: {
     monoinsaturadaG?: Total | null;
     poliinsaturadaG?: Total | null;
     insaturadaG?: Total | null;
+    itensIncoerentes?: number;
   } | null;
 }) {
   const insat = gorduras?.insaturadaG;
+  const incoerentes = gorduras?.itensIncoerentes ?? 0;
 
   const linhas: Array<{
     rotulo: string; t: Total | null | undefined; ausente?: string; destaque?: boolean;
@@ -111,6 +113,19 @@ export function GordurasDoPlano({ gorduras }: {
                 O total está <strong>incompleto</strong>: alguns alimentos do plano
                 não têm essa composição na base. O valor real é maior que o
                 mostrado.
+              </span>
+            </p>
+          )}
+
+          {incoerentes > 0 && (
+            <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-500 mt-1.5">
+              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+              <span>
+                Em {incoerentes === 1 ? '1 alimento' : `${incoerentes} alimentos`} deste
+                plano a <strong>própria tabela TACO se contradiz</strong>: as frações
+                que ela publica somam mais que o lipídio total que ela declara para o
+                mesmo alimento. Os valores estão como a fonte publica — não foram
+                ajustados. Vale conferir esses itens na tabela antes de fechar o plano.
               </span>
             </p>
           )}

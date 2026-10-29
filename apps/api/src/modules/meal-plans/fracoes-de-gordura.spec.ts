@@ -169,6 +169,52 @@ describe('insaturada: medido ganha de deduzido, item a item', () => {
     expect(r.saturadaG).toBeNull();
   });
 
+  it('conta o item em que a FONTE se contradiz, sem mexer no valor', () => {
+    // Carne bovina, maminha, GRELHADA (id 368) na planilha oficial: a aba
+    // CMVCol diz 2,42 g de lipidio e a AGtaco3 diz sat 9,7 + mono 7,7 +
+    // poli 0,2 = 17,6 g. A grelhada com menos gordura que a crua (7,03 g)
+    // nao se sustenta -- e a fonte que esta errada, nao a nossa conta.
+    const r = somarFracoesDeGordura([
+      {
+        lipidiosG: 2.42,
+        micronutrientes: {
+          gorduraSaturadaG: 9.7,
+          gorduraMonoinsaturadaG: 7.7,
+          gorduraPoliinsaturadaG: 0.2,
+        },
+      },
+    ]);
+    expect(r.itensIncoerentes).toBe(1);
+    // O valor NAO e limitado ao lipidio: inventar o total que "deveria"
+    // estar la seria pior que mostrar a contradicao.
+    expect(r.insaturadaG!.valor).toBe(7.9);
+  });
+
+  it('ruido de arredondamento NAO conta como contradicao da fonte', () => {
+    // Jilo, cru: lipidio 0,2 e fracoes somando 0,32. Excesso de 0,12 g em
+    // alimento magro e arredondamento, nao divergencia -- e um aviso que
+    // aparece em alimento magro qualquer nao avisa nada.
+    const r = somarFracoesDeGordura([
+      {
+        lipidiosG: 0.2,
+        micronutrientes: {
+          gorduraSaturadaG: 0.07,
+          gorduraMonoinsaturadaG: 0.051,
+          gorduraPoliinsaturadaG: 0.199,
+        },
+      },
+    ]);
+    expect(r.itensIncoerentes).toBe(0);
+  });
+
+  it('item DEDUZIDO nunca e incoerente, porque a subtracao parte do lipidio', () => {
+    const r = somarFracoesDeGordura([
+      { lipidiosG: 2.42, micronutrientes: { gorduraSaturadaG: 9.7 } },
+    ]);
+    expect(r.itensIncoerentes).toBe(0);
+    expect(r.insaturadaG!.valor).toBe(0);   // chao em zero
+  });
+
   it('zero medido e zero, nao ausencia', () => {
     const r = somarFracoesDeGordura([medido(10, 10, 0, 0)]);
     expect(r.insaturadaG!.valor).toBe(0);

@@ -44,6 +44,30 @@ import type { Food } from '../foods/food.entity';
  * `itensDeduzidos` conta quantos vieram pela subtração, para a tela poder
  * dizer qual parte do número é medida e qual é conta.
  *
+ * ================= A FONTE SE CONTRADIZ, E ISSO APARECE ====================
+ *
+ * Medido em 29/10/2026: em 27 dos 597 alimentos da TACO a soma das fracoes
+ * passa do lipidio total declarado. Nao e arredondamento nosso -- as duas
+ * abas da planilha OFICIAL discordam entre si:
+ *
+ *   Carne bovina, maminha, GRELHADA   lipidio 2,42   sat+mono+poli 17,6
+ *   Ovo de codorna, inteiro, cru      lipidio 12,68  sat+mono+poli 23,7
+ *   Amendoa, torrada, salgada         lipidio 47,32  sat+mono+poli 53,3
+ *
+ * A maminha grelhada com 2,42 g e menos que a CRUA (7,03 g), o que nao se
+ * sustenta: grelhar perde agua e concentra a gordura. O numero da fonte esta
+ * errado, e a amendoa e a linhaca parecem lotes de amostra diferentes entre
+ * as duas analises.
+ *
+ * Nao corrijo nem limito o valor: inventar o lipidio que "deveria" estar la
+ * seria pior que mostrar a contradicao. O que faco e CONTAR os itens assim e
+ * deixar a tela dizer que a divergencia e da fonte -- senao a profissional ve
+ * "lipidio 2,4 g / insaturada 7,9 g" e conclui, com razao, que o sistema
+ * esta quebrado.
+ *
+ * O limite para contar (mais de 0,5 g E mais de 10% do lipidio) deixa de
+ * fora o ruido de arredondamento, que chega a 0,12 g em alimento magro.
+ *
  * ======================= POR QUE MORA NO JSONB DOS MICROS ==================
  *
  * As frações são guardadas no mesmo `micronutrientes` do item, sob chaves que
@@ -110,6 +134,11 @@ export interface GordurasDoPlano {
   poliinsaturadaG: TotalDeGordura | null;
   /** Medida (mono + poli) onde houver; deduzida por subtração no resto. */
   insaturadaG: TotalDeGordura | null;
+  /**
+   * Itens em que as frações MEDIDAS somam mais que o lipídio total do próprio
+   * alimento — contradição da fonte, não da nossa conta. Ver o cabeçalho.
+   */
+  itensIncoerentes: number;
 }
 
 interface ItemDeGordura {
@@ -153,12 +182,22 @@ export function somarFracoesDeGordura(itens: ItemDeGordura[]): GordurasDoPlano {
   let somaInsat = 0;
   let comInsat = 0;
   let deduzidos = 0;
+  let incoerentes = 0;
   for (const i of itens) {
     const mono = finito(i.micronutrientes?.gorduraMonoinsaturadaG);
     const poli = finito(i.micronutrientes?.gorduraPoliinsaturadaG);
     if (mono !== null && poli !== null) {
       somaInsat += mono + poli;
       comInsat++;
+      // A fonte se contradiz neste item? Conta, mas nao mexe no valor.
+      const lipTotal = finito(i.lipidiosG);
+      if (lipTotal !== null) {
+        const fracoes = mono + poli
+          + (finito(i.micronutrientes?.gorduraSaturadaG) ?? 0)
+          + (finito(i.micronutrientes?.gorduraTransG) ?? 0);
+        const excesso = fracoes - lipTotal;
+        if (excesso > 0.5 && excesso > lipTotal * 0.1) incoerentes++;
+      }
       continue;
     }
     // Sem as duas medidas, cai na subtração — que exige lipídio E saturada.
@@ -183,5 +222,8 @@ export function somarFracoesDeGordura(itens: ItemDeGordura[]): GordurasDoPlano {
     ...(deduzidos > 0 ? { derivada: true, itensDeduzidos: deduzidos } : {}),
   };
 
-  return { saturadaG, transG, monoinsaturadaG, poliinsaturadaG, insaturadaG };
+  return {
+    saturadaG, transG, monoinsaturadaG, poliinsaturadaG, insaturadaG,
+    itensIncoerentes: incoerentes,
+  };
 }

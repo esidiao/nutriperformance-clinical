@@ -210,6 +210,7 @@ describe('MealPlansService', () => {
           saturadaG: null, transG: null,
           monoinsaturadaG: null, poliinsaturadaG: null,
           insaturadaG: null,
+          itensIncoerentes: 0,
         },
       });
     });
