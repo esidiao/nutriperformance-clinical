@@ -11,6 +11,7 @@ import { montarSubstituicoes } from './substituicoes';
 import type { MedidaDisponivel } from './medida-aproximada';
 import { SupervisionService, PAPEL_ESTUDANTE } from '../supervision/supervision.service';
 import { somarMicronutrientes, type TotalMicronutriente } from './micronutrientes';
+import { somarFracoesDeGordura, type GordurasDoPlano } from './fracoes-de-gordura';
 import {
   camposDoAlimento, camposManuais, exigirAlimentoUtilizavel, exigirQuantidade,
 } from './montar-item';
@@ -34,6 +35,8 @@ export interface TotaisNutricionais {
    * dado. Um total somado sobre 7 de 10 alimentos parece número real e não é.
    */
   micronutrientes: Record<string, TotalMicronutriente>;
+  /** Saturada, trans e insaturada (deduzida), com a cobertura. */
+  gorduras: GordurasDoPlano;
 }
 
 @Injectable()
@@ -384,6 +387,7 @@ export class MealPlansService {
       fibrasG: round2(t.fibrasG),
       sodioMg: round2(t.sodioMg),
       micronutrientes: somarMicronutrientes(itens),
+      gorduras: somarFracoesDeGordura(itens),
     };
   }
 

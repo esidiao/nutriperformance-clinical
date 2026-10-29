@@ -203,6 +203,10 @@ describe('MealPlansService', () => {
         // Vazio, nao com zeros: nutriente que nenhum item tem precisa ficar
         // DE FORA, senao o relatorio leria 0 como "a dieta nao fornece".
         micronutrientes: {},
+        // Mesma ideia nas gorduras, e por isso `null` e nao 0: plano vazio
+        // nao AFIRMA "zero de saturada". A TACO nao publica o dado, entao
+        // essa diferenca aparece em plano de verdade tambem.
+        gorduras: { saturadaG: null, transG: null, insaturadaG: null },
       });
     });
   });

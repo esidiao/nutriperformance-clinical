@@ -17,6 +17,7 @@ import { RelatorioAdequacao } from '@/components/RelatorioAdequacao';
 import { distribuicaoMacros } from '@/lib/distribuicao-macros';
 import { BotaoImprimirPlano } from '@/components/BotaoImprimirPlano';
 import { MicrosDaRefeicao } from '@/components/MicrosDaRefeicao';
+import { GordurasDoPlano } from '@/components/GordurasDoPlano';
 import { SupervisaoDoTrabalho } from '@/components/Supervisao';
 import { usePapel } from '@/lib/usePapel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -460,6 +461,10 @@ export default function MealPlanPage() {
                 )}
               </div>
             )}
+
+            {/* Os lipidios separados, pedido de 29/10/2026. Fica aqui, junto da
+                distribuicao, porque e a mesma leitura: o que o dia entrega. */}
+            <GordurasDoPlano gorduras={plano?.totais?.gorduras} />
           </CardContent>
         </Card>
 

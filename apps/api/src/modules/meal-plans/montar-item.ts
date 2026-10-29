@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Food } from '../foods/food.entity';
 import { extrairDoAlimento } from './micronutrientes';
+import { extrairFracoesDeGordura } from './fracoes-de-gordura';
 
 /**
  * Monta os campos nutricionais de um item a partir do alimento e da quantidade.
@@ -49,7 +50,13 @@ export function camposDoAlimento(
     sodioMg: round2(num((food as any).sodioMg) * f),
     // Só entram os nutrientes que a base realmente tem para este alimento —
     // ausente não vira zero.
-    micronutrientes: extrairDoAlimento(food, quantidadeG),
+    // As fracoes de gordura entram no MESMO jsonb, sob chaves que nao estao
+    // em MICRONUTRIENTES -- entao o relatorio de micros as ignora. Ver o
+    // cabecalho de `fracoes-de-gordura.ts` para o porque.
+    micronutrientes: {
+      ...extrairDoAlimento(food, quantidadeG),
+      ...extrairFracoesDeGordura(food, quantidadeG),
+    },
   };
 }
 
