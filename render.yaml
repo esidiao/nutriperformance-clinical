@@ -9,6 +9,19 @@ services:
     # perfeito. Se um dia este blueprint for sincronizado, mudar `name` faz o
     # Render CRIAR um servico novo em vez de renomear o existente.
     name: nutriperformance-clinical
+    # ⚠️ BRANCH: este repositorio so tem `master`. Nao existe `main`.
+    #
+    # O servico no painel estava configurado para `main` -- um branch que
+    # nunca existiu aqui --, e por isso ficava reconstruindo o ultimo commit
+    # que conseguiu buscar, por mais que se clicasse em "Deploy latest
+    # commit". Em 29/10/2026 isso custou tres tentativas de deploy e deixou a
+    # API dois commits atras do front, com `PATCH /users/me` devolvendo 404 em
+    # producao enquanto a tela ja chamava a rota.
+    #
+    # O sintoma enganava: `/health` respondia 200, commit valido, instancia
+    # unica e estavel. So comparando o commit servido com o do `git ls-remote`
+    # e que a diferenca aparecia.
+    branch: master
     runtime: docker
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
