@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { api } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,13 +27,21 @@ import {
 // (PAC-SEED-001 a PAC-004): o PDF saía certinho, mas vinculado a um paciente
 // que não existe. Relatório de testes de 07/10/2026, item 4.
 
-const PROFESSIONAL = {
-  name: 'Dra. Ana Costa',
-  council: 'CRN-3',
-  councilNumber: '12345',
-  specialty: 'Nutrição Clínica e Esportiva',
-  clinic: 'Clínica NutriPerformance',
-};
+// QUEM ASSINA VEM DE `/users/me`, nunca de constante.
+//
+// Aqui havia PROFESSIONAL = { name: 'Dra. Ana Costa', council: 'CRN-3',
+// councilNumber: '12345', ... }: TODO PDF, de qualquer profissional, saía
+// assinado com esse nome e esse registro.
+//
+// Registro de conselho identifica legalmente quem assina um documento
+// clínico. Um documento que chega ao paciente com registro inventado é pior
+// que um sem assinatura, porque parece assinado.
+//
+// É o mesmo defeito que o relatório de 07/10/2026 pegou com os PACIENTES
+// (quatro exemplos escritos aqui, "o PDF saía certinho, mas vinculado a um
+// paciente que não existe"). A parte do paciente foi corrigida e esta ficou,
+// porque o PDF continuou saindo bonito. Achada em 29/10/2026 ao ligar o mesmo
+// gerador na tela do plano alimentar.
 
 const COMMON_SUPPLEMENTS = [
   'Creatina monoidratada', 'Whey Protein Concentrado', 'Whey Protein Isolado',
@@ -132,6 +142,11 @@ export default function PrescriptionNewPage() {
   const [notes, setNotes]               = useState('');
   const [validity, setValidity]         = useState('90');
   const [generating, setGenerating]     = useState(false);
+
+  // Quem assina. Buscado aqui, e nao no clique, porque faltando registro a
+  // tela precisa avisar ANTES de a profissional montar o documento inteiro.
+  const eu = useQuery({ queryKey: ['eu'], queryFn: () => api.usuarios.eu(), retry: false });
+  const semIdentidade = !eu.isLoading && (!eu.data?.conselho || !eu.data?.conselhoNumero);
 
   // ─── Supplement item CRUD ──────────────────────────────────────────────────
   const updateItem = (i: number, field: keyof PrescriptionItem, val: string) =>
@@ -280,7 +295,15 @@ export default function PrescriptionNewPage() {
         prescriptionNumber: generatePrescNum(),
         date: todayBR(),
         validity: validityDate(Number(validity) || 90),
-        professional: PROFESSIONAL,
+        professional: {
+          name: eu.data!.nome,
+          council: eu.data!.conselho!,
+          councilNumber: eu.data!.conselhoUf
+            ? `${eu.data!.conselhoNumero}/${eu.data!.conselhoUf}`
+            : eu.data!.conselhoNumero!,
+          specialty: '',
+          clinic: '',
+        },
         patient: {
           name: patient!.name,
           code: patient!.internalCode ?? '—',
@@ -752,7 +775,9 @@ export default function PrescriptionNewPage() {
             <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-2">📄 O PDF incluirá:</p>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
               {[
-                `Cabeçalho — ${PROFESSIONAL.name} · ${PROFESSIONAL.council} ${PROFESSIONAL.councilNumber}`,
+                eu.data?.registro
+                  ? `Cabeçalho — ${eu.data.nome} · ${eu.data.registro}`
+                  : 'Cabeçalho — seu perfil não tem registro de conselho',
                 patient
                   ? `Paciente — ${patient.name}${patient.internalCode ? ` · ${patient.internalCode}` : ''}`
                   : 'Paciente — nenhum selecionado',
@@ -771,11 +796,27 @@ export default function PrescriptionNewPage() {
           </CardContent>
         </Card>
 
+        {/*
+          Sem registro de conselho nao se emite documento clinico. O aviso vem
+          ANTES do botao: travar sem dizer por que e pior que nao travar.
+        */}
+        {semIdentidade && (
+          <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+            <AlertTriangle className="h-4 w-4 text-amber-700" />
+            <AlertDescription className="text-xs text-amber-900 dark:text-amber-200">
+              Seu perfil nao tem <strong>registro de conselho</strong>. Um documento
+              clinico identifica legalmente quem assina, entao ele nao pode ser
+              emitido sem o seu numero. Complete o cadastro profissional para
+              liberar a geracao.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Action */}
         <div className="flex justify-end pt-2 border-t dark:border-gray-800">
           <Button
             onClick={handleGenerate}
-            disabled={generating || !hasContent || !patient}
+            disabled={generating || !hasContent || !patient || semIdentidade}
             size="lg"
             className="flex items-center gap-2 min-w-[200px]"
           >

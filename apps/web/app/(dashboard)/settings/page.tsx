@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -11,24 +13,44 @@ import { ShieldCheck, User, Building, Bell, Shield, CheckCircle } from 'lucide-r
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/PageHeader';
 
+/**
+ * O PERFIL AQUI ERA DE MENTIRA, DUAS VEZES.
+ *
+ * Primeiro, os dados: `fullName: 'Dra. Ana Costa'`, `councilNumber:
+ * 'CRN-3 12345'`. Qualquer profissional que abrisse Configurações via o nome
+ * e o registro de OUTRA pessoa como se fossem os seus.
+ *
+ * Segundo, e pior, o salvar: `handleSave` era um `setTimeout` de 800 ms
+ * seguido de "Configurações salvas com sucesso!". A tela AFIRMAVA ter
+ * gravado o que nunca saiu do navegador — então, ao corrigir o próprio
+ * registro, a profissional via a confirmação, fechava a tela, e na volta
+ * encontrava "Dra. Ana Costa" de novo.
+ *
+ * Achado em 29/10/2026 pela guarda `sem-profissional-fixo.spec.ts`, escrita
+ * para o mesmo defeito na tela de prescrição. Pegou esta na primeira
+ * execução.
+ *
+ * O QUE MUDOU, E O QUE AINDA NÃO DÁ
+ *
+ * Os dados agora vêm de `/users/me` — são os de quem está logado. A edição
+ * continua indisponível, porque não existe endpoint de gravação: mudar
+ * registro de conselho é escrita sensível e merece desenho próprio. Mas
+ * campo somente leitura que diz "não dá para editar aqui" é honesto; campo
+ * editável que mente ao salvar, não.
+ */
 export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
-  const [profile, setProfile] = useState({
-    fullName: 'Dra. Ana Costa',
-    email: 'dra.ana@nutritest.com',
-    councilType: 'CFN',
-    councilNumber: 'CRN-3 12345',
-    councilState: 'SP',
-    phone: '(11) 99999-0000',
-    specialty: 'Nutrição Clínica e Esportiva',
-  });
 
-  const handleSave = async () => {
-    toast.promise(new Promise((r) => setTimeout(r, 800)), {
-      loading: 'Salvando configurações...',
-      success: 'Configurações salvas com sucesso!',
-      error: 'Erro ao salvar configurações',
-    });
+  const eu = useQuery({ queryKey: ['eu'], queryFn: () => api.usuarios.eu(), retry: false });
+
+  const profile = {
+    fullName: eu.data?.nome ?? '',
+    email: eu.data?.email ?? '',
+    councilType: eu.data?.conselho ?? '',
+    councilNumber: eu.data?.conselhoNumero ?? '',
+    councilState: eu.data?.conselhoUf ?? '',
+    phone: '',
+    specialty: '',
   };
 
   return (
@@ -52,19 +74,19 @@ export default function SettingsPage() {
           <div>
             <Label>Nome completo</Label>
             <Input value={profile.fullName}
-              onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} />
+              readOnly />
           </div>
           <div>
             <Label>Email</Label>
             <Input type="email" value={profile.email}
-              onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} />
+              readOnly />
           </div>
           <div>
             <Label>Conselho profissional</Label>
             <div className="flex gap-2">
               <select
                 value={profile.councilType}
-                onChange={(e) => setProfile((p) => ({ ...p, councilType: e.target.value }))}
+              disabled
                 className="w-24 h-10 rounded-md border px-2 text-sm">
                 <option>CFN</option>
                 <option>CONFEF</option>
@@ -72,11 +94,11 @@ export default function SettingsPage() {
                 <option>CRF</option>
               </select>
               <Input value={profile.councilNumber}
-                onChange={(e) => setProfile((p) => ({ ...p, councilNumber: e.target.value }))}
+              readOnly
                 placeholder="CRN-3 12345" />
               <select
                 value={profile.councilState}
-                onChange={(e) => setProfile((p) => ({ ...p, councilState: e.target.value }))}
+              disabled
                 className="w-16 h-10 rounded-md border px-2 text-sm">
                 {['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT',
                   'PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
@@ -87,12 +109,12 @@ export default function SettingsPage() {
           <div>
             <Label>Telefone</Label>
             <Input value={profile.phone}
-              onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} />
+              readOnly />
           </div>
           <div className="md:col-span-2">
             <Label>Especialidade / Área de atuação</Label>
             <Input value={profile.specialty}
-              onChange={(e) => setProfile((p) => ({ ...p, specialty: e.target.value }))}
+              readOnly
               placeholder="Ex: Nutrição Clínica e Esportiva" />
           </div>
         </CardContent>
@@ -187,7 +209,12 @@ export default function SettingsPage() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} size="lg">Salvar configurações</Button>
+        <p className="text-xs text-muted-foreground max-w-xl">
+          A edição do perfil ainda não está disponível nesta tela — não há
+          gravação por trás dela. Antes, o botão de salvar confirmava sucesso
+          sem gravar nada. Para corrigir nome ou registro de conselho, fale
+          com o administrador.
+        </p>
       </div>
     </div>
     </div>
