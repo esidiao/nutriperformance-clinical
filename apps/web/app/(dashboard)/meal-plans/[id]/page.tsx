@@ -16,6 +16,7 @@ import { SalvarComoModelo } from '@/components/ModelosDePlano';
 import { RelatorioAdequacao } from '@/components/RelatorioAdequacao';
 import { distribuicaoMacros } from '@/lib/distribuicao-macros';
 import { BotaoImprimirPlano } from '@/components/BotaoImprimirPlano';
+import { MicrosDaRefeicao } from '@/components/MicrosDaRefeicao';
 import { SupervisaoDoTrabalho } from '@/components/Supervisao';
 import { usePapel } from '@/lib/usePapel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -188,9 +189,10 @@ function AddItemForm({ refeicao, planId, onDone }: {
 
 // ─── Coluna de refeição ───────────────────────────────────────────────────────
 function ColunaRefeicao({
-  refeicao, label, itens, planId, onDrop, arrastando,
+  refeicao, label, itens, planId, onDrop, arrastando, pacienteId, micronutrientes,
 }: {
   refeicao: RefeicaoId; label: string; itens: Item[]; planId: string;
+  pacienteId: string; micronutrientes?: Record<string, unknown> | null;
   onDrop: (item: Item, destino: RefeicaoId) => void;
   arrastando: Item | null;
 }) {
@@ -301,6 +303,7 @@ function ColunaRefeicao({
             <Plus className="h-3 w-3" /> Adicionar
           </button>
         )}
+        <MicrosDaRefeicao pacienteId={pacienteId} micronutrientes={micronutrientes} />
       </CardContent>
     </Card>
   );
@@ -355,6 +358,16 @@ export default function MealPlanPage() {
     for (const r of REFEICOES) mapa[r.id] = [];
     for (const grupo of plano?.refeicoes ?? []) {
       mapa[grupo.refeicao] = grupo.itens ?? [];
+    }
+    return mapa;
+  }, [plano]);
+
+  // Os micronutrientes por refeição a API JÁ calcula (`somar` roda por grupo).
+  // Faltava a tela usar — pedido de 29/10/2026.
+  const microsPorRefeicao = useMemo(() => {
+    const mapa: Record<string, Record<string, unknown> | null> = {};
+    for (const grupo of plano?.refeicoes ?? []) {
+      mapa[grupo.refeicao] = grupo?.totais?.micronutrientes ?? null;
     }
     return mapa;
   }, [plano]);
@@ -473,6 +486,8 @@ export default function MealPlanPage() {
               label={r.label}
               itens={porRefeicao[r.id] ?? []}
               planId={planId}
+              pacienteId={patientId}
+              micronutrientes={microsPorRefeicao[r.id]}
               onDrop={aoSoltar}
               arrastando={arrastando}
             />
