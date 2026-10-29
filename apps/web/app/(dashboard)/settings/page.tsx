@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,20 +30,24 @@ import { PageHeader } from '@/components/PageHeader';
  * para o mesmo defeito na tela de prescrição. Pegou esta na primeira
  * execução.
  *
- * O QUE MUDOU, E O QUE AINDA NÃO DÁ
+ * O QUE MUDOU
  *
- * Os dados agora vêm de `/users/me` — são os de quem está logado. A edição
- * continua indisponível, porque não existe endpoint de gravação: mudar
- * registro de conselho é escrita sensível e merece desenho próprio. Mas
- * campo somente leitura que diz "não dá para editar aqui" é honesto; campo
- * editável que mente ao salvar, não.
+ * Os dados vêm de `/users/me` — são os de quem está logado — e o salvar grava
+ * de verdade, por `PATCH /users/me`, com auditoria de valor anterior e novo.
+ * Papel e e-mail não entram: papel é autorização, e editar o próprio seria
+ * escalada de privilégio.
  */
 export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   const eu = useQuery({ queryKey: ['eu'], queryFn: () => api.usuarios.eu(), retry: false });
 
-  const profile = {
+  const qc = useQueryClient();
+  const [rascunho, setRascunho] = useState<Record<string, string> | null>(null);
+
+  // O formulário parte do que está gravado; `rascunho` só existe depois que a
+  // pessoa digita. Sem isso, um campo editado some quando a query revalida.
+  const profile = rascunho ?? {
     fullName: eu.data?.nome ?? '',
     email: eu.data?.email ?? '',
     councilType: eu.data?.conselho ?? '',
@@ -52,6 +56,25 @@ export default function SettingsPage() {
     phone: '',
     specialty: '',
   };
+  const setProfile = (f: (p: Record<string, string>) => Record<string, string>) =>
+    setRascunho((atual) => f(atual ?? profile));
+
+  const salvar = useMutation({
+    mutationFn: () => api.usuarios.atualizar({
+      nome: profile.fullName,
+      conselho: profile.councilType,
+      conselhoNumero: profile.councilNumber,
+      conselhoUf: profile.councilState,
+    }),
+    onSuccess: () => {
+      // Só diz que salvou DEPOIS de o servidor confirmar. O botão antigo
+      // dizia "salvas com sucesso" num setTimeout.
+      qc.invalidateQueries({ queryKey: ['eu'] });
+      setRascunho(null);
+      toast.success('Perfil atualizado.');
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'Não foi possível salvar.'),
+  });
 
   return (
     <div className="flex flex-col min-h-full">
@@ -74,7 +97,7 @@ export default function SettingsPage() {
           <div>
             <Label>Nome completo</Label>
             <Input value={profile.fullName}
-              readOnly />
+              onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} />
           </div>
           <div>
             <Label>Email</Label>
@@ -209,12 +232,9 @@ export default function SettingsPage() {
       </Card>
 
       <div className="flex justify-end">
-        <p className="text-xs text-muted-foreground max-w-xl">
-          A edição do perfil ainda não está disponível nesta tela — não há
-          gravação por trás dela. Antes, o botão de salvar confirmava sucesso
-          sem gravar nada. Para corrigir nome ou registro de conselho, fale
-          com o administrador.
-        </p>
+        <Button onClick={() => salvar.mutate()} size="lg" disabled={salvar.isPending || !rascunho}>
+          {salvar.isPending ? 'Salvando…' : 'Salvar perfil profissional'}
+        </Button>
       </div>
     </div>
     </div>

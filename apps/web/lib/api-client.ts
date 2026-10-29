@@ -261,6 +261,9 @@ export const api = {
       conselho: string | null; conselhoNumero: string | null;
       conselhoUf: string | null; registro: string | null;
     }>('/users/me'),
+    atualizar: (dto: {
+      nome?: string; conselho?: string; conselhoNumero?: string; conselhoUf?: string;
+    }) => api.patch<any>('/users/me', dto),
   },
 
   mealPlans: {

@@ -1,5 +1,6 @@
 import type { PrescriptionData, PrescriptionMeal } from './pdf/generatePrescription';
 import { descreverQuantidade } from './medida-caseira';
+import { registroProfissional } from './registro-profissional';
 
 /**
  * Transforma o plano alimentar na folha que vai para a MÃO DO PACIENTE.
@@ -144,11 +145,13 @@ export function montarImpressaoDoPlano(e: EntradaDaImpressao): PrescriptionData 
       ? new Date(e.plano.dataFim).toLocaleDateString('pt-BR')
       : '—',
     professional: {
+      // O cabecalho recebe o registro JA composto e o campo do conselho vazio:
+      // concatenar os dois dava "CFN CRN-3 12345". Ver registro-profissional.ts.
       name: e.profissional.nome,
-      council: e.profissional.conselho,
-      councilNumber: e.profissional.conselhoUf
-        ? `${e.profissional.conselhoNumero}/${e.profissional.conselhoUf}`
-        : e.profissional.conselhoNumero,
+      council: '',
+      councilNumber: registroProfissional(
+        e.profissional.conselho, e.profissional.conselhoNumero, e.profissional.conselhoUf,
+      ) ?? '',
       specialty: '',
       clinic: '',
     },

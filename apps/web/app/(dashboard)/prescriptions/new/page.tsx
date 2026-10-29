@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
+import { registroProfissional } from '@/lib/registro-profissional';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -297,10 +298,10 @@ export default function PrescriptionNewPage() {
         validity: validityDate(Number(validity) || 90),
         professional: {
           name: eu.data!.nome,
-          council: eu.data!.conselho!,
-          councilNumber: eu.data!.conselhoUf
-            ? `${eu.data!.conselhoNumero}/${eu.data!.conselhoUf}`
-            : eu.data!.conselhoNumero!,
+          council: '',
+          councilNumber: registroProfissional(
+            eu.data!.conselho, eu.data!.conselhoNumero, eu.data!.conselhoUf,
+          ) ?? '',
           specialty: '',
           clinic: '',
         },
@@ -775,8 +776,8 @@ export default function PrescriptionNewPage() {
             <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-2">📄 O PDF incluirá:</p>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
               {[
-                eu.data?.registro
-                  ? `Cabeçalho — ${eu.data.nome} · ${eu.data.registro}`
+                registroProfissional(eu.data?.conselho, eu.data?.conselhoNumero, eu.data?.conselhoUf)
+                  ? `Cabeçalho — ${eu.data!.nome} · ${registroProfissional(eu.data!.conselho, eu.data!.conselhoNumero, eu.data!.conselhoUf)}`
                   : 'Cabeçalho — seu perfil não tem registro de conselho',
                 patient
                   ? `Paciente — ${patient.name}${patient.internalCode ? ` · ${patient.internalCode}` : ''}`

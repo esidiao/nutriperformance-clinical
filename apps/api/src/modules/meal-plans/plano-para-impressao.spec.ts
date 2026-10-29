@@ -48,10 +48,24 @@ describe('quem assina', () => {
   });
 
   it('assina com o nome e o registro de quem emitiu', () => {
+    // O registro vai COMPOSTO em `councilNumber`, e `council` fica vazio de
+    // proposito: o cabecalho do PDF imprime os dois lado a lado, e concatenar
+    // dava "CFN CRN-3 12345" -- acronimo duplicado, com o conselho FEDERAL na
+    // frente do registro REGIONAL. Ver web/lib/registro-profissional.ts.
     const d = montarImpressaoDoPlano(entrada());
     expect(d.professional.name).toBe('Claudia Santos');
-    expect(d.professional.council).toBe('CRN');
-    expect(d.professional.councilNumber).toBe('12345/GO');
+    expect(d.professional.council).toBe('');
+    expect(d.professional.councilNumber).toBe('CRN 12345/GO');
+  });
+
+  it('nao duplica o acronimo quando o numero ja o traz', () => {
+    // O caso real da base: tipo "CFN" com numero "CRN-3 12345".
+    const d = montarImpressaoDoPlano(entrada({
+      profissional: {
+        nome: 'X', conselho: 'CFN', conselhoNumero: 'CRN-3 12345', conselhoUf: 'SP',
+      },
+    }));
+    expect(d.professional.councilNumber).toBe('CRN-3 12345/SP');
   });
 });
 
