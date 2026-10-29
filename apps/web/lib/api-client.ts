@@ -254,6 +254,15 @@ export const api = {
     remove: (id: string) => api.delete<any>(`/recordatorios/${id}`),
   },
 
+  /** Identidade profissional de quem esta logado. Assina documento clinico. */
+  usuarios: {
+    eu: () => api.get<{
+      id: string; nome: string; email: string; papel: string;
+      conselho: string | null; conselhoNumero: string | null;
+      conselhoUf: string | null; registro: string | null;
+    }>('/users/me'),
+  },
+
   mealPlans: {
     list: (patientId: string) => api.get<any[]>(`/meal-plans/patient/${patientId}`),
     get: (id: string) => api.get<any>(`/meal-plans/${id}`),

@@ -14,6 +14,8 @@ import { ListaCompras } from '@/components/ListaCompras';
 import { ListaSubstituicoes } from '@/components/ListaSubstituicoes';
 import { SalvarComoModelo } from '@/components/ModelosDePlano';
 import { RelatorioAdequacao } from '@/components/RelatorioAdequacao';
+import { distribuicaoMacros } from '@/lib/distribuicao-macros';
+import { BotaoImprimirPlano } from '@/components/BotaoImprimirPlano';
 import { SupervisaoDoTrabalho } from '@/components/Supervisao';
 import { usePapel } from '@/lib/usePapel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -201,7 +203,24 @@ function ColunaRefeicao({
     onSuccess: () => qc.invalidateQueries({ queryKey: ['meal-plan', planId] }),
   });
 
-  const kcal = itens.reduce((s, i) => s + n(i.kcal), 0);
+  // Macros DA REFEIÇÃO, não só a energia.
+  //
+  // Pedido da nutricionista (29/10/2026): "o que interessa mais é a gente ter
+  // essa noção do que cada refeição vai representar com relação aos macros, às
+  // porcentagens". Antes o cartão mostrava só kcal, e a distribuição só
+  // existia para o dia inteiro — então para saber se o almoço estava
+  // proteico ela teria que somar na cabeça.
+  const macros = itens.reduce(
+    (acc, i) => ({
+      kcal: acc.kcal + n(i.kcal),
+      proteinasG: acc.proteinasG + n(i.proteinasG),
+      carboidratosG: acc.carboidratosG + n(i.carboidratosG),
+      lipidiosG: acc.lipidiosG + n(i.lipidiosG),
+    }),
+    { kcal: 0, proteinasG: 0, carboidratosG: 0, lipidiosG: 0 },
+  );
+  const kcal = macros.kcal;
+  const dist = distribuicaoMacros(macros);
   const podeSoltar = arrastando && arrastando.refeicao !== refeicao;
 
   return (
@@ -223,6 +242,13 @@ function ColunaRefeicao({
             {fmt(kcal)} kcal
           </span>
         </div>
+        {itens.length > 0 && (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+            <span>P {fmt(macros.proteinasG)} g{dist ? ` · ${dist.proteinas}%` : ''}</span>
+            <span>C {fmt(macros.carboidratosG)} g{dist ? ` · ${dist.carboidratos}%` : ''}</span>
+            <span>G {fmt(macros.lipidiosG)} g{dist ? ` · ${dist.lipidios}%` : ''}</span>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="flex-1 space-y-1.5">
@@ -334,6 +360,7 @@ export default function MealPlanPage() {
   }, [plano]);
 
   const totais = plano?.totais ?? { kcal: 0, proteinasG: 0, carboidratosG: 0, lipidiosG: 0 };
+  const distDia = distribuicaoMacros(totais);
 
   const aoSoltar = (item: Item, destino: RefeicaoId) => {
     if (!arrastando) { setArrastando(item); return; }   // início do arrasto
@@ -389,6 +416,37 @@ export default function MealPlanPage() {
               <MetaBar label="Carboidratos" atual={n(totais.carboidratosG)} meta={plano.metaCarboidratosG ? n(plano.metaCarboidratosG) : null} unidade="g" />
               <MetaBar label="Lipídios" atual={n(totais.lipidiosG)} meta={plano.metaLipidiosG ? n(plano.metaLipidiosG) : null} unidade="g" />
             </div>
+
+            {/*
+              Distribuição do dia. É o número com que ela confere se o plano
+              fecha dentro da faixa aceitável — pedido de 29/10/2026.
+              O denominador é a energia DOS MACROS, para os três somarem 100;
+              `distribuicao-macros.ts` explica por que não é a kcal da tabela.
+            */}
+            {distDia && (
+              <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-x-5 gap-y-1">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Distribuição
+                </span>
+                <span className="text-xs">
+                  Proteínas <strong>{distDia.proteinas}%</strong>
+                </span>
+                <span className="text-xs">
+                  Carboidratos <strong>{distDia.carboidratos}%</strong>
+                </span>
+                <span className="text-xs">
+                  Lipídios <strong>{distDia.lipidios}%</strong>
+                </span>
+                {distDia.divergenciaKcal !== null
+                  && Math.abs(distDia.divergenciaKcal) >= 50 && (
+                  <span className="text-[11px] text-amber-700 dark:text-amber-500">
+                    A energia da tabela difere da soma dos macros em{' '}
+                    {distDia.divergenciaKcal > 0 ? '+' : ''}{distDia.divergenciaKcal} kcal —
+                    pode haver macro faltando na base de algum alimento.
+                  </span>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -425,6 +483,28 @@ export default function MealPlanPage() {
           Arraste um alimento entre refeições para reposicionar. Os valores nutricionais
           acompanham o item — nada é recalculado no caminho.
         </p>
+
+        {/*
+          A folha do paciente, logo depois do cardápio: é o fim do caminho que
+          a nutricionista descreveu — fechou o planejamento, imprime e entrega.
+          Antes isso só existia em /prescriptions/new, uma tela separada, e o
+          plano montado aqui teria que ser redigitado lá.
+        */}
+        <BotaoImprimirPlano
+          planoId={planId}
+          pacienteId={patientId}
+          refeicoes={REFEICOES.map((r) => ({
+            refeicao: r.id,
+            rotulo: r.label,
+            itens: (porRefeicao[r.id] ?? []).map((i: any) => ({
+              alimentoNome: i.alimentoNome,
+              quantidadeG: i.quantidadeG,
+              medidaCaseira: i.medidaCaseira,
+              observacao: i.observacao,
+            })),
+          }))}
+          totais={totais}
+        />
 
         {/* Depois do cardápio, não antes: a lista é consequência do plano. */}
         <ListaCompras planoId={planId} />

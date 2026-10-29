@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { SeletorGastoEnergetico } from '@/components/SeletorGastoEnergetico';
 import { SeletorMedidaCaseira } from '@/components/SeletorMedidaCaseira';
 import { ItemDeAlimento, type FoodResult } from '@/components/FoodAutocomplete';
+import { distribuicaoMacros } from '@/lib/distribuicao-macros';
 
 const MEDIDAS = [
   { medida: 'colher de sopa', gramas: 25, padrao: true },
@@ -114,6 +115,21 @@ export default function Bancada() {
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">Distribuicao dos macros</h2>
+        <p className="text-sm text-muted-foreground">
+          Os tres somam 100 por construcao. Refeicao sem macro devolve null,
+          nao 0%.
+        </p>
+        <pre data-teste="distribuicao" className="overflow-x-auto rounded bg-muted p-3 text-xs">
+{JSON.stringify({
+  almoco: distribuicaoMacros({ kcal: 760, proteinasG: 30, carboidratosG: 100, lipidiosG: 25 }),
+  vazia: distribuicaoMacros({ kcal: 0 }),
+  soProteina: distribuicaoMacros({ proteinasG: 40 }),
+}, null, 1)}
+        </pre>
       </section>
 
     </main>
