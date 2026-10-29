@@ -206,7 +206,11 @@ describe('MealPlansService', () => {
         // Mesma ideia nas gorduras, e por isso `null` e nao 0: plano vazio
         // nao AFIRMA "zero de saturada". A TACO nao publica o dado, entao
         // essa diferenca aparece em plano de verdade tambem.
-        gorduras: { saturadaG: null, transG: null, insaturadaG: null },
+        gorduras: {
+          saturadaG: null, transG: null,
+          monoinsaturadaG: null, poliinsaturadaG: null,
+          insaturadaG: null,
+        },
       });
     });
   });

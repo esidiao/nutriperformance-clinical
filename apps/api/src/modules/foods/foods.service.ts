@@ -138,6 +138,10 @@ function toPublic(f: Food, medidas: FoodMeasure[] = []) {
     lipidiosG: f.lipidiosG != null ? Number(f.lipidiosG) : null,
     gorduraSaturadaG: f.gorduraSaturadaG != null ? Number(f.gorduraSaturadaG) : null,
     gorduraTransG: f.gorduraTransG != null ? Number(f.gorduraTransG) : null,
+    gorduraMonoinsaturadaG:
+      f.gorduraMonoinsaturadaG != null ? Number(f.gorduraMonoinsaturadaG) : null,
+    gorduraPoliinsaturadaG:
+      f.gorduraPoliinsaturadaG != null ? Number(f.gorduraPoliinsaturadaG) : null,
     fibrasG: f.fibrasG != null ? Number(f.fibrasG) : null,
     sodioMg: f.sodioMg != null ? Number(f.sodioMg) : null,
     acucaresG: f.acucaresG != null ? Number(f.acucaresG) : null,

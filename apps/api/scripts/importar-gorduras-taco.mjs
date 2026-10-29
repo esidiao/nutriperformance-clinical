@@ -1,5 +1,6 @@
 /**
- * Importa gordura saturada e trans da TACO, da planilha OFICIAL do NEPA.
+ * Importa gordura saturada, trans, mono e poli-insaturada da TACO, da
+ * planilha OFICIAL do NEPA.
  *
  *   python -I scripts/extrair-gorduras-taco.py Taco-4a-Edicao.xlsx > gorduras.json
  *   node scripts/importar-gorduras-taco.mjs gorduras.json
@@ -78,32 +79,68 @@ try {
   process.exit(1);
 }
 
+// As quatro fracoes, na mesma estrutura: chave do JSON -> coluna do banco.
+// Mono e poli so existem no banco a partir da migracao
+// docs/migrations/2026-10-29-gordura-mono-poli.sql -- este script FALHA alto
+// se elas nao estiverem aplicadas, em vez de gravar metade calado.
+const CAMPOS = [
+  { json: 'saturadaG', coluna: 'gordura_saturada_g' },
+  { json: 'transG', coluna: 'gordura_trans_g' },
+  { json: 'monoinsaturadaG', coluna: 'gordura_monoinsaturada_g' },
+  { json: 'poliinsaturadaG', coluna: 'gordura_poliinsaturada_g' },
+];
+
+// `null` significa NAO ANALISADO e tem de continuar null ate o banco:
+// converter para 0 aqui afirmaria ausencia de gordura no alimento.
+//
+// Arredondo em 3 casas porque a soma dos dois trans traz ruido de ponto
+// flutuante (7.800000000000001) e a TACO publica com 1-3 casas: quero o
+// numero, nao o artefato da soma.
+function tresCasas(v) {
+  return v === null || v === undefined ? null : Math.round(v * 1000) / 1000;
+}
+
 const daTaco = new Map();
 for (const [numero, v] of Object.entries(bruto)) {
-  // `null` significa NAO ANALISADO e tem de continuar null ate o banco:
-  // converter para 0 aqui afirmaria ausencia de gordura no alimento.
-  const sat = v?.saturadaG === null || v?.saturadaG === undefined
-    ? null
-    : Math.round(v.saturadaG * 1000) / 1000;
-  // A soma dos dois trans traz ruido de ponto flutuante
-  // (7.800000000000001). A TACO publica com 1-3 casas; arredondo em 3 para
-  // guardar o numero e nao o artefato da soma.
-  const trans = v?.transG === null || v?.transG === undefined
-    ? null
-    : Math.round(v.transG * 1000) / 1000;
-  if (sat === null && trans === null) continue;
-  daTaco.set(String(numero), { sat, trans });
+  const d = {};
+  let temAlgum = false;
+  for (const c of CAMPOS) {
+    d[c.coluna] = tresCasas(v?.[c.json]);
+    if (d[c.coluna] !== null) temAlgum = true;
+  }
+  if (!temAlgum) continue;
+  daTaco.set(String(numero), d);
 }
-console.log(`planilha: ${daTaco.size} alimento(s) com gordura saturada ou trans\n`);
+console.log(`planilha: ${daTaco.size} alimento(s) com alguma fracao de gordura`);
+for (const c of CAMPOS) {
+  const n = [...daTaco.values()].filter((d) => d[c.coluna] !== null).length;
+  console.log(`  ${c.coluna.padEnd(28)} ${n}`);
+}
+console.log('');
 
 // ── a nossa base ───────────────────────────────────────────────────────────
+//
+// O select cita as quatro colunas DE PROPOSITO: se a migracao de mono/poli
+// nao tiver sido aplicada, o PostgREST devolve 400 aqui e o script para --
+// em vez de gravar saturada e trans e deixar mono e poli de fora calado.
+const SELECT = ['id', 'nome_padronizado', 'fonte_id_externo', ...CAMPOS.map((c) => c.coluna)];
+
 const nossos = [];
 for (let de = 0; de < 5000; de += 1000) {
-  const j = await fetch(
-    `${B}/rest/v1/foods?select=id,nome_padronizado,fonte_id_externo,gordura_saturada_g,gordura_trans_g`
-    + `&fonte=eq.taco&limit=1000&offset=${de}`,
+  const r = await fetch(
+    `${B}/rest/v1/foods?select=${SELECT.join(',')}&fonte=eq.taco&limit=1000&offset=${de}`,
     { headers: H },
-  ).then((r) => r.json());
+  );
+  const j = await r.json();
+  if (!r.ok) {
+    console.log('');
+    console.log(`FALHOU ao ler a base: HTTP ${r.status}`);
+    console.log(JSON.stringify(j));
+    console.log('');
+    console.log('Se a reclamacao for de coluna inexistente, aplique primeiro');
+    console.log('docs/migrations/2026-10-29-gordura-mono-poli.sql.');
+    process.exit(1);
+  }
   if (!Array.isArray(j) || !j.length) break;
   nossos.push(...j);
 }
@@ -114,42 +151,62 @@ let semPar = 0;
 for (const a of nossos) {
   const d = daTaco.get(String(a.fonte_id_externo));
   if (!d) { semPar++; continue; }
-  // Ja preenchido com o mesmo valor: nao reescreve.
-  const mudaSat = d.sat !== null && Number(a.gordura_saturada_g) !== d.sat;
-  const mudaTra = d.trans !== null && Number(a.gordura_trans_g) !== d.trans;
-  if (!mudaSat && !mudaTra) continue;
-  planeados.push({ a, d });
+  // Ja preenchido com o mesmo valor: nao reescreve. `null` na planilha
+  // significa nao analisado e NAO apaga o que ja estiver no banco.
+  const corpo = {};
+  for (const c of CAMPOS) {
+    const v = d[c.coluna];
+    if (v === null) continue;
+    if (a[c.coluna] !== null && Number(a[c.coluna]) === v) continue;
+    corpo[c.coluna] = v;
+  }
+  if (!Object.keys(corpo).length) continue;
+  planeados.push({ a, corpo });
 }
 
 console.log(`  sem par na planilha : ${semPar}`);
-console.log(`  a gravar            : ${planeados.length}\n`);
-for (const p of planeados.slice(0, 12)) {
-  console.log(`  ${String(p.a.nome_padronizado).slice(0, 40).padEnd(42)} sat=${p.d.sat}  trans=${p.d.trans}`);
+console.log(`  a gravar            : ${planeados.length}`);
+for (const c of CAMPOS) {
+  const n = planeados.filter((p) => c.coluna in p.corpo).length;
+  console.log(`    ${c.coluna.padEnd(26)} ${n}`);
 }
-if (planeados.length > 12) console.log(`  ... e mais ${planeados.length - 12}`);
+console.log('');
+for (const p of planeados.slice(0, 10)) {
+  const v = CAMPOS.filter((c) => c.coluna in p.corpo)
+    .map((c) => `${c.json.replace('G', '')}=${p.corpo[c.coluna]}`).join(' ');
+  console.log(`  ${String(p.a.nome_padronizado).slice(0, 34).padEnd(36)} ${v}`);
+}
+if (planeados.length > 10) console.log(`  ... e mais ${planeados.length - 10}`);
 
 if (!aplicar) {
-  console.log('\nENSAIO. Nada gravado. Acrescente --aplicar.');
+  console.log('');
+  console.log('ENSAIO. Nada gravado. Acrescente --aplicar.');
   process.exit(0);
 }
 
 let ok = 0;
 for (const p of planeados) {
-  const corpo = {};
-  if (p.d.sat !== null) corpo.gordura_saturada_g = p.d.sat;
-  if (p.d.trans !== null) corpo.gordura_trans_g = p.d.trans;
   const r = await fetch(`${B}/rest/v1/foods?id=eq.${p.a.id}`, {
-    method: 'PATCH', headers: H, body: JSON.stringify(corpo),
+    method: 'PATCH', headers: H, body: JSON.stringify(p.corpo),
   });
   if (r.ok) ok++;
   else console.log(`  FALHOU ${p.a.nome_padronizado}: HTTP ${r.status}`);
 }
-console.log(`\ngravados: ${ok} de ${planeados.length}`);
+console.log('');
+console.log(`gravados: ${ok} de ${planeados.length}`);
 
 // ── confere lendo de volta ─────────────────────────────────────────────────
+//
+// Le do banco, nao da memoria: o que interessa e o que a tela vai ler.
 const conf = await fetch(
-  `${B}/rest/v1/foods?select=gordura_saturada_g,lipidios_g&fonte=eq.taco&limit=1000`, { headers: H },
+  `${B}/rest/v1/foods?select=lipidios_g,${CAMPOS.map((c) => c.coluna).join(',')}`
+  + `&fonte=eq.taco&limit=1000`,
+  { headers: H },
 ).then((r) => r.json());
-const comSat = conf.filter((x) => x.gordura_saturada_g !== null).length;
-const comLip = conf.filter((x) => x.lipidios_g !== null).length;
-console.log(`conferindo: ${comSat} de ${conf.length} alimentos da TACO com saturada (lipidio total: ${comLip})`);
+console.log('');
+console.log(`conferindo ${conf.length} alimentos da TACO no banco:`);
+console.log(`  lipidio total              ${conf.filter((x) => x.lipidios_g !== null).length}`);
+for (const c of CAMPOS) {
+  const n = conf.filter((x) => x[c.coluna] !== null).length;
+  console.log(`  ${c.coluna.padEnd(26)} ${n}`);
+}

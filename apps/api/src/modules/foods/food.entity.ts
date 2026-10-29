@@ -35,6 +35,19 @@ export class Food {
   @Column({ name: 'gordura_trans_g', type: 'numeric', nullable: true })
   gorduraTransG: number | null;
 
+  // Mono e poli medidas pela fonte, nao deduzidas. A planilha oficial do NEPA
+  // publica as duas na aba `AGtaco3`; o IBGE nao publica nenhuma das duas,
+  // entao os 1971 alimentos de la ficam NULOS aqui e continuam dependendo da
+  // deducao (`lipidio - saturada - trans`), que junta mono com poli.
+  //
+  // NULO significa NAO ANALISADO, nunca zero. Ver
+  // docs/migrations/2026-10-29-gordura-mono-poli.sql.
+  @Column({ name: 'gordura_monoinsaturada_g', type: 'numeric', nullable: true })
+  gorduraMonoinsaturadaG: number | null;
+
+  @Column({ name: 'gordura_poliinsaturada_g', type: 'numeric', nullable: true })
+  gorduraPoliinsaturadaG: number | null;
+
   @Column({ name: 'fibras_g', type: 'numeric', nullable: true })
   fibrasG: number | null;
 

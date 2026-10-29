@@ -29,6 +29,14 @@ describe('extrairFracoesDeGordura', () => {
     expect('gorduraSaturadaG' in r).toBe(false);
   });
 
+  it('traz mono e poli quando a fonte publica (TACO: 423 de 597)', () => {
+    const r = extrairFracoesDeGordura(
+      alimento({ gorduraMonoinsaturadaG: 4, gorduraPoliinsaturadaG: 2 }), 50,
+    );
+    expect(r.gorduraMonoinsaturadaG).toBe(2);
+    expect(r.gorduraPoliinsaturadaG).toBe(1);
+  });
+
   it('zero de verdade continua zero', () => {
     // Alimento que a base declara com 0 g de saturada e diferente de alimento
     // sem o dado, e a distincao tem de sobreviver.
@@ -101,6 +109,74 @@ describe('somarFracoesDeGordura', () => {
   });
 });
 
+describe('insaturada: medido ganha de deduzido, item a item', () => {
+  const medido = (lip: number, sat: number, mono: number, poli: number) => ({
+    lipidiosG: lip,
+    micronutrientes: {
+      gorduraSaturadaG: sat,
+      gorduraMonoinsaturadaG: mono,
+      gorduraPoliinsaturadaG: poli,
+    },
+  });
+
+  it('usa mono + poli quando a fonte publica as DUAS, e nao marca derivada', () => {
+    // Lipidio 20 e saturada 8 dariam 12 por subtracao. O medido e 4+7=11, e
+    // e ele que vale: a subtracao embute o que a fonte nao classificou.
+    const r = somarFracoesDeGordura([medido(20, 8, 4, 7)]);
+    expect(r.insaturadaG!.valor).toBe(11);
+    expect(r.insaturadaG!.derivada).toBeUndefined();
+    expect(r.insaturadaG!.itensDeduzidos).toBeUndefined();
+    expect(r.monoinsaturadaG!.valor).toBe(4);
+    expect(r.poliinsaturadaG!.valor).toBe(7);
+  });
+
+  it('com SO UMA das duas, cai na subtracao', () => {
+    // Somar mono sozinha como "insaturada" subestimaria calado, que e o
+    // mesmo defeito do zero.
+    const r = somarFracoesDeGordura([
+      { lipidiosG: 20, micronutrientes: { gorduraSaturadaG: 8, gorduraMonoinsaturadaG: 4 } },
+    ]);
+    expect(r.insaturadaG!.valor).toBe(12);
+    expect(r.insaturadaG!.derivada).toBe(true);
+    expect(r.insaturadaG!.itensDeduzidos).toBe(1);
+    expect(r.poliinsaturadaG).toBeNull();
+  });
+
+  it('plano misto TACO + IBGE: conta quantos itens vieram por deducao', () => {
+    // O caso real. A TACO publica mono e poli; o IBGE NAO publica nenhuma
+    // das duas, nos seus 1971 alimentos.
+    const r = somarFracoesDeGordura([
+      medido(20, 8, 4, 7),                                              // TACO
+      { lipidiosG: 10, micronutrientes: { gorduraSaturadaG: 3 } },      // IBGE
+    ]);
+    expect(r.insaturadaG!.valor).toBe(18);        // 11 medido + 7 deduzido
+    expect(r.insaturadaG!.itensComDado).toBe(2);
+    expect(r.insaturadaG!.completo).toBe(true);
+    expect(r.insaturadaG!.derivada).toBe(true);
+    expect(r.insaturadaG!.itensDeduzidos).toBe(1);
+    // Mono e poli ficam INCOMPLETAS: o item do IBGE nao tem.
+    expect(r.monoinsaturadaG!.itensComDado).toBe(1);
+    expect(r.monoinsaturadaG!.completo).toBe(false);
+  });
+
+  it('mono e poli medidas dispensam a saturada para a insaturada existir', () => {
+    // Dos 597 da TACO, 423 tem mono/poli e 417 tem saturada: ha alimento com
+    // as insaturadas e sem a saturada. Antes ele sumia da insaturada.
+    const r = somarFracoesDeGordura([
+      { lipidiosG: 20, micronutrientes: { gorduraMonoinsaturadaG: 4, gorduraPoliinsaturadaG: 7 } },
+    ]);
+    expect(r.insaturadaG!.valor).toBe(11);
+    expect(r.saturadaG).toBeNull();
+  });
+
+  it('zero medido e zero, nao ausencia', () => {
+    const r = somarFracoesDeGordura([medido(10, 10, 0, 0)]);
+    expect(r.insaturadaG!.valor).toBe(0);
+    expect(r.insaturadaG!.derivada).toBeUndefined();
+    expect(r.monoinsaturadaG!.valor).toBe(0);
+  });
+});
+
 describe('as fracoes NAO vazam para o relatorio de micronutrientes', () => {
   it('nenhuma chave de gordura esta na lista de micronutrientes', () => {
     for (const chave of FRACOES_DE_GORDURA) {
@@ -113,10 +189,17 @@ describe('as fracoes NAO vazam para o relatorio de micronutrientes', () => {
     // com nome de uma coisa guardando outra -- e este teste e quem garante
     // que o preco nao vira defeito.
     const total = somarMicronutrientes([
-      { micronutrientes: { gorduraSaturadaG: 10, gorduraTransG: 1, calcioMg: 200 } },
+      {
+        micronutrientes: {
+          gorduraSaturadaG: 10, gorduraTransG: 1,
+          gorduraMonoinsaturadaG: 4, gorduraPoliinsaturadaG: 2,
+          calcioMg: 200,
+        },
+      },
     ]);
     expect(total.calcioMg.valor).toBe(200);
-    expect(total).not.toHaveProperty('gorduraSaturadaG');
-    expect(total).not.toHaveProperty('gorduraTransG');
+    for (const chave of FRACOES_DE_GORDURA) {
+      expect(total).not.toHaveProperty(chave);
+    }
   });
 });
