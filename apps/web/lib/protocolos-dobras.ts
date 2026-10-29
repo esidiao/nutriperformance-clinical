@@ -306,8 +306,72 @@ const PETROSKI3 = petroski(
   [1.04127059, 0.00087756, 0.00000380, 0.00025821, 0.00059076, 0.00051050],
 );
 
+/**
+ * Petroski (1995) — equação quadrática MASCULINA, 4 dobras.
+ *
+ * ================== POR QUE ELA DEMOROU A ENTRAR ==========================
+ *
+ * Esteve em `PENDENTES` porque eu não tinha os coeficientes em fonte legível,
+ * e coeficiente errado aqui não dá erro: devolve um percentual de gordura
+ * plausível, que entra no prontuário e vira conduta.
+ *
+ * A nutricionista mandou (28/10/2026) a foto de um slide com a equação, e
+ * notou sozinha a divergência que importava: ali o segundo termo aparecia
+ * como `+ 0,00000212 (Σ)`, sem o quadrado, e ela tinha visto em outro lugar
+ * com o quadrado. Ela estava certa, e a foto estava corrompida — o expoente
+ * se perde quando o texto é transcrito de um PDF para um slide.
+ *
+ * ========================== DE ONDE VEM CADA COISA =========================
+ *
+ * A EQUAÇÃO, lida na Rev Bras Cineantropom Desempenho Hum (artigo que
+ * reproduz Petroski 1995 no método), literalmente:
+ *
+ *   D = 1,10726863 − 0,00081201·X1 + 0,00000212·(X1)² − 0,00041761·ID
+ *   X1 = subescapular + tricipital + supra-ilíaca oblíqua + panturrilha medial
+ *   ID = idade em anos
+ *
+ * O mesmo trecho reproduz a equação FEMININA de 4 dobras com os coeficientes
+ * que já estavam aqui (1,02902361 / 0,00067159 / 0,00000242 / 0,00026073 /
+ * 0,00056009 / 0,00054649) — então a implementação anterior ficou confirmada
+ * por uma segunda fonte independente, o que não é pouco.
+ *
+ * A FAIXA ETÁRIA (18–61) vem do slide da nutricionista, não desse artigo, que
+ * não a declara. Está anotado aqui de propósito: é a parte que não consegui
+ * confirmar na mesma fonte da equação.
+ *
+ * ⚠️ NÃO usa peso nem estatura — ao contrário das femininas acima, que usam.
+ * Não é descuido meu: as duas formas são diferentes no original.
+ */
+const PETROSKI4_M: Protocolo = {
+  id: 'petroski_4_masculino',
+  nome: 'Petroski — 4 dobras (masculina)',
+  nota: 'Quadrática, só dobras e idade. Não usa peso nem estatura.',
+  aplicaA: ['male'],
+  faixaEtaria: { de: 18, ate: 61 },
+  constantes: [
+    'Homens: D = 1,10726863 − 0,00081201·Σ + 0,00000212·Σ² − 0,00041761·idade',
+    'Σ = subescapular + tríceps + supra-ilíaca + panturrilha medial',
+    'Conversão: Siri — %G = 495/D − 450',
+    'Fonte: Petroski (1995), reproduzida em Rev Bras Cineantropom Desempenho Hum '
+      + '(transcrição conferida dígito a dígito, 29/10/2026).',
+    'Validada em 304 homens do sul do Brasil. Faixa 18–61 anos conforme o '
+      + 'material da profissional; o artigo consultado não declara a faixa.',
+    '⚠️ O termo quadrático é Σ AO QUADRADO. Transcrições que trazem apenas Σ '
+      + 'nesse termo perderam o expoente e dão densidade errada.',
+  ],
+  sitios: () => ['subscapular', 'triceps', 'suprailiac', 'calf'],
+  calcular: (m, idade, sexo) => {
+    if (sexo !== 'male') return null;
+    const s = soma(m, ['subscapular', 'triceps', 'suprailiac', 'calf']);
+    if (s === null || !(idade > 0)) return null;
+    const d = 1.10726863 - 0.00081201 * s + 0.00000212 * s * s - 0.00041761 * idade;
+    return arred(siri(d));
+  },
+};
+
 export const PROTOCOLOS: Protocolo[] = [
   JP3, JP7, FAULKNER, DURNIN, GUEDES3, PETROSKI3, PETROSKI4, PETROSKI5,
+  PETROSKI4_M,
 ];
 
 /** Protocolos que servem ao sexo informado. */
@@ -341,8 +405,14 @@ export function foraDaFaixa(protocolo: Protocolo, idade: number, sexo: Sexo | nu
  */
 export const PENDENTES = [
   {
-    nome: 'Petroski e Guedes — versões MASCULINAS',
-    motivo: 'só as equações femininas foram encontradas em fonte legível. Aplicar a feminina a homem usaria a equação fora da população em que foi validada',
+    nome: 'Guedes — versão MASCULINA',
+    motivo: 'só a equação feminina foi encontrada em fonte legível. Aplicar a feminina a homem usaria a equação fora da população em que foi validada',
+  },
+  {
+    nome: 'Petroski — versão feminina logarítmica (axilar média, supra-ilíaca, coxa, panturrilha)',
+    motivo: 'a profissional enviou esta equação em 28/10/2026 e ela NÃO foi encontrada nas fontes consultadas, '
+      + 'que trazem a versão feminina quadrática já implementada aqui. São equações diferentes do mesmo autor — '
+      + 'entra assim que a referência que a traz for localizada',
   },
 ];
 

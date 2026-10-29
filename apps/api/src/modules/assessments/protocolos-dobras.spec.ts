@@ -261,20 +261,33 @@ describe('protocolos de dobras cutâneas', () => {
   });
 
   describe('filtro por sexo', () => {
-    it('homem não vê Petroski nem Guedes', () => {
+    it('homem não vê as equações FEMININAS de Petroski e Guedes', () => {
       const ids = protocolosPara('male').map((p) => p.id);
       expect(ids).not.toContain('guedes_3');
       expect(ids).not.toContain('petroski_5');
       expect(ids).toContain('jackson_pollock_3');
+      // A masculina de Petroski entrou em 29/10/2026 e ele passa a vê-la.
+      expect(ids).toContain('petroski_4_masculino');
     });
 
-    it('mulher vê todos', () => {
-      expect(protocolosPara('female')).toHaveLength(PROTOCOLOS.length);
+    it('mulher vê tudo que não é exclusivo de homem', () => {
+      // Era "mulher vê todos", e passava só porque toda equação restrita no
+      // catálogo era feminina — acidente do acervo, não regra. Com a Petroski
+      // masculina o teste caiu, e a correção é dizer a regra de verdade: cada
+      // um vê o que não é exclusivo do outro sexo.
+      const ids = protocolosPara('female').map((p) => p.id);
+      const soParaHomem = PROTOCOLOS.filter(
+        (p) => p.aplicaA?.length === 1 && p.aplicaA[0] === 'male',
+      );
+      expect(ids).toHaveLength(PROTOCOLOS.length - soParaHomem.length);
+      for (const p of soParaHomem) expect(ids).not.toContain(p.id);
+      expect(ids).toContain('petroski_5');
     });
 
     it('sem sexo definido, só os que servem a ambos', () => {
       const ids = protocolosPara(null).map((p) => p.id);
       expect(ids).not.toContain('petroski_5');
+      expect(ids).not.toContain('petroski_4_masculino');
       expect(ids).toContain('faulkner_4');
     });
   });
@@ -370,5 +383,46 @@ describe('protocolos de dobras cutâneas', () => {
         expect(foraDaFaixa(p, idade, 'female')).toBeNull();
       }
     });
+  });
+});
+
+describe('Petroski masculina (4 dobras)', () => {
+  const p = protocoloPorId('petroski_4_masculino')!;
+
+  it('existe e serve só a homens', () => {
+    expect(p).toBeDefined();
+    expect(p.aplicaA).toEqual(['male']);
+    expect(p.calcular({ subscapular: 12, triceps: 10, suprailiac: 14, calf: 9 }, 30, 'female'))
+      .toBeNull();
+  });
+
+  it('usa as quatro dobras do X1 original', () => {
+    expect(p.sitios('male')).toEqual(['subscapular', 'triceps', 'suprailiac', 'calf']);
+  });
+
+  it('NAO exige peso nem estatura', () => {
+    // As femininas exigem; esta nao. A diferenca e do original, nao descuido.
+    expect(p.exigeAntropometria).toBeFalsy();
+    expect(p.calcular({ subscapular: 12, triceps: 10, suprailiac: 14, calf: 9 }, 30, 'male'))
+      .not.toBeNull();
+  });
+
+  it('o termo quadratico esta mesmo ao quadrado', () => {
+    // A guarda do defeito que a nutricionista apontou: o slide dela trazia
+    // `+ 0,00000212 (sigma)` sem o expoente. Com sigma = 45 e idade 30:
+    //   D = 1,10726863 - 0,00081201*45 + 0,00000212*2025 - 0,00041761*30
+    //     = 1,10726863 - 0,03654045 + 0,0042930 - 0,0125283 = 1,06248
+    //   %G = 495/1,06248 - 450 = 15,93...
+    // Sem o quadrado o terceiro termo seria 0,0000954 e o %G daria ~17,2:
+    // plausivel, e errado. E por isso que este teste existe.
+    const pct = p.calcular(
+      { subscapular: 10, triceps: 12, suprailiac: 15, calf: 8 }, 30, 'male',
+    );
+    expect(pct).toBeCloseTo(15.9, 1);
+  });
+
+  it('avisa fora da faixa de validacao, sem bloquear', () => {
+    expect(foraDaFaixa(p, 70, 'male')).toMatch(/18 a 61/);
+    expect(foraDaFaixa(p, 30, 'male')).toBeNull();
   });
 });
