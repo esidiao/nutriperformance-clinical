@@ -186,9 +186,10 @@ export const FAMILIAS: Familia[] = [
   {
     nota: 'Ultraprocessado salgado. Pela mesma decisão que tirou biscoito dos '
       + 'cereais: oferecer nuggets como troca de peito de frango é dar '
-      + 'permissão. ⚠️ CONFIRMAR COM A NUTRICIONISTA — a decisão dela em '
-      + '21/10/2026 falava de biscoito e bolo; estendi para o salgado à base '
-      + 'de carne pelo mesmo raciocínio, mas é escolha clínica, não minha.',
+      + 'permissão. CONFIRMADO pela nutricionista em 29/10/2026 — eu havia '
+      + 'estendido por conta própria a decisão dela de 21/10, que falava de '
+      + 'biscoito e bolo, e perguntei antes de dar por certo. É escolha '
+      + 'clínica: mudar aqui é decisão dela, não de quem mexe no código.',
     prefixos: [
       'NUGGETS', 'HAMBURGUER', 'MINI PIZZA', 'MINI PASTEL', 'MINI CHICKEN',
       'MIOJO', 'MACARRAO INSTANTANEO', 'SALSICHA', 'LINGUICA', 'MORTADELA',
