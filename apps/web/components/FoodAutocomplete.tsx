@@ -36,6 +36,49 @@ export interface FoodResult {
   vitaminas?: Record<string, { valor: number; unidade?: string } | number> | null;
 }
 
+/**
+ * Uma linha da lista de alimentos.
+ *
+ * O NOME INTEIRO APARECE, E ISSO É O PONTO.
+ *
+ * Antes o nome era `flex-1 truncate` com o selo da fonte ao lado, dentro de um
+ * cartão de refeição estreito. Resultado em uso real (relato da nutricionista,
+ * 28/10/2026): digitando "ovo", as opções apareciam como "OVO ..." — quatro
+ * linhas iguais. Para saber se era ovo cozido, frito ou pochê ela tinha que
+ * CLICAR em cada uma e conferir; a primeira, que parecia ovo, era Ovomaltine.
+ * O mesmo com carne cozida, desfiada e moída.
+ *
+ * Os nomes do IBGE são longos de propósito ("PARTE DE GALINHA OU FRANGO NAO
+ * ESPECIFICADA, empanado(a)/a milanesa"): é a preparação que distingue um
+ * registro do outro, e a preparação vem DEPOIS da vírgula — exatamente o
+ * pedaço que o truncamento comia. Truncar aqui não escondia um detalhe,
+ * escondia a única coisa que diferencia as opções.
+ *
+ * Então o nome ocupa a linha inteira e quebra em quantas linhas precisar, e o
+ * selo da fonte desceu para a linha dos macros, onde não disputa largura.
+ *
+ * Exportado para a bancada de verificação conseguir desenhar a linha com nomes
+ * reais sem subir a busca inteira.
+ */
+export function ItemDeAlimento({ alimento: f }: { alimento: FoodResult }) {
+  return (
+    <>
+      <div className="text-sm text-gray-800 dark:text-gray-200 break-words leading-snug">
+        {f.nome}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500 mt-1">
+        <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 shrink-0 ${CONF_BADGE[f.confiabilidade] ?? 'bg-gray-100 text-gray-500'}`}>
+          <BadgeCheck className="h-2.5 w-2.5" /> {f.fonte.toUpperCase()}
+        </span>
+        <span>
+          {f.energiaKcal != null ? `${Math.round(f.energiaKcal)} kcal` : '—'} · P {f.proteinasG ?? '—'}g · C {f.carboidratosG ?? '—'}g · G {f.lipidiosG ?? '—'}g
+          <span className="text-gray-300"> / {Math.round(f.porcaoPadraoG)}g</span>
+        </span>
+      </div>
+    </>
+  );
+}
+
 const CONF_BADGE: Record<string, string> = {
   alta: 'bg-green-100 text-green-700',
   media: 'bg-yellow-100 text-yellow-800',
@@ -97,8 +140,16 @@ export function FoodAutocomplete({
         {isFetching && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-gray-300" />}
       </div>
 
+      {/*
+        A lista pode ser MAIS LARGA que o campo.
+        O campo de busca vive dentro do cartão da refeição, que é estreito
+        (~250 px). Com `w-full` a lista herdava essa largura e um nome do IBGE
+        virava quatro linhas — ou, antes, virava "OVO ...". Como o painel é
+        `absolute`, o `min-w` o deixa passar da largura do cartão sem empurrar
+        nada do layout. O teto segura dentro da tela no celular.
+      */}
       {open && debounced.trim().length >= 2 && (
-        <div className="absolute z-30 mt-1 w-full max-h-64 overflow-auto rounded-lg border bg-white dark:bg-gray-900 shadow-xl">
+        <div className="absolute z-30 mt-1 w-full min-w-[20rem] max-w-[min(34rem,88vw)] max-h-80 overflow-auto rounded-lg border bg-white dark:bg-gray-900 shadow-xl">
           {results.length === 0 && !isFetching && (
             <div className="px-3 py-2 text-xs text-gray-400">
               Nenhum alimento na base. Você pode digitar manualmente e informar os valores.
@@ -111,16 +162,7 @@ export function FoodAutocomplete({
               onClick={() => { onSelect(f); onChange(f.nome); setOpen(false); }}
               className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-0 border-gray-100 dark:border-gray-800"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-800 dark:text-gray-200 flex-1 truncate">{f.nome}</span>
-                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 ${CONF_BADGE[f.confiabilidade] ?? 'bg-gray-100 text-gray-500'}`}>
-                  <BadgeCheck className="h-2.5 w-2.5" /> {f.fonte.toUpperCase()}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {f.energiaKcal != null ? `${Math.round(f.energiaKcal)} kcal` : '—'} · P {f.proteinasG ?? '—'}g · C {f.carboidratosG ?? '—'}g · G {f.lipidiosG ?? '—'}g
-                <span className="text-gray-300"> / {Math.round(f.porcaoPadraoG)}g</span>
-              </div>
+              <ItemDeAlimento alimento={f} />
             </button>
           ))}
         </div>

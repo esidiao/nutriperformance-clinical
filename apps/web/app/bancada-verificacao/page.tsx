@@ -18,6 +18,7 @@ import { notFound } from 'next/navigation';
 import { useState } from 'react';
 import { SeletorGastoEnergetico } from '@/components/SeletorGastoEnergetico';
 import { SeletorMedidaCaseira } from '@/components/SeletorMedidaCaseira';
+import { ItemDeAlimento, type FoodResult } from '@/components/FoodAutocomplete';
 
 const MEDIDAS = [
   { medida: 'colher de sopa', gramas: 25, padrao: true },
@@ -25,6 +26,25 @@ const MEDIDAS = [
   { medida: 'unidade media', gramas: 120, padrao: false },
   { medida: 'escumadeira', gramas: 80, padrao: false },
 ];
+
+/**
+ * Nomes REAIS da base, os mesmos que a nutricionista viu truncados como
+ * "OVO ..." em 28/10/2026. A largura do cartao da refeicao esta reproduzida
+ * abaixo: e nela que a linha precisa ser legivel.
+ */
+const ALIMENTOS: FoodResult[] = [
+  'OVO DE GALINHA, cozido(a)',
+  'OVO DE GALINHA, frito(a)',
+  'OVO DE GALINHA, pochê',
+  'OVOMALTINE',
+  'PARTE DE GALINHA OU FRANGO NAO ESPECIFICADA, empanado(a)/a milanesa',
+  'CARNE (NAO ESPECIFICADA), desfiado(a)',
+].map((nome, i) => ({
+  id: String(i), nome, grupoAlimentar: null, porcaoPadraoG: 100,
+  energiaKcal: 155, proteinasG: 12.58, carboidratosG: 1.12, lipidiosG: 10.61,
+  sodioMg: null, fibrasG: null, fonte: 'ibge_pof', fonteVersao: null,
+  confiabilidade: 'alta',
+}));
 
 export default function Bancada() {
   if (process.env.NODE_ENV !== 'development') notFound();
@@ -73,6 +93,29 @@ export default function Bancada() {
           <strong>{medida ?? '(em gramas)'}</strong>
         </p>
       </section>
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">Lista de alimentos (largura do cartao)</h2>
+        <p className="text-sm text-muted-foreground">
+          A caixa cinza tem a largura de um cartao de refeicao. A linha precisa
+          ser legivel DENTRO dela.
+        </p>
+        <div className="w-[250px] rounded border border-dashed p-2">
+          <div
+            data-teste="lista-alimentos"
+            className="rounded-lg border bg-white dark:bg-gray-900 shadow-xl min-w-[20rem] max-w-[min(34rem,88vw)]"
+          >
+            {ALIMENTOS.map((a) => (
+              <div
+                key={a.id}
+                className="px-3 py-2 border-b last:border-0 border-gray-100 dark:border-gray-800"
+              >
+                <ItemDeAlimento alimento={a} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
     </main>
   );
 }

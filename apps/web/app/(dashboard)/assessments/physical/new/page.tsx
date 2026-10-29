@@ -35,6 +35,7 @@ const schema = z.object({
   boneMassKg: z.coerce.number().optional(),
   assessmentMethod: z.string().optional(),
   waistCm: z.coerce.number().optional(),
+  abdomenCm: z.coerce.number().optional(),
   hipCm: z.coerce.number().optional(),
   neckCm: z.coerce.number().optional(),
   chestCm: z.coerce.number().optional(),
@@ -230,7 +231,8 @@ export default function PhysicalAssessmentNewPage() {
         leanMassKg: n(data.leanMassKg) ?? (sfLeanMass ?? undefined),
         muscleMassKg: n(data.muscleMassKg), boneMassKg: n(data.boneMassKg),
         bodyCompositionMethod: data.assessmentMethod || undefined,
-        waistCm: n(data.waistCm), hipCm: n(data.hipCm), neckCm: n(data.neckCm), chestCm: n(data.chestCm),
+        waistCm: n(data.waistCm), abdomenCm: n(data.abdomenCm),
+        hipCm: n(data.hipCm), neckCm: n(data.neckCm), chestCm: n(data.chestCm),
         rightArmRelaxedCm: n(data.rightArmCm), rightThighCm: n(data.rightThighCm), rightCalfCm: n(data.rightCalfCm),
         physicalActivityLevel: data.activityLevel,
         trainingFrequencyPerWeek: n(data.weeklyFrequency), trainingDurationMin: n(data.sessionDurationMin),
@@ -573,6 +575,16 @@ export default function PhysicalAssessmentNewPage() {
               <div>
                 <Label htmlFor="waistCm">Cintura</Label>
                 <Input id="waistCm" {...register('waistCm')} type="number" step="0.1" />
+              </div>
+              <div>
+                {/*
+                  Abdome e cintura sao sitios DIFERENTES (pedido da
+                  nutricionista, 28/10/2026). A coluna `abdomen_cm` ja existia
+                  no banco e na entidade desde sempre; faltava a tela — entao
+                  isto e fiacao, nao migracao.
+                */}
+                <Label htmlFor="abdomenCm">Abdome</Label>
+                <Input id="abdomenCm" {...register('abdomenCm')} type="number" step="0.1" />
               </div>
               <div>
                 <Label htmlFor="hipCm">Quadril</Label>
