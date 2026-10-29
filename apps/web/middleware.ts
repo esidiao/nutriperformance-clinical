@@ -18,6 +18,10 @@ const PUBLIC_PREFIXES = [
   '/responder',       // anamnese pré-consulta: o paciente não tem conta
   '/diario',          // diário alimentar: idem — o acesso é o token do link
   '/portal',          // portal do paciente: o token do link é a credencial
+  // Identificação do build (`app/api/versao`). Precisa ser pública pelo mesmo
+  // motivo que o `/health` da API é: serve para conferir o deploy DE FORA,
+  // antes de ter sessão. Só devolve identificadores de build.
+  '/api/versao',
 ];
 
 // Admin-only prefixes — require role === 'admin' in addition to a valid session
