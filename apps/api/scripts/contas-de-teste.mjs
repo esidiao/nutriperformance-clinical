@@ -92,16 +92,27 @@ for (const p of perfis) {
   const avaliacoes = await contar('nutritional_assessments', 'created_by', p.id);
 
   /**
-   * DUAS COISAS PRECISAM ESTAR CERTAS, E ELAS SAO INDEPENDENTES.
+   * TRES COISAS PRECISAM ESTAR CERTAS, E ELAS SAO INDEPENDENTES.
    *
    * 1. `users.auth_id` apontando para o usuario de autenticacao -- e o que
    *    liga o perfil da aplicacao a conta de login.
    *
    * 2. `app_metadata` do usuario de autenticacao com role e workspace_id --
-   *    e DAI que o JwtAuthGuard le a identidade, nao da tabela `users`.
-   *    Fica em app_metadata e nao em user_metadata porque user_metadata e
-   *    gravavel pelo proprio usuario: quem tivesse o proprio token poderia
-   *    se promover a admin ou trocar de workspace.
+   *    e DAI que o JwtAuthGuard le a IDENTIDADE (papel e workspace), nao da
+   *    tabela `users`. Fica em app_metadata e nao em user_metadata porque
+   *    user_metadata e gravavel pelo proprio usuario: quem tivesse o proprio
+   *    token poderia se promover a admin ou trocar de workspace.
+   *
+   * 3. Desde 30/10/2026: existir a linha em `users`, com `is_active = true`,
+   *    e o workspace dela ativo. O guard passou a conferir isso no banco
+   *    (`common/contas-ativas.service.ts`) porque as duas colunas `is_active`
+   *    eram gravadas pelo painel e lidas por ninguem -- suspender workspace
+   *    nao suspendia nada. A identidade continua vindo do token; o que o banco
+   *    responde agora e se a conta AINDA VALE.
+   *
+   *    Consequencia para este script: conta de autenticacao com app_metadata
+   *    certo mas SEM linha em `users` autentica e e negada. Era o caso de
+   *    quatro contas de teste em 30/10/2026.
    *
    * Consertar so a primeira nao destrava nada, e foi o que eu fiz na
    * primeira tentativa: o auth_id ficou certo e a API continuou respondendo
