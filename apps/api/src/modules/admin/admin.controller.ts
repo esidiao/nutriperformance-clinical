@@ -7,6 +7,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PlatformAdminOnly } from '../../common/decorators';
+import { ContasAtivasService } from '../../common/contas-ativas.service';
 import { ScientificBaseService } from '../scientific-base/scientific-base.service';
 import { TokenService } from '../tokens/token.service';
 import {
@@ -31,6 +32,7 @@ export class AdminController {
     @InjectDataSource() private readonly db: DataSource,
     private readonly scientificBase: ScientificBaseService,
     private readonly tokenService: TokenService,
+    private readonly contasAtivas: ContasAtivasService,
   ) {}
 
   @Get('metrics')
@@ -138,15 +140,28 @@ export class AdminController {
     });
   }
 
+  /**
+   * Suspende o workspace — e agora isso TIRA o acesso.
+   *
+   * Ate 30/10/2026 esta rota gravava `is_active = false`, a listagem passava a
+   * mostrar "suspenso" e todo mundo daquele workspace continuava entrando: o
+   * `JwtAuthGuard` nunca lia a coluna. Ver `common/contas-ativas.service.ts`.
+   *
+   * O `limparCache()` e o que faz a suspensao valer na hora em vez de esperar
+   * os 30s de cache. Sem ele a rota funcionaria — so com atraso que o
+   * administrador nao tem como adivinhar olhando a tela.
+   */
   @Patch('workspaces/:id/suspend')
   async suspendWorkspace(@Param('id', ParseUUIDPipe) id: string) {
     await this.db.query(`UPDATE workspaces SET is_active = false WHERE id = $1`, [id]);
+    this.contasAtivas.limparCache();
     return { success: true };
   }
 
   @Patch('workspaces/:id/reactivate')
   async reactivateWorkspace(@Param('id', ParseUUIDPipe) id: string) {
     await this.db.query(`UPDATE workspaces SET is_active = true WHERE id = $1`, [id]);
+    this.contasAtivas.limparCache();
     return { success: true };
   }
 

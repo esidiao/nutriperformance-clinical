@@ -18,12 +18,14 @@ describe('AdminController', () => {
   let db: any;
   let scientificBase: any;
   let tokenService: any;
+  let contasAtivas: any;
 
   beforeEach(() => {
     db = { query: jest.fn().mockResolvedValue([]) };
     scientificBase = { getHealth: jest.fn(), markCategoryUpdated: jest.fn() };
     tokenService = { adminAdjust: jest.fn().mockResolvedValue({ balance: 10 }) };
-    controller = new AdminController(db, scientificBase, tokenService);
+    contasAtivas = { limparCache: jest.fn() };
+    controller = new AdminController(db, scientificBase, tokenService, contasAtivas);
   });
 
   describe('paginação validada', () => {

@@ -36,8 +36,16 @@ describe('invariante: users.id é o UUID do Supabase Auth', () => {
   it('o guard põe o sub do token em req.user.id — é daí que vem o created_by', async () => {
     // Se um dia o guard passar a buscar o id na tabela `users`, a invariante
     // deixa de ser necessária: este teste falha e manda reescrever a decisão.
+    //
+    // 30/10/2026 — a catraca disparou e a decisão foi reescrita. O guard AGORA
+    // consulta `users`, mas só para conferir `is_active` (ver
+    // `common/contas-ativas.service.ts`), e consulta por `id = sub`. Ou seja:
+    // ele NÃO busca o id na tabela, ele DEPENDE de o id ser o sub. A invariante
+    // ficou mais necessária, não menos. Se um dia a conferência passar a casar
+    // por `auth_id`, aí sim esta explicação precisa ser refeita.
     const reflector = new Reflector();
-    const guard = new JwtAuthGuard(reflector);
+    const contas = { motivoParaNegar: jest.fn().mockResolvedValue(null) } as any;
+    const guard = new JwtAuthGuard(reflector, contas);
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
     jest.spyOn(guard as any, 'verifyToken').mockResolvedValue({
       sub: 'uuid-do-auth',

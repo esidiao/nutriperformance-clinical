@@ -3,6 +3,7 @@ import { join } from 'path';
 import { Reflector } from '@nestjs/core';
 import { UnauthorizedException, ExecutionContext } from '@nestjs/common';
 import { JwtAuthGuard, IS_PUBLIC_KEY } from './jwt-auth.guard';
+import { ContasAtivasService } from '../contas-ativas.service';
 
 function makeContext(headers: Record<string, string>): { ctx: ExecutionContext; request: any } {
   const request: any = { headers };
@@ -17,10 +18,14 @@ function makeContext(headers: Record<string, string>): { ctx: ExecutionContext; 
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
   let reflector: Reflector;
+  let contas: { motivoParaNegar: jest.Mock };
 
   beforeEach(() => {
     reflector = new Reflector();
-    guard = new JwtAuthGuard(reflector);
+    // Por padrao a conta esta em ordem, para que os testes de identidade
+    // continuem medindo o que mediam.
+    contas = { motivoParaNegar: jest.fn().mockResolvedValue(null) };
+    guard = new JwtAuthGuard(reflector, contas as unknown as ContasAtivasService);
   });
 
   it('permite rotas marcadas com @Public() sem token', async () => {
@@ -114,6 +119,57 @@ describe('JwtAuthGuard', () => {
 
     // Sem workspaceId todo filtro multi-tenant dos serviços viraria `undefined`.
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+  });
+
+  // --- Conta e workspace ainda valem? --------------------------------------
+  //
+  // O token prova quem assinou, nao que a conta ainda exista. Enquanto estes
+  // testes nao existiam, `users.is_active` e `workspaces.is_active` eram
+  // gravados pelo painel e lidos por ninguem.
+
+  it('NEGA quando a conta ou o workspace nao valem mais', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    jest.spyOn(guard as any, 'verifyToken').mockResolvedValue({
+      sub: 'user-uuid-123',
+      app_metadata: { role: 'nutritionist', workspace_id: 'ws-1' },
+    });
+    contas.motivoParaNegar.mockResolvedValue('conta desativada.');
+    const { ctx, request } = makeContext({ authorization: 'Bearer valido' });
+
+    await expect(guard.canActivate(ctx)).rejects.toThrow(/conta desativada/);
+    // E nao deixa req.user montado pela metade para um proximo guard usar.
+    expect(request.user).toBeUndefined();
+  });
+
+  it('confere com o sub do token e o workspace do app_metadata', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    jest.spyOn(guard as any, 'verifyToken').mockResolvedValue({
+      sub: 'user-uuid-123',
+      app_metadata: { role: 'nutritionist', workspace_id: 'ws-1' },
+      // O que o atacante grava em si mesmo nao pode escolher qual workspace
+      // sera conferido.
+      user_metadata: { workspace_id: 'ws-da-vitima' },
+    });
+    const { ctx } = makeContext({ authorization: 'Bearer valido' });
+
+    await guard.canActivate(ctx);
+    expect(contas.motivoParaNegar).toHaveBeenCalledWith('user-uuid-123', 'ws-1');
+  });
+
+  it('nao consulta o banco em rota @Public()', async () => {
+    // Health check e webhook nao podem depender do banco para responder.
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
+    const { ctx } = makeContext({});
+    await guard.canActivate(ctx);
+    expect(contas.motivoParaNegar).not.toHaveBeenCalled();
+  });
+
+  it('nao consulta o banco quando o token nem e valido', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    jest.spyOn(guard as any, 'verifyToken').mockResolvedValue(null);
+    const { ctx } = makeContext({ authorization: 'Bearer invalido' });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+    expect(contas.motivoParaNegar).not.toHaveBeenCalled();
   });
 
   it('verifica a flag pública usando IS_PUBLIC_KEY', async () => {

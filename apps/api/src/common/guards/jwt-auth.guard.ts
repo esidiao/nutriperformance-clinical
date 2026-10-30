@@ -2,6 +2,7 @@ import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/com
 import { CanActivate } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { ContasAtivasService } from '../contas-ativas.service';
 
 // Marca rotas como públicas (sem necessidade de JWT). Usado pelo @Public().
 export const IS_PUBLIC_KEY = 'isPublic';
@@ -37,7 +38,13 @@ const JWKS = SUPABASE_URL
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    // Obrigatorio de proposito. Com `@Optional()` e um `if (this.contas)`, uma
+    // falha de fiacao no modulo viraria "nao confere nada e deixa passar" — o
+    // defeito que a conferencia existe para fechar, agora silencioso.
+    private readonly contas: ContasAtivasService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Rotas marcadas com @Public() não exigem autenticação (health, webhooks).
@@ -94,6 +101,20 @@ export class JwtAuthGuard implements CanActivate {
         'Conta sem identidade de acesso configurada. Contate o administrador ' +
         'do sistema para vincular seu perfil e workspace.',
       );
+    }
+
+    // ─── A conta e o workspace ainda valem? ──────────────────────────────────
+    //
+    // O token diz quem assinou, nao que a conta ainda exista. Enquanto este
+    // trecho nao existia, `users.is_active` e `workspaces.is_active` eram
+    // gravados pelo painel e lidos por ninguem: `/admin/workspaces/:id/suspend`
+    // mostrava "suspenso" na tela e o workspace seguia em pleno uso.
+    //
+    // Ver `common/contas-ativas.service.ts` para o cache de 30s e o porque de
+    // negar em caso de duvida.
+    const motivo = await this.contas.motivoParaNegar(payload.sub as string, workspaceId);
+    if (motivo) {
+      throw new UnauthorizedException('Acesso negado: ' + motivo);
     }
 
     // Attach user info derived from Supabase JWT claims.

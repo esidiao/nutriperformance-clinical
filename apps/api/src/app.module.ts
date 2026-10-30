@@ -71,6 +71,7 @@ import { CurationModule } from './modules/curation/curation.module';
 
 // Guards & Interceptors
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { ContasAtivasModule } from './common/contas-ativas.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TokenBalanceGuard } from './common/guards/token-balance.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -84,6 +85,10 @@ import { podeSincronizar, motivoDeNaoSincronizar } from './common/banco-local';
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+
+    // Fornece o ContasAtivasService que o JwtAuthGuard usa para conferir
+    // `users.is_active` e `workspaces.is_active`. E @Global().
+    ContasAtivasModule,
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
