@@ -26,16 +26,21 @@ name: Catraca de acessibilidade
 #    `tsc --noEmit` e o `next build` NAO rodam em nenhum lugar automaticamente.
 #    Pendurar esses passos aqui e o proximo passo natural.
 
+# Os arquivos de dependencia da RAIZ entram na lista porque o job depende
+# deles para instalar. Sem isso o commit bcf573f — que mexeu so no
+# pnpm-workspace.yaml, justamente para consertar o `pnpm install` da catraca —
+# nao disparou a catraca, e o conserto ficou sem prova.
 on:
   push:
     branches: [master]
-    paths:
+    paths: &gatilhos
       - 'apps/web/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
       - '.github/workflows/acessibilidade.yml'
   pull_request:
-    paths:
-      - 'apps/web/**'
-      - '.github/workflows/acessibilidade.yml'
+    paths: *gatilhos
   workflow_dispatch:
 
 concurrency:
