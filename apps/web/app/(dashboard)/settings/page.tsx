@@ -95,19 +95,27 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Nome completo</Label>
-            <Input value={profile.fullName}
+            <Label htmlFor="profile-fullName">Nome completo</Label>
+            <Input id="profile-fullName" value={profile.fullName}
               onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} />
           </div>
           <div>
-            <Label>Email</Label>
-            <Input type="email" value={profile.email}
+            <Label htmlFor="profile-email">Email</Label>
+            <Input id="profile-email" type="email" value={profile.email}
               readOnly />
           </div>
           <div>
-            <Label>Conselho profissional</Label>
-            <div className="flex gap-2">
+            {/*
+              Três campos sob um rótulo só. `htmlFor` aponta para UM controle,
+              então aqui ele não serve: apontar para o primeiro deixaria os
+              outros dois sem nome e mentiria sobre o que o rótulo nomeia.
+              `role="group"` + `aria-labelledby` nomeia o conjunto, e cada
+              campo ganha o seu próprio nome.
+            */}
+            <Label id="conselho-rotulo">Conselho profissional</Label>
+            <div className="flex gap-2" role="group" aria-labelledby="conselho-rotulo">
               <select
+                aria-label="Conselho (sigla)"
                 value={profile.councilType}
               disabled
                 className="w-24 h-10 rounded-md border px-2 text-sm">
@@ -116,10 +124,11 @@ export default function SettingsPage() {
                 <option>CRM</option>
                 <option>CRF</option>
               </select>
-              <Input value={profile.councilNumber}
+              <Input aria-label="Número do registro" value={profile.councilNumber}
               readOnly
                 placeholder="CRN-3 12345" />
               <select
+                aria-label="UF do conselho"
                 value={profile.councilState}
               disabled
                 className="w-16 h-10 rounded-md border px-2 text-sm">
@@ -130,13 +139,13 @@ export default function SettingsPage() {
             </div>
           </div>
           <div>
-            <Label>Telefone</Label>
-            <Input value={profile.phone}
+            <Label htmlFor="profile-phone">Telefone</Label>
+            <Input id="profile-phone" value={profile.phone}
               readOnly />
           </div>
           <div className="md:col-span-2">
-            <Label>Especialidade / Área de atuação</Label>
-            <Input value={profile.specialty}
+            <Label htmlFor="profile-specialty">Especialidade / Área de atuação</Label>
+            <Input id="profile-specialty" value={profile.specialty}
               readOnly
               placeholder="Ex: Nutrição Clínica e Esportiva" />
           </div>
@@ -153,15 +162,20 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>Nome da clínica / consultório</Label>
-            <Input defaultValue="Clínica NutriTest Demo" />
+            <Label htmlFor="clinica-nome">Nome da clínica / consultório</Label>
+            <Input id="clinica-nome" defaultValue="Clínica NutriTest Demo" />
           </div>
           <div>
-            <Label>CNPJ (opcional)</Label>
-            <Input placeholder="00.000.000/0000-00" />
+            <Label htmlFor="clinica-cnpj">CNPJ (opcional)</Label>
+            <Input id="clinica-cnpj" placeholder="00.000.000/0000-00" />
           </div>
           <div className="md:col-span-2">
-            <Label>Plano atual</Label>
+            {/*
+              Não é rótulo: não há campo nenhum embaixo, só a informação do
+              plano. `<Label>` aqui prometia um controle que não existe, e o
+              leitor de tela anunciava um rótulo órfão. É um título.
+            */}
+            <h3 className="text-sm font-medium leading-none">Plano atual</h3>
             <div className="flex items-center gap-3 mt-1 p-3 bg-blue-50 rounded-md border border-blue-200">
               <Badge className="bg-blue-600 text-white">Profissional</Badge>
               <span className="text-sm text-gray-700">600 tokens/mês · R$ 129,90/mês</span>

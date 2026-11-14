@@ -275,8 +275,8 @@ export default function NutritionalAssessmentNewPage() {
           <CardHeader><CardTitle className="text-base">Anamnese Alimentar</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <Label>Queixa principal</Label>
-              <Textarea {...register('mainComplaint')} placeholder="Descreva a queixa ou objetivo do paciente" rows={2} />
+              <Label htmlFor="mainComplaint">Queixa principal</Label>
+              <Textarea id="mainComplaint" {...register('mainComplaint')} placeholder="Descreva a queixa ou objetivo do paciente" rows={2} />
             </div>
             <div>
               <Label htmlFor="dietaryRestrictions">Restrições alimentares</Label>
@@ -327,8 +327,8 @@ export default function NutritionalAssessmentNewPage() {
                 <Input id="age" {...register('age')} type="number" placeholder="30" />
               </div>
               <div>
-                <Label>Sexo *</Label>
-                <select {...register('gender')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
+                <Label htmlFor="gender">Sexo *</Label>
+                <select id="gender" {...register('gender')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
                   <option value="female">Feminino</option>
                   <option value="male">Masculino</option>
                 </select>
@@ -421,17 +421,17 @@ export default function NutritionalAssessmentNewPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Diagnóstico nutricional</Label>
-              <Textarea {...register('nutritionalDiagnosis')}
+              <Label htmlFor="nutritionalDiagnosis">Diagnóstico nutricional</Label>
+              <Textarea id="nutritionalDiagnosis" {...register('nutritionalDiagnosis')}
                 placeholder="Diagnóstico nutricional — responsabilidade exclusiva do nutricionista" rows={3} />
             </div>
             <div>
-              <Label>Estratégia alimentar proposta</Label>
-              <Textarea {...register('dietaryStrategy')} placeholder="Descreva a estratégia alimentar planejada" rows={3} />
+              <Label htmlFor="dietaryStrategy">Estratégia alimentar proposta</Label>
+              <Textarea id="dietaryStrategy" {...register('dietaryStrategy')} placeholder="Descreva a estratégia alimentar planejada" rows={3} />
             </div>
             <div>
-              <Label>Observações profissionais</Label>
-              <Textarea {...register('professionalNotes')} rows={2} />
+              <Label htmlFor="professionalNotes">Observações profissionais</Label>
+              <Textarea id="professionalNotes" {...register('professionalNotes')} rows={2} />
             </div>
           </CardContent>
         </Card>

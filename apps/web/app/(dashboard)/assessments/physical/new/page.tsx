@@ -362,15 +362,15 @@ export default function PhysicalAssessmentNewPage() {
                 )}
               </div>
               <div>
-                <Label>Sexo</Label>
-                <select {...register('gender' as any)} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
+                <Label htmlFor="gender">Sexo</Label>
+                <select id="gender" {...register('gender' as any)} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
                   <option value="female">Feminino</option>
                   <option value="male">Masculino</option>
                 </select>
               </div>
               <div>
-                <Label>Método de avaliação</Label>
-                <select {...register('assessmentMethod')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
+                <Label htmlFor="assessmentMethod">Método de avaliação</Label>
+                <select id="assessmentMethod" {...register('assessmentMethod')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
                   <option value="">Selecione</option>
                   <option value="bioimpedancia">Bioimpedância</option>
                   <option value="dobras_cutaneas">Dobras cutâneas</option>
@@ -678,8 +678,8 @@ export default function PhysicalAssessmentNewPage() {
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Label>Nível de atividade</Label>
-              <select {...register('activityLevel')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
+              <Label htmlFor="activityLevel">Nível de atividade</Label>
+              <select id="activityLevel" {...register('activityLevel')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
                 <option value="sedentary">Sedentário</option>
                 <option value="lightly_active">Levemente ativo</option>
                 <option value="moderately_active">Moderadamente ativo</option>
@@ -700,8 +700,8 @@ export default function PhysicalAssessmentNewPage() {
               <Input id="sportModality" {...register('sportModality')} placeholder="Ex: Musculação, Corrida, Natação" />
             </div>
             <div>
-              <Label>Intensidade do treino</Label>
-              <select {...register('trainingIntensity')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
+              <Label htmlFor="trainingIntensity">Intensidade do treino</Label>
+              <select id="trainingIntensity" {...register('trainingIntensity')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
                 <option value="">Selecione</option>
                 <option value="low">Baixa</option>
                 <option value="moderate">Moderada</option>
@@ -725,8 +725,8 @@ export default function PhysicalAssessmentNewPage() {
           <CardHeader><CardTitle className="text-base">Objetivos e Metas</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>Objetivo principal *</Label>
-              <select {...register('primaryGoal')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
+              <Label htmlFor="primaryGoal">Objetivo principal *</Label>
+              <select id="primaryGoal" {...register('primaryGoal')} className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
                 {Object.entries(GOAL_LABELS).map(([val, label]) => (
                   <option key={val} value={val}>{label}</option>
                 ))}
@@ -745,8 +745,8 @@ export default function PhysicalAssessmentNewPage() {
               <Input id="targetDate" {...register('targetDate')} type="date" />
             </div>
             <div className="md:col-span-2">
-              <Label>Observações profissionais</Label>
-              <Textarea {...register('professionalNotes')} rows={3}
+              <Label htmlFor="professionalNotes">Observações profissionais</Label>
+              <Textarea id="professionalNotes" {...register('professionalNotes')} rows={3}
                 placeholder="Notas do profissional de educação física (CREF/CONFEF)" />
             </div>
           </CardContent>

@@ -456,28 +456,28 @@ export default function PrescriptionNewPage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="sm:col-span-2">
-                      <Label className="text-xs">Nome do suplemento *</Label>
-                      <Input value={item.name} onChange={(e) => updateItem(i, 'name', e.target.value)}
+                      <Label htmlFor={`item-${i}-name`} className="text-xs">Nome do suplemento *</Label>
+                      <Input id={`item-${i}-name`} value={item.name} onChange={(e) => updateItem(i, 'name', e.target.value)}
                         placeholder="Ex: Creatina monoidratada" list={`supp-${i}`} maxLength={100} className="mt-1" />
                       <datalist id={`supp-${i}`}>
                         {COMMON_SUPPLEMENTS.map((s) => <option key={s} value={s} />)}
                       </datalist>
                     </div>
                     <div>
-                      <Label className="text-xs">Dose / Quantidade *</Label>
-                      <Input value={item.dose} onChange={(e) => updateItem(i, 'dose', e.target.value)} placeholder="Ex: 5g" maxLength={50} className="mt-1" />
+                      <Label htmlFor={`item-${i}-dose`} className="text-xs">Dose / Quantidade *</Label>
+                      <Input id={`item-${i}-dose`} value={item.dose} onChange={(e) => updateItem(i, 'dose', e.target.value)} placeholder="Ex: 5g" maxLength={50} className="mt-1" />
                     </div>
                     <div>
-                      <Label className="text-xs">Frequência *</Label>
-                      <Input value={item.frequency} onChange={(e) => updateItem(i, 'frequency', e.target.value)} placeholder="Ex: 1x ao dia" maxLength={60} className="mt-1" />
+                      <Label htmlFor={`item-${i}-frequency`} className="text-xs">Frequência *</Label>
+                      <Input id={`item-${i}-frequency`} value={item.frequency} onChange={(e) => updateItem(i, 'frequency', e.target.value)} placeholder="Ex: 1x ao dia" maxLength={60} className="mt-1" />
                     </div>
                     <div>
-                      <Label className="text-xs">Horário / Timing</Label>
-                      <Input value={item.timing ?? ''} onChange={(e) => updateItem(i, 'timing', e.target.value)} placeholder="Ex: Pré-treino" maxLength={60} className="mt-1" />
+                      <Label htmlFor={`item-${i}-timing`} className="text-xs">Horário / Timing</Label>
+                      <Input id={`item-${i}-timing`} value={item.timing ?? ''} onChange={(e) => updateItem(i, 'timing', e.target.value)} placeholder="Ex: Pré-treino" maxLength={60} className="mt-1" />
                     </div>
                     <div>
-                      <Label className="text-xs">Observações</Label>
-                      <Input value={item.notes ?? ''} onChange={(e) => updateItem(i, 'notes', e.target.value)} placeholder="Ex: Tomar com suco de laranja" maxLength={200} className="mt-1" />
+                      <Label htmlFor={`item-${i}-notes`} className="text-xs">Observações</Label>
+                      <Input id={`item-${i}-notes`} value={item.notes ?? ''} onChange={(e) => updateItem(i, 'notes', e.target.value)} placeholder="Ex: Tomar com suco de laranja" maxLength={200} className="mt-1" />
                     </div>
                   </div>
                 </div>
@@ -544,8 +544,9 @@ export default function PrescriptionNewPage() {
                       <div key={fi} className="rounded-lg border border-gray-100 dark:border-gray-800 p-2 space-y-2">
                         <div className="grid grid-cols-12 gap-2 items-start">
                           <div className="col-span-12 sm:col-span-4">
-                            <Label className="text-[10px] text-gray-500">Alimento / Preparação</Label>
+                            <Label htmlFor={`food-${mi}-${fi}-name`} className="text-[10px] text-gray-500">Alimento / Preparação</Label>
                             <FoodAutocomplete
+                              id={`food-${mi}-${fi}-name`}
                               value={food.name}
                               onChange={(name) => updateFood(mi, fi, 'name', name)}
                               onSelect={(f) => applyFood(mi, fi, f)}
@@ -554,8 +555,8 @@ export default function PrescriptionNewPage() {
                             />
                           </div>
                           <div className="col-span-4 sm:col-span-2">
-                            <Label className="text-[10px] text-gray-500">Quantidade (g)</Label>
-                            <Input
+                            <Label htmlFor={`food-${mi}-${fi}-quantidadeG`} className="text-[10px] text-gray-500">Quantidade (g)</Label>
+                            <Input id={`food-${mi}-${fi}-quantidadeG`}
                               type="number" min={0} step="1" inputMode="decimal"
                               value={food.quantidadeG}
                               onChange={(e) => updateFood(mi, fi, 'quantidadeG', e.target.value)}
@@ -564,13 +565,13 @@ export default function PrescriptionNewPage() {
                             />
                           </div>
                           <div className="col-span-8 sm:col-span-3">
-                            <Label className="text-[10px] text-gray-500">Medida caseira</Label>
-                            <Input value={food.dose} onChange={(e) => updateFood(mi, fi, 'dose', e.target.value)}
+                            <Label htmlFor={`food-${mi}-${fi}-dose`} className="text-[10px] text-gray-500">Medida caseira</Label>
+                            <Input id={`food-${mi}-${fi}-dose`} value={food.dose} onChange={(e) => updateFood(mi, fi, 'dose', e.target.value)}
                               placeholder="3 colheres de sopa" maxLength={60} className="h-9 text-sm" />
                           </div>
                           <div className="col-span-12 sm:col-span-3">
-                            <Label className="text-[10px] text-gray-500">Obs. / Substituição</Label>
-                            <Input value={food.notes} onChange={(e) => updateFood(mi, fi, 'notes', e.target.value)}
+                            <Label htmlFor={`food-${mi}-${fi}-notes`} className="text-[10px] text-gray-500">Obs. / Substituição</Label>
+                            <Input id={`food-${mi}-${fi}-notes`} value={food.notes} onChange={(e) => updateFood(mi, fi, 'notes', e.target.value)}
                               placeholder="Ex: ou 1 scoop whey" maxLength={200} className="h-9 text-sm" />
                           </div>
                         </div>
@@ -584,20 +585,20 @@ export default function PrescriptionNewPage() {
                         </p>
                         <div className="flex items-end gap-2">
                           <div className="flex-1">
-                            <Label className="text-[10px] text-gray-500">Kcal</Label>
-                            <Input type="number" min={0} value={food.kcal} onChange={(e) => updateFood(mi, fi, 'kcal', e.target.value)} placeholder="0" className="h-8 text-xs" />
+                            <Label htmlFor={`food-${mi}-${fi}-kcal`} className="text-[10px] text-gray-500">Kcal</Label>
+                            <Input id={`food-${mi}-${fi}-kcal`} type="number" min={0} value={food.kcal} onChange={(e) => updateFood(mi, fi, 'kcal', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           <div className="flex-1">
-                            <Label className="text-[10px] text-gray-500">Proteína (g)</Label>
-                            <Input type="number" min={0} step="0.1" value={food.prot} onChange={(e) => updateFood(mi, fi, 'prot', e.target.value)} placeholder="0" className="h-8 text-xs" />
+                            <Label htmlFor={`food-${mi}-${fi}-prot`} className="text-[10px] text-gray-500">Proteína (g)</Label>
+                            <Input id={`food-${mi}-${fi}-prot`} type="number" min={0} step="0.1" value={food.prot} onChange={(e) => updateFood(mi, fi, 'prot', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           <div className="flex-1">
-                            <Label className="text-[10px] text-gray-500">Carbo (g)</Label>
-                            <Input type="number" min={0} step="0.1" value={food.carb} onChange={(e) => updateFood(mi, fi, 'carb', e.target.value)} placeholder="0" className="h-8 text-xs" />
+                            <Label htmlFor={`food-${mi}-${fi}-carb`} className="text-[10px] text-gray-500">Carbo (g)</Label>
+                            <Input id={`food-${mi}-${fi}-carb`} type="number" min={0} step="0.1" value={food.carb} onChange={(e) => updateFood(mi, fi, 'carb', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           <div className="flex-1">
-                            <Label className="text-[10px] text-gray-500">Gordura (g)</Label>
-                            <Input type="number" min={0} step="0.1" value={food.fat} onChange={(e) => updateFood(mi, fi, 'fat', e.target.value)} placeholder="0" className="h-8 text-xs" />
+                            <Label htmlFor={`food-${mi}-${fi}-fat`} className="text-[10px] text-gray-500">Gordura (g)</Label>
+                            <Input id={`food-${mi}-${fi}-fat`} type="number" min={0} step="0.1" value={food.fat} onChange={(e) => updateFood(mi, fi, 'fat', e.target.value)} placeholder="0" className="h-8 text-xs" />
                           </div>
                           {meal.foods.length > 1 && (
                             <button onClick={() => removeFood(mi, fi)} className="text-red-400 hover:text-red-600 p-1.5 rounded mb-0.5" title="Remover alimento" aria-label="Remover alimento">
@@ -713,13 +714,13 @@ export default function PrescriptionNewPage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="sm:col-span-2">
-                      <Label className="text-xs">Par de interação</Label>
-                      <Input value={inter.pair} onChange={(e) => updateInter(i, 'pair', e.target.value)}
+                      <Label htmlFor={`inter-${i}-pair`} className="text-xs">Par de interação</Label>
+                      <Input id={`inter-${i}-pair`} value={inter.pair} onChange={(e) => updateInter(i, 'pair', e.target.value)}
                         placeholder="Ex: Ferro × Omeprazol" maxLength={100} className="mt-1" />
                     </div>
                     <div>
-                      <Label className="text-xs">Risco</Label>
-                      <select value={inter.risk} onChange={(e) => updateInter(i, 'risk', e.target.value as any)}
+                      <Label htmlFor={`inter-${i}-risk`} className="text-xs">Risco</Label>
+                      <select id={`inter-${i}-risk`} value={inter.risk} onChange={(e) => updateInter(i, 'risk', e.target.value as any)}
                         className="mt-1 w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700">
                         <option value="low">Baixo</option>
                         <option value="moderate">Moderado</option>
@@ -728,8 +729,8 @@ export default function PrescriptionNewPage() {
                       </select>
                     </div>
                     <div className="sm:col-span-3">
-                      <Label className="text-xs">Recomendação</Label>
-                      <Input value={inter.recommendation} onChange={(e) => updateInter(i, 'recommendation', e.target.value)}
+                      <Label htmlFor={`inter-${i}-recommendation`} className="text-xs">Recomendação</Label>
+                      <Input id={`inter-${i}-recommendation`} value={inter.recommendation} onChange={(e) => updateInter(i, 'recommendation', e.target.value)}
                         placeholder="Ex: Separar horário de uso em 2 horas" maxLength={300} className="mt-1" />
                     </div>
                   </div>

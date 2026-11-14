@@ -250,20 +250,20 @@ export default function SupplementationPage() {
               />
               <div className="hidden md:block" />
               <div>
-                <Label>Nome do suplemento *</Label>
-                <Input value={form.supplementName}
+                <Label htmlFor="form-supplementName">Nome do suplemento *</Label>
+                <Input id="form-supplementName" value={form.supplementName}
                   onChange={(e) => setForm((f) => ({ ...f, supplementName: e.target.value }))}
                   placeholder="Ex: Creatina Monoidratada" />
               </div>
               <div>
-                <Label>Marca / Fabricante</Label>
-                <Input value={form.brand}
+                <Label htmlFor="form-brand">Marca / Fabricante</Label>
+                <Input id="form-brand" value={form.brand}
                   onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
                   placeholder="Ex: Optimum Nutrition" />
               </div>
               <div>
-                <Label>Categoria</Label>
-                <select value={form.category}
+                <Label htmlFor="form-category">Categoria</Label>
+                <select id="form-category" value={form.category}
                   onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as SupplementCategory }))}
                   className="w-full h-10 rounded-md border px-3 text-sm">
                   {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
@@ -272,32 +272,32 @@ export default function SupplementationPage() {
                 </select>
               </div>
               <div>
-                <Label>Dose *</Label>
-                <Input value={form.dose}
+                <Label htmlFor="form-dose">Dose *</Label>
+                <Input id="form-dose" value={form.dose}
                   onChange={(e) => setForm((f) => ({ ...f, dose: e.target.value }))}
                   placeholder="Ex: 5g ou 2 cápsulas" />
               </div>
               <div>
-                <Label>Frequência *</Label>
-                <Input value={form.frequency}
+                <Label htmlFor="form-frequency">Frequência *</Label>
+                <Input id="form-frequency" value={form.frequency}
                   onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))}
                   placeholder="Ex: Diária, 3x/semana" />
               </div>
               <div>
-                <Label>Horário / Momento</Label>
-                <Input value={form.timing}
+                <Label htmlFor="form-timing">Horário / Momento</Label>
+                <Input id="form-timing" value={form.timing}
                   onChange={(e) => setForm((f) => ({ ...f, timing: e.target.value }))}
                   placeholder="Ex: Pré-treino, Ao acordar" />
               </div>
               <div>
-                <Label>Objetivo de uso</Label>
-                <Input value={form.purpose}
+                <Label htmlFor="form-purpose">Objetivo de uso</Label>
+                <Input id="form-purpose" value={form.purpose}
                   onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
                   placeholder="Ex: Hipertrofia muscular" />
               </div>
               <div>
-                <Label>Data de início</Label>
-                <Input type="date" value={form.startDate}
+                <Label htmlFor="form-startDate">Data de início</Label>
+                <Input id="form-startDate" type="date" value={form.startDate}
                   onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} />
               </div>
               <div className="flex items-center gap-4 pt-5">
@@ -313,8 +313,8 @@ export default function SupplementationPage() {
                 </label>
               </div>
               <div className="md:col-span-2">
-                <Label>Eventos adversos relatados</Label>
-                <Input value={form.adverseEvents}
+                <Label htmlFor="form-adverseEvents">Eventos adversos relatados</Label>
+                <Input id="form-adverseEvents" value={form.adverseEvents}
                   onChange={(e) => setForm((f) => ({ ...f, adverseEvents: e.target.value }))}
                   placeholder="Ex: Desconforto gástrico, Insônia — ou deixe em branco" />
               </div>

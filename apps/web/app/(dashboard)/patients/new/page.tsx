@@ -241,8 +241,8 @@ export default function PatientNewPage() {
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <Label>Nome completo *</Label>
-                <Input
+                <Label htmlFor="name">Nome completo *</Label>
+                <Input id="name"
                   value={form.name}
                   onChange={(e) => set('name', e.target.value)}
                   placeholder="Nome completo do paciente"
@@ -251,12 +251,12 @@ export default function PatientNewPage() {
                 {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
               </div>
               <div>
-                <Label>CPF <span className="text-gray-400 text-xs">(hash SHA-256 — nunca armazenado)</span></Label>
-                <Input value={form.cpf} onChange={(e) => set('cpf', e.target.value)} placeholder="000.000.000-00" />
+                <Label htmlFor="cpf">CPF <span className="text-gray-400 text-xs">(hash SHA-256 — nunca armazenado)</span></Label>
+                <Input id="cpf" value={form.cpf} onChange={(e) => set('cpf', e.target.value)} placeholder="000.000.000-00" />
               </div>
               <div>
-                <Label>Data de nascimento *</Label>
-                <Input
+                <Label htmlFor="birthDate">Data de nascimento *</Label>
+                <Input id="birthDate"
                   type="date"
                   value={form.birthDate}
                   onChange={(e) => set('birthDate', e.target.value)}
@@ -265,8 +265,8 @@ export default function PatientNewPage() {
                 {errors.birthDate && <p className="text-xs text-red-500 mt-1">{errors.birthDate}</p>}
               </div>
               <div>
-                <Label>Sexo biológico *</Label>
-                <select
+                <Label htmlFor="gender">Sexo biológico *</Label>
+                <select id="gender"
                   aria-label="Sexo biológico"
                   value={form.gender}
                   onChange={(e) => set('gender', e.target.value)}
@@ -280,24 +280,24 @@ export default function PatientNewPage() {
                 {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
               </div>
               <div>
-                <Label>E-mail</Label>
-                <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="email@exemplo.com" />
+                <Label htmlFor="email">E-mail</Label>
+                <Input id="email" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="email@exemplo.com" />
               </div>
               <div>
-                <Label>Telefone</Label>
-                <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="(11) 99999-0000" />
+                <Label htmlFor="phone">Telefone</Label>
+                <Input id="phone" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="(11) 99999-0000" />
               </div>
               <div className="md:col-span-2">
-                <Label>Endereço</Label>
-                <Input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Rua, número, bairro, cidade — UF" />
+                <Label htmlFor="address">Endereço</Label>
+                <Input id="address" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Rua, número, bairro, cidade — UF" />
               </div>
               <div>
-                <Label>Contato de emergência</Label>
-                <Input value={form.emergencyContactName} onChange={(e) => set('emergencyContactName', e.target.value)} placeholder="Nome" />
+                <Label htmlFor="emergencyContactName">Contato de emergência</Label>
+                <Input id="emergencyContactName" value={form.emergencyContactName} onChange={(e) => set('emergencyContactName', e.target.value)} placeholder="Nome" />
               </div>
               <div>
-                <Label>Telefone de emergência</Label>
-                <Input value={form.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone', e.target.value)} placeholder="(11) 99999-0000" />
+                <Label htmlFor="emergencyContactPhone">Telefone de emergência</Label>
+                <Input id="emergencyContactPhone" value={form.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone', e.target.value)} placeholder="(11) 99999-0000" />
               </div>
             </CardContent>
           </Card>
@@ -313,8 +313,8 @@ export default function PatientNewPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Histórico médico relevante</Label>
-                <Textarea
+                <Label htmlFor="medicalHistory">Histórico médico relevante</Label>
+                <Textarea id="medicalHistory"
                   value={form.medicalHistory}
                   onChange={(e) => set('medicalHistory', e.target.value)}
                   placeholder="Doenças pré-existentes, cirurgias, hospitalizações, comorbidades..."
@@ -322,7 +322,14 @@ export default function PatientNewPage() {
                 />
               </div>
               <div>
-                <Label>Medicamentos em uso</Label>
+                {/*
+                  Rótulo de GRUPO: embaixo dele vem a lista já adicionada mais
+                  dois campos de "adicionar". `htmlFor` apontaria para um só, e
+                  daria ao campo "Nome" o nome do grupo inteiro. O conjunto é
+                  nomeado por `aria-labelledby`; cada campo já tem o seu
+                  `aria-label`.
+                */}
+                <Label id="medicamentos-rotulo">Medicamentos em uso</Label>
                 <p className="text-[11px] text-gray-500 mb-1.5">Usados nas análises de interações e biodisponibilidade.</p>
                 {form.medications.length > 0 && (
                   <div className="space-y-1.5 mb-2">
@@ -336,7 +343,7 @@ export default function PatientNewPage() {
                     ))}
                   </div>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2" role="group" aria-labelledby="medicamentos-rotulo">
                   <Input value={medDraft.name} onChange={(e) => setMedDraft((d) => ({ ...d, name: e.target.value }))}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addMedication(); } }}
                     placeholder="Nome (ex.: Omeprazol)" className="sm:col-span-2" aria-label="Nome do medicamento" />
@@ -347,20 +354,28 @@ export default function PatientNewPage() {
                 </div>
               </div>
               <div>
-                <Label>Condições clínicas</Label>
+                {/* Rótulo de GRUPO, como o de medicamentos logo acima. */}
+                <Label id="condicoes-rotulo">Condições clínicas</Label>
                 <p className="text-[11px] text-gray-500 mb-1.5">Comorbidades e condições relevantes (ex.: hipertensão, diabetes).</p>
                 {form.clinicalConditions.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {form.clinicalConditions.map((c, i) => (
                       <span key={i} className="inline-flex items-center gap-1 text-xs bg-teal-50 text-teal-800 border border-teal-200 rounded-full px-2.5 py-1">
                         {c}
+                        {/*
+                          O `aria-hidden` estava no BOTÃO, não no ✕. Botão
+                          focável e escondido da árvore de acessibilidade é o
+                          pior dos dois mundos: quem usa teclado para nele e o
+                          leitor de tela não anuncia nada. O bloco de
+                          medicamentos logo acima já fazia certo.
+                        */}
                         <button type="button" onClick={() => removeCondition(i)} aria-label={`Remover ${c}`}
-                          className="text-teal-400 hover:text-red-500" aria-hidden>✕</button>
+                          className="text-teal-400 hover:text-red-500"><span aria-hidden>✕</span></button>
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex gap-2" role="group" aria-labelledby="condicoes-rotulo">
                   <Input value={condDraft} onChange={(e) => setCondDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCondition(); } }}
                     placeholder="Ex.: Hipertensão arterial" aria-label="Condição clínica" />
@@ -368,20 +383,28 @@ export default function PatientNewPage() {
                 </div>
               </div>
               <div>
-                <Label>Alergias e intolerâncias alimentares</Label>
-                <Input
+                <Label htmlFor="allergies">Alergias e intolerâncias alimentares</Label>
+                <Input id="allergies"
                   value={form.allergies}
                   onChange={(e) => set('allergies', e.target.value)}
                   placeholder="Ex: amendoim, frutos do mar, lactose"
                 />
               </div>
               <div>
-                <Label>Restrições alimentares</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
+                {/*
+                  Grupo de botões que alternam. Duas coisas aqui:
+                  `aria-labelledby` nomeia o conjunto, e `aria-pressed` diz se
+                  cada um está ligado — antes esse estado existia SÓ na cor de
+                  fundo, invisível para leitor de tela e para quem não
+                  distingue as duas cores.
+                */}
+                <Label id="restricoes-rotulo">Restrições alimentares</Label>
+                <div className="flex flex-wrap gap-2 mt-2" role="group" aria-labelledby="restricoes-rotulo">
                   {DIETARY_RESTRICTIONS.map((r) => (
                     <button
                       key={r}
                       type="button"
+                      aria-pressed={form.dietaryRestrictions.includes(r)}
                       onClick={() => toggleRestriction(r)}
                       className={`
                         px-3 py-1.5 rounded-full text-xs font-medium border transition-all
@@ -415,28 +438,28 @@ export default function PatientNewPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <Label>Peso (kg)</Label>
-                  <Input type="number" step="0.1" value={form.weightKg} onChange={(e) => set('weightKg', e.target.value)} placeholder="70.0" />
+                  <Label htmlFor="weightKg">Peso (kg)</Label>
+                  <Input id="weightKg" type="number" step="0.1" value={form.weightKg} onChange={(e) => set('weightKg', e.target.value)} placeholder="70.0" />
                 </div>
                 <div>
-                  <Label>Altura (cm)</Label>
-                  <Input type="number" step="0.1" value={form.heightCm} onChange={(e) => set('heightCm', e.target.value)} placeholder="170" />
+                  <Label htmlFor="heightCm">Altura (cm)</Label>
+                  <Input id="heightCm" type="number" step="0.1" value={form.heightCm} onChange={(e) => set('heightCm', e.target.value)} placeholder="170" />
                 </div>
                 <div>
-                  <Label>% Gordura corporal</Label>
-                  <Input type="number" step="0.1" value={form.bodyFatPct} onChange={(e) => set('bodyFatPct', e.target.value)} placeholder="22.0" />
+                  <Label htmlFor="bodyFatPct">% Gordura corporal</Label>
+                  <Input id="bodyFatPct" type="number" step="0.1" value={form.bodyFatPct} onChange={(e) => set('bodyFatPct', e.target.value)} placeholder="22.0" />
                 </div>
                 <div>
-                  <Label>Cintura (cm)</Label>
-                  <Input type="number" step="0.1" value={form.waistCm} onChange={(e) => set('waistCm', e.target.value)} placeholder="78" />
+                  <Label htmlFor="waistCm">Cintura (cm)</Label>
+                  <Input id="waistCm" type="number" step="0.1" value={form.waistCm} onChange={(e) => set('waistCm', e.target.value)} placeholder="78" />
                 </div>
                 <div>
-                  <Label>Quadril (cm)</Label>
-                  <Input type="number" step="0.1" value={form.hipCm} onChange={(e) => set('hipCm', e.target.value)} placeholder="98" />
+                  <Label htmlFor="hipCm">Quadril (cm)</Label>
+                  <Input id="hipCm" type="number" step="0.1" value={form.hipCm} onChange={(e) => set('hipCm', e.target.value)} placeholder="98" />
                 </div>
                 <div>
-                  <Label>Método</Label>
-                  <select aria-label="Método de avaliação física" value={form.assessmentMethod} onChange={(e) => set('assessmentMethod', e.target.value)}
+                  <Label htmlFor="assessmentMethod">Método</Label>
+                  <select id="assessmentMethod" aria-label="Método de avaliação física" value={form.assessmentMethod} onChange={(e) => set('assessmentMethod', e.target.value)}
                     className="w-full h-10 rounded-md border px-3 text-sm bg-white dark:bg-gray-900">
                     <option value="">Selecione</option>
                     <option value="bioimpedancia">Bioimpedância</option>
@@ -495,8 +518,8 @@ export default function PatientNewPage() {
                 </div>
                 {errors.mainObjective && <p className="text-xs text-red-500">{errors.mainObjective}</p>}
                 <div>
-                  <Label>Observações iniciais (opcional)</Label>
-                  <Textarea
+                  <Label htmlFor="professionalNotes">Observações iniciais (opcional)</Label>
+                  <Textarea id="professionalNotes"
                     value={form.professionalNotes}
                     onChange={(e) => set('professionalNotes', e.target.value)}
                     placeholder="Observações clínicas relevantes para o início do acompanhamento..."

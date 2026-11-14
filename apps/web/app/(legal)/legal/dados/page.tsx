@@ -187,10 +187,10 @@ export default function DadosPage() {
               )}
 
               <div>
-                <label className="text-xs font-medium text-gray-700 block mb-1">
+                <label htmlFor="details" className="text-xs font-medium text-gray-700 block mb-1">
                   Detalhes adicionais (opcional)
                 </label>
-                <textarea
+                <textarea id="details"
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
                   rows={3}

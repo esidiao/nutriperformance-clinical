@@ -339,12 +339,18 @@ export default function SupplementSuggestPage() {
           <CardContent className="space-y-5">
             {/* Goals */}
             <div>
-              <Label className="mb-2 block">Objetivos clínicos *</Label>
-              <div className="flex flex-wrap gap-2">
+              {/*
+                Grupo de botoes que alternam, como as restricoes alimentares em
+                patients/new: `aria-labelledby` nomeia o conjunto e
+                `aria-pressed` expoe o estado, que antes existia so na cor.
+              */}
+              <Label id="objetivos-rotulo" className="mb-2 block">Objetivos clínicos *</Label>
+              <div className="flex flex-wrap gap-2" role="group" aria-labelledby="objetivos-rotulo">
                 {GOAL_OPTIONS.map((g) => (
                   <button
                     key={g.key}
                     type="button"
+                    aria-pressed={goals.includes(g.key)}
                     onClick={() => toggleGoal(g.key)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
                       goals.includes(g.key)
@@ -360,12 +366,12 @@ export default function SupplementSuggestPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label>Idade</Label>
-                <Input type="number" min={10} max={100} value={age} onChange={(e) => setAge(Number(e.target.value))} />
+                <Label htmlFor="age">Idade</Label>
+                <Input id="age" type="number" min={10} max={100} value={age} onChange={(e) => setAge(Number(e.target.value))} />
               </div>
               <div>
-                <Label>Sexo</Label>
-                <select
+                <Label htmlFor="gender">Sexo</Label>
+                <select id="gender"
                   value={gender}
                   onChange={(e) => setGender(e.target.value as 'male' | 'female')}
                   className="w-full h-10 rounded-md border px-3 text-sm dark:bg-gray-800 dark:border-gray-700"
@@ -375,8 +381,8 @@ export default function SupplementSuggestPage() {
                 </select>
               </div>
               <div>
-                <Label>Condições / Restrições</Label>
-                <Input
+                <Label htmlFor="conditions">Condições / Restrições</Label>
+                <Input id="conditions"
                   value={conditions}
                   onChange={(e) => setConditions(e.target.value)}
                   placeholder="Ex: vegetariano, diabetes, hipertensão"
@@ -385,8 +391,8 @@ export default function SupplementSuggestPage() {
             </div>
 
             <div>
-              <Label>Deficiências laboratoriais identificadas</Label>
-              <Input
+              <Label htmlFor="labDeficiencies">Deficiências laboratoriais identificadas</Label>
+              <Input id="labDeficiencies"
                 value={labDeficiencies}
                 onChange={(e) => setLabDeficiencies(e.target.value)}
                 placeholder="Ex: Vitamina D baixa, Ferritina baixa, B12 baixa, Zinco sérico baixo"

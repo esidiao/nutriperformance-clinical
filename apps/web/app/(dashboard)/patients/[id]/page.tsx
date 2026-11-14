@@ -112,7 +112,7 @@ function ClinicalContextCard({
       <CardContent className="space-y-4">
         {/* Medicamentos */}
         <div>
-          <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" /> Medicamentos em uso</label>
+          <span id="ctx-medicamentos" className="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><Pill className="h-3.5 w-3.5" aria-hidden /> Medicamentos em uso</span>
           <div className="mt-1.5 space-y-1.5">
             {meds.length === 0 && <p className="text-[11px] text-gray-500">Nenhum medicamento registrado.</p>}
             {meds.map((m, i) => (
@@ -127,7 +127,7 @@ function ClinicalContextCard({
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-2" role="group" aria-labelledby="ctx-medicamentos">
             <Input value={medDraft.name} onChange={(e) => setMedDraft((d) => ({ ...d, name: e.target.value }))}
               placeholder="Nome (ex.: Omeprazol)" className="h-8 text-sm sm:col-span-2" aria-label="Nome do medicamento" />
             <Input value={medDraft.dose} onChange={(e) => setMedDraft((d) => ({ ...d, dose: e.target.value }))}
@@ -138,7 +138,7 @@ function ClinicalContextCard({
 
         {/* Condições clínicas */}
         <div>
-          <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Condições clínicas</label>
+          <span id="ctx-condicoes" className="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" aria-hidden /> Condições clínicas</span>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {conditions.length === 0 && <p className="text-[11px] text-gray-500">Nenhuma condição registrada.</p>}
             {conditions.map((c, i) => (
@@ -149,7 +149,7 @@ function ClinicalContextCard({
               </span>
             ))}
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-2" role="group" aria-labelledby="ctx-condicoes">
             <Input value={condDraft} onChange={(e) => setCondDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCond(); } }}
               placeholder="Ex.: Hipertensão arterial" className="h-8 text-sm" aria-label="Condição clínica" />
@@ -449,14 +449,14 @@ export default function PatientPage() {
               <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Pill className="h-4 w-4 text-blue-600" /> Adicionar suplemento</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                  <div className="sm:col-span-5"><label className="text-[11px] text-gray-500">Suplemento</label>
-                    <Input value={suppForm.supplementName} onChange={(e) => setSuppForm((s) => ({ ...s, supplementName: e.target.value }))} placeholder="Ex: Creatina monoidratada" className="h-9 text-sm" /></div>
-                  <div className="sm:col-span-2"><label className="text-[11px] text-gray-500">Dose</label>
-                    <Input type="number" step="0.1" value={suppForm.doseAmount} onChange={(e) => setSuppForm((s) => ({ ...s, doseAmount: e.target.value }))} placeholder="5" className="h-9 text-sm" /></div>
-                  <div className="sm:col-span-2"><label className="text-[11px] text-gray-500">Unidade</label>
-                    <Input value={suppForm.doseUnit} onChange={(e) => setSuppForm((s) => ({ ...s, doseUnit: e.target.value }))} placeholder="g" className="h-9 text-sm" /></div>
-                  <div className="sm:col-span-3"><label className="text-[11px] text-gray-500">Vezes/dia</label>
-                    <Input type="number" min={1} value={suppForm.frequencyPerDay} onChange={(e) => setSuppForm((s) => ({ ...s, frequencyPerDay: e.target.value }))} placeholder="1" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-5"><label htmlFor="suppForm-supplementName" className="text-[11px] text-gray-500">Suplemento</label>
+                    <Input id="suppForm-supplementName" value={suppForm.supplementName} onChange={(e) => setSuppForm((s) => ({ ...s, supplementName: e.target.value }))} placeholder="Ex: Creatina monoidratada" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-2"><label htmlFor="suppForm-doseAmount" className="text-[11px] text-gray-500">Dose</label>
+                    <Input id="suppForm-doseAmount" type="number" step="0.1" value={suppForm.doseAmount} onChange={(e) => setSuppForm((s) => ({ ...s, doseAmount: e.target.value }))} placeholder="5" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-2"><label htmlFor="suppForm-doseUnit" className="text-[11px] text-gray-500">Unidade</label>
+                    <Input id="suppForm-doseUnit" value={suppForm.doseUnit} onChange={(e) => setSuppForm((s) => ({ ...s, doseUnit: e.target.value }))} placeholder="g" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-3"><label htmlFor="suppForm-frequencyPerDay" className="text-[11px] text-gray-500">Vezes/dia</label>
+                    <Input id="suppForm-frequencyPerDay" type="number" min={1} value={suppForm.frequencyPerDay} onChange={(e) => setSuppForm((s) => ({ ...s, frequencyPerDay: e.target.value }))} placeholder="1" className="h-9 text-sm" /></div>
                 </div>
                 <div className="flex justify-end">
                   <Button size="sm" disabled={savingSupp} onClick={handleAddSupplement} className="h-8 text-xs flex items-center gap-1.5">
@@ -500,16 +500,16 @@ export default function PatientPage() {
               <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Target className="h-4 w-4 text-blue-600" /> Nova meta</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                  <div className="sm:col-span-5"><label className="text-[11px] text-gray-500">Tipo de meta</label>
-                    <select value={goalForm.goalType} onChange={(e) => setGoalForm((s) => ({ ...s, goalType: e.target.value }))} className="w-full h-9 rounded-md border px-2 text-sm dark:bg-gray-800 dark:border-gray-700">
+                  <div className="sm:col-span-5"><label htmlFor="goalForm-goalType" className="text-[11px] text-gray-500">Tipo de meta</label>
+                    <select id="goalForm-goalType" value={goalForm.goalType} onChange={(e) => setGoalForm((s) => ({ ...s, goalType: e.target.value }))} className="w-full h-9 rounded-md border px-2 text-sm dark:bg-gray-800 dark:border-gray-700">
                       {GOAL_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select></div>
-                  <div className="sm:col-span-3"><label className="text-[11px] text-gray-500">Valor inicial</label>
-                    <Input type="number" step="0.1" value={goalForm.baselineValue} onChange={(e) => setGoalForm((s) => ({ ...s, baselineValue: e.target.value }))} placeholder="43.2" className="h-9 text-sm" /></div>
-                  <div className="sm:col-span-2"><label className="text-[11px] text-gray-500">Alvo</label>
-                    <Input type="number" step="0.1" value={goalForm.targetValue} onChange={(e) => setGoalForm((s) => ({ ...s, targetValue: e.target.value }))} placeholder="47" className="h-9 text-sm" /></div>
-                  <div className="sm:col-span-2"><label className="text-[11px] text-gray-500">Unidade</label>
-                    <Input value={goalForm.targetUnit} onChange={(e) => setGoalForm((s) => ({ ...s, targetUnit: e.target.value }))} placeholder="kg" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-3"><label htmlFor="goalForm-baselineValue" className="text-[11px] text-gray-500">Valor inicial</label>
+                    <Input id="goalForm-baselineValue" type="number" step="0.1" value={goalForm.baselineValue} onChange={(e) => setGoalForm((s) => ({ ...s, baselineValue: e.target.value }))} placeholder="43.2" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-2"><label htmlFor="goalForm-targetValue" className="text-[11px] text-gray-500">Alvo</label>
+                    <Input id="goalForm-targetValue" type="number" step="0.1" value={goalForm.targetValue} onChange={(e) => setGoalForm((s) => ({ ...s, targetValue: e.target.value }))} placeholder="47" className="h-9 text-sm" /></div>
+                  <div className="sm:col-span-2"><label htmlFor="goalForm-targetUnit" className="text-[11px] text-gray-500">Unidade</label>
+                    <Input id="goalForm-targetUnit" value={goalForm.targetUnit} onChange={(e) => setGoalForm((s) => ({ ...s, targetUnit: e.target.value }))} placeholder="kg" className="h-9 text-sm" /></div>
                 </div>
                 <div className="flex justify-end">
                   <Button size="sm" disabled={savingGoal} onClick={handleAddGoal} className="h-8 text-xs flex items-center gap-1.5">

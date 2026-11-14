@@ -306,12 +306,12 @@ function LaboratoryContent() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Data da coleta *</Label>
-                  <Input type="date" value={collectionDate} onChange={(e) => setCollectionDate(e.target.value)} className="mt-1" />
+                  <Label htmlFor="collectionDate" className="text-xs">Data da coleta *</Label>
+                  <Input id="collectionDate" type="date" value={collectionDate} onChange={(e) => setCollectionDate(e.target.value)} className="mt-1" />
                 </div>
                 <div>
-                  <Label className="text-xs">Laboratório</Label>
-                  <Input value={labName} onChange={(e) => setLabName(e.target.value)} placeholder="Ex.: Laboratório Central" className="mt-1" />
+                  <Label htmlFor="labName" className="text-xs">Laboratório</Label>
+                  <Input id="labName" value={labName} onChange={(e) => setLabName(e.target.value)} placeholder="Ex.: Laboratório Central" className="mt-1" />
                 </div>
               </div>
 
@@ -454,10 +454,10 @@ function LaboratoryContent() {
                 </div>
 
                 <div className="mt-4 pt-4 border-t">
-                  <Label className="text-xs text-gray-600 font-semibold uppercase tracking-wide">
+                  <Label htmlFor="interpretation" className="text-xs text-gray-600 font-semibold uppercase tracking-wide">
                     Interpretação do Profissional
                   </Label>
-                  <textarea
+                  <textarea id="interpretation"
                     value={interpretation}
                     onChange={(e) => setInterpretation(e.target.value)}
                     rows={3}

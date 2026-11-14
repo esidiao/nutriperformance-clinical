@@ -59,12 +59,21 @@ const ANALYSIS_STEPS = [
 
 // ─── Autocomplete input for supplements ──────────────────────────────────────
 function AutocompleteInput({
-  value, onChange, placeholder, suggestions,
+  value, onChange, placeholder, suggestions, ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   suggestions: string[];
+  /**
+   * Nome do campo para quem nao enxerga a tela.
+   *
+   * Aqui nao da para usar <Label htmlFor>: o rotulo visivel e um CABECALHO DE
+   * COLUNA, renderizado so na primeira linha (`{i === 0 && <Label>}`). Da
+   * segunda linha em diante nao existe rotulo nenhum, e o `placeholder` some
+   * assim que a pessoa digita.
+   */
+  ariaLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
@@ -88,6 +97,7 @@ function AutocompleteInput({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
         <input
           type="text"
+          aria-label={ariaLabel}
           value={query}
           placeholder={placeholder}
           className="w-full h-10 pl-8 pr-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-gray-800 dark:border-gray-700"
@@ -397,8 +407,15 @@ function InteractionAnalysisContent() {
           {supplements.map((s, i) => (
             <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
               <div>
+              {/*
+                Cabecalho de COLUNA, nao rotulo de campo: so e renderizado na
+                primeira linha. `htmlFor` resolveria a linha 1 e deixaria as
+                demais sem nome, com o lint passando -- por isso cada campo
+                carrega o proprio `aria-label`, que vale em todas as linhas.
+              */}
                 {i === 0 && <Label>Nome do suplemento</Label>}
                 <AutocompleteInput
+                  ariaLabel={`Nome do suplemento ${i + 1}`}
                   value={s.name}
                   onChange={(v) => updateSupplement(i, 'name', v)}
                   placeholder="Ex: Creatina monoidratada"
@@ -406,14 +423,14 @@ function InteractionAnalysisContent() {
                 />
               </div>
               <div>
-                {i === 0 && <Label>Dose</Label>}
-                <Input value={s.dose} onChange={(e) => updateSupplement(i, 'dose', e.target.value)}
+                {i === 0 && <Label htmlFor={`supplement-${i}-dose`}>Dose</Label>}
+                <Input id={`supplement-${i}-dose`} aria-label={`Dose do suplemento ${i + 1}`} value={s.dose} onChange={(e) => updateSupplement(i, 'dose', e.target.value)}
                   placeholder="Ex: 5g" />
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  {i === 0 && <Label>Frequência</Label>}
-                  <Input value={s.frequency} onChange={(e) => updateSupplement(i, 'frequency', e.target.value)}
+                  {i === 0 && <Label htmlFor={`supplement-${i}-frequency`}>Frequência</Label>}
+                  <Input id={`supplement-${i}-frequency`} aria-label={`Frequência do suplemento ${i + 1}`} value={s.frequency} onChange={(e) => updateSupplement(i, 'frequency', e.target.value)}
                     placeholder="Ex: Diária" />
                 </div>
                 {supplements.length > 1 && (
@@ -440,19 +457,25 @@ function InteractionAnalysisContent() {
           {medications.map((m, i) => (
             <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
               <div>
-                {i === 0 && <Label>Nome do medicamento</Label>}
-                <Input value={m.name} onChange={(e) => updateMedication(i, 'name', e.target.value)}
+              {/*
+                Cabecalho de COLUNA, nao rotulo de campo: so e renderizado na
+                primeira linha. `htmlFor` resolveria a linha 1 e deixaria as
+                demais sem nome, com o lint passando -- por isso cada campo
+                carrega o proprio `aria-label`, que vale em todas as linhas.
+              */}
+                {i === 0 && <Label htmlFor={`medication-${i}-name`}>Nome do medicamento</Label>}
+                <Input id={`medication-${i}-name`} aria-label={`Nome do medicamento ${i + 1}`} value={m.name} onChange={(e) => updateMedication(i, 'name', e.target.value)}
                   placeholder="Ex: Omeprazol 20mg" />
               </div>
               <div>
-                {i === 0 && <Label>Princípio ativo</Label>}
-                <Input value={m.activePrinciple} onChange={(e) => updateMedication(i, 'activePrinciple', e.target.value)}
+                {i === 0 && <Label htmlFor={`medication-${i}-activePrinciple`}>Princípio ativo</Label>}
+                <Input id={`medication-${i}-activePrinciple`} aria-label={`Princípio ativo do medicamento ${i + 1}`} value={m.activePrinciple} onChange={(e) => updateMedication(i, 'activePrinciple', e.target.value)}
                   placeholder="Ex: omeprazol" />
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  {i === 0 && <Label>Dose</Label>}
-                  <Input value={m.dose} onChange={(e) => updateMedication(i, 'dose', e.target.value)}
+                  {i === 0 && <Label htmlFor={`medication-${i}-dose`}>Dose</Label>}
+                  <Input id={`medication-${i}-dose`} aria-label={`Dose do medicamento ${i + 1}`} value={m.dose} onChange={(e) => updateMedication(i, 'dose', e.target.value)}
                     placeholder="Ex: 20mg/dia" />
                 </div>
                 {medications.length > 1 && (
@@ -478,8 +501,8 @@ function InteractionAnalysisContent() {
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>Idade do paciente</Label>
-              <Input value={patientAge} onChange={(e) => setPatientAge(e.target.value)} type="number" placeholder="Ex: 34" />
+              <Label htmlFor="patient-age">Idade do paciente</Label>
+              <Input id="patient-age" value={patientAge} onChange={(e) => setPatientAge(e.target.value)} type="number" placeholder="Ex: 34" />
             </div>
             <div className="flex items-center gap-3 pt-6">
               <input type="checkbox" id="pregnant" checked={isPregnant}

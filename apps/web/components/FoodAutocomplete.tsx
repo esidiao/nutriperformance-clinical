@@ -96,12 +96,19 @@ export function FoodAutocomplete({
   onSelect,
   placeholder,
   className,
+  id,
 }: {
   value: string;
   onChange: (name: string) => void;
   onSelect: (food: FoodResult) => void;
   placeholder?: string;
   className?: string;
+  /**
+   * Repassado ao <Input> interno para que um <Label htmlFor> de fora consiga
+   * alcancar o campo. Sem isto o componente nao tem como ser rotulado: quem o
+   * usa poe o rotulo, e o campo de verdade esta escondido aqui dentro.
+   */
+  id?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
@@ -129,6 +136,7 @@ export function FoodAutocomplete({
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-300" />
         <Input
+          id={id}
           value={value}
           onChange={(e) => { onChange(e.target.value); setTyped(e.target.value); setOpen(true); }}
           onFocus={() => { setTyped(value); setOpen(true); }}

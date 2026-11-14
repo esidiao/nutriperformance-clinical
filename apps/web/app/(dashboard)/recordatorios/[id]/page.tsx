@@ -165,8 +165,9 @@ export default function RecordatorioDetalhePage() {
               </div>
 
               <div className="sm:col-span-4">
-                <Label>Alimento</Label>
+                <Label htmlFor="recordatorio-alimento">Alimento</Label>
                 <FoodAutocomplete
+                  id="recordatorio-alimento"
                   value={alimento?.nome ?? nome}
                   onChange={(v) => { setNome(v); setAlimento(null); }}
                   onSelect={(f) => { setAlimento(f); setNome(f.nome); }}
