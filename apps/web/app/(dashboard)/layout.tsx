@@ -111,6 +111,22 @@ function Sidebar({
     api.dashboard.stats().then((s: any) => setAlertCount(s?.alerts?.pending ?? 0)).catch(() => {});
   }, []);
 
+  // Esc fecha o menu lateral no celular.
+  //
+  // O fundo escurecido fechava o menu só no clique, e nada fazia isso pelo
+  // teclado: quem não usa mouse abria o menu e ficava preso nele. Agora o
+  // fundo é decorativo (`aria-hidden`), o atalho é o Esc — que é o que se
+  // espera de qualquer painel sobreposto — e o botão "Fechar menu lateral"
+  // continua sendo o caminho visível.
+  useEffect(() => {
+    if (!open) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [open, onClose]);
+
   const handleLogout = async () => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -127,7 +143,11 @@ function Sidebar({
   return (
     <>
       {open && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={onClose} />
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+          onClick={onClose}
+        />
       )}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-40
@@ -273,13 +293,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <AuthGuard>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
+        {/*
+          Pular para o conteúdo.
+          Invisível até receber foco, e aí é o PRIMEIRO parável do Tab. Sem ele,
+          quem navega por teclado atravessa os 24 itens do menu lateral em cada
+          página antes de chegar ao conteúdo — em toda navegação, não uma vez.
+        */}
+        <a
+          href="#conteudo"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50
+                     focus:rounded-md focus:bg-primary focus:px-4 focus:py-2
+                     focus:text-primary-foreground focus:outline-none
+                     focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          Pular para o conteúdo
+        </a>
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
         <Sidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           onShowShortcuts={() => setShortcutsOpen(true)}
         />
-        <main className="flex-1 overflow-y-auto pt-14 lg:pt-0">
+        <main id="conteudo" tabIndex={-1} className="flex-1 overflow-y-auto pt-14 lg:pt-0">
           <div className="page-transition">
             {children}
           </div>

@@ -12,8 +12,30 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 9%;
 
-    /* Brand — teal-verde clínico */
-    --primary: 164 68% 34%;
+    /* Brand — teal-verde clínico.
+     *
+     * 28% de luminosidade e não 34%, e esta é a correção de um defeito que o
+     * repositório já conhecia e corrigiu no lugar errado.
+     *
+     * O comentário de `tailwind.config.ts` calculou, para a rampa `brand` das
+     * páginas públicas, que o tom puro rende só 3,89:1 com texto branco —
+     * reprova no WCAG AA, que exige 4,5:1. A rampa foi corrigida; este token,
+     * que é o que a variante `default` do `<Button>` usa no app autenticado,
+     * ficou como estava. O resultado é que TODA ação primária do produto
+     * reprovava: 59 usos de `bg-primary`/`text-primary` em 26 arquivos, mais o
+     * componente de botão.
+     *
+     * Medido no navegador em 14/11/2026, na página de login: botão "Entrar",
+     * "Esqueci minha senha" e "Criar conta", todos em 3,89:1.
+     *
+     * 164 72% 28% é o mesmo valor de `brand-600`, e dá 5,21:1. O mínimo que
+     * passaria seria 30% (4,64:1); usar 28% alinha o app à rampa pública e
+     * acaba com os dois tons de verde conviventes.
+     *
+     * O bloco `.dark` NÃO muda: lá o par é texto escuro sobre teal claro e já
+     * rende 6,49:1. Mexer nele quebraria o que está certo.
+     */
+    --primary: 164 72% 28%;
     --primary-foreground: 0 0% 100%;
 
     /* Superfícies secundárias (leve tint do brand) */

@@ -13,8 +13,14 @@ const config: Config = {
       },
       colors: {
         /**
-         * Rampa fixa do teal clínico, ancorada no mesmo tom de `--primary`
-         * (164 68% 34% = #19917C, o themeColor do app).
+         * Rampa fixa do teal clínico, no mesmo matiz de `--primary`.
+         *
+         * Desde 14/11/2026 o degrau de ação (`600`) e o token `--primary` do
+         * tema claro são o MESMO valor — 164 72% 28%. Antes divergiam: a rampa
+         * tinha sido corrigida para passar no WCAG AA e o token, não, então o
+         * app autenticado reprovava em todo botão primário enquanto as páginas
+         * públicas passavam. Se um dia voltarem a divergir, é defeito, não
+         * escolha.
          *
          * Existe separada dos tokens porque as páginas públicas (landing e
          * legal) são deliberadamente claras — fixam `bg-white`/`text-gray-*` e
@@ -29,10 +35,8 @@ const config: Config = {
           300: 'hsl(164 46% 66%)',
           400: 'hsl(164 52% 48%)',
           500: 'hsl(164 60% 38%)',
-          // 600 é o degrau de texto/botão, então fecha em 28% de luminosidade
-          // em vez dos 34% de `--primary`: o tom da marca puro rende só 3.89:1
-          // com texto branco (reprova no AA para 16px semibold, que é o CTA
-          // principal). A 28% dá 5.06:1, mantendo o mesmo matiz teal.
+          // 600 é o degrau de texto/botão: 28% de luminosidade dá 5,21:1 com
+          // texto branco. O tom da marca em 34% rende 3,89:1 e reprova no AA.
           600: 'hsl(164 72% 28%)',
           700: 'hsl(164 76% 22%)',
           800: 'hsl(164 78% 17%)',

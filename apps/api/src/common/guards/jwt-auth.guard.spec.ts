@@ -194,6 +194,22 @@ describe('JwtAuthGuard', () => {
       expect(codigo).not.toMatch(/from\s+'jsonwebtoken'/);
     });
 
+    it('jsonwebtoken nem esta instalado', () => {
+      // O teste acima proibia o import e o pacote continuava na imagem de
+      // producao, sem um unico uso. Enquanto estivesse la, reintroduzir o
+      // caminho HS256 compilava sem tocar em package.json — a proibicao era
+      // so textual. Removido em 14/11/2026 junto com ioredis, @nestjs/jwt,
+      // @nestjs/passport e passport-jwt, todos com zero imports.
+      //
+      // Com isto a catraca vira fisica: voltar a assinar com segredo
+      // compartilhado exige, primeiro, declarar a dependencia de novo.
+      const pkg = JSON.parse(
+        readFileSync(join(__dirname, '..', '..', '..', 'package.json'), 'utf8'),
+      );
+      const todas = { ...pkg.dependencies, ...pkg.devDependencies };
+      expect(Object.keys(todas)).not.toContain('jsonwebtoken');
+    });
+
     it('nao le SUPABASE_JWT_SECRET', () => {
       // Reintroduzir a variavel no Render nao pode reabrir o caminho: o codigo
       // precisa ignora-la.
