@@ -2,6 +2,42 @@
 
 Base: `master` em `ddefbdb`, árvore limpa. API em produção no commit `75fd221`.
 
+> **Versão em página:** <https://claude.ai/artifact/9PNiMiXFP2KPRprRsaMCGa> — mesmo conteúdo,
+> com o estado de cada achado. Link privado; descreve defeitos ainda abertos.
+
+## Estado em 14/11/2026, fim do dia
+
+O levantamento abaixo está como foi escrito. O que mudou depois, no mesmo dia:
+
+| achado | estado | onde |
+|---|---|---|
+| A1 contraste do botão primário | **corrigido** — 3,89:1 → 5,21:1, medido em produção | `eedc80a` |
+| A2 92 rótulos de formulário | **corrigido** — 93 → 7 ocorrências, as 7 justificadas | `e6657fa` |
+| A3 pular para o conteúdo, teclado no menu | **corrigido** | `eedc80a` |
+| S1 cadeia de upload → otimizador | **corrigido** — `/_next/image` responde 404 em produção | `eedc80a` |
+| S4 dependências mortas | **corrigido** — 5 pacotes, 38 no total | `eedc80a` |
+| S5 `proxy-addr` | **corrigido** | `eedc80a` |
+| S6 `allowedOrigins` morta | **corrigido** | `eedc80a` |
+| S7 contagem | 5 críticas/15 altas → **3/8** | — |
+| A2 (catraca) | `jsx-a11y` no CI, falha só no que for novo | `2afac17`, `93e13dd` |
+
+**Achados novos, surgidos durante as correções:**
+
+- **Tema decidido em dois lugares que discordavam.** As variáveis de cor seguiam a classe
+  (escolha da pessoa) e os 465 utilitários `dark:` seguiam o sistema operacional. Corrigido
+  em `b55fdb8`.
+- **O expurgo de fotos nunca rodou.** O `\n` de um `curl -w` virou quebra de linha de
+  verdade e invalidou o YAML inteiro; o GitHub não interpretava o arquivo. Corrigido em
+  `d062ce9`, e o ensaio com `simular=true` reportou **0 fotos** além do prazo — o período
+  sem expurgo não causou dano.
+- **Não havia CI nenhum.** Os 1.213 testes, o `tsc` e o `next build` não rodavam
+  automaticamente. `ci.yml` em `93e13dd`, verde nos dois jobs.
+- **O `is_active` foi provado em produção.** `provar-conta-desativada.mjs`, 8 de 8
+  conferências: desativar nega, suspender workspace nega na hora, e os dois voltam.
+
+**Segue aberto:** U1, U2, S2, S3, C1, C2, C3, e a seção 5 (inteligência de gestão).
+**C2 bloqueia C1** — a decisão de guarda vem antes do código de exclusão.
+
 ## Método, e o que ele não alcança
 
 Vale dizer antes dos achados, porque muda o peso de cada um.
