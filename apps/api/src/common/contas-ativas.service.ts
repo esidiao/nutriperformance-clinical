@@ -28,11 +28,28 @@ import { DataSource } from 'typeorm';
  * Qualquer duvida nega. Sem linha em `users`, sem workspace, erro de banco:
  * nega. Um token prova quem assinou, nao que a conta ainda exista.
  *
- * Em particular, conta autenticada SEM linha em `users` passa a ser negada.
- * Eram cinco em 30/10/2026: quatro de teste (`@nutritest.com`,
- * `@performance.com`) e `sidiao@i9educar.com`, cujo token aponta para um
- * workspace que nao existe no banco — ou seja, ja estava quebrada, so nao
- * avisava. Nenhuma conta de uso real foi afetada.
+ * Em particular, conta cujo `sub` nao acha linha em `users` passa a ser
+ * negada. Eram cinco, e em 14/11/2026 eu descobri que havia descrito mal
+ * QUATRO delas:
+ *
+ *   - `admin@`, `dra.ana@`, `estudante@nutritest.com` e
+ *     `prof.lucas@performance.com` TEM linha em `users` (criadas em
+ *     22/05/2026). O que falta nelas e a invariante: `users.id` e um UUID
+ *     diferente do `auth_id`, e a busca aqui e por `u.id = sub`. Ver
+ *     `common/identidade-da-conta.ts`;
+ *   - so `sidiao@i9educar.com` nao tem linha nenhuma — e o token dela aponta
+ *     para um workspace que tambem nao existe.
+ *
+ * O veredito nao muda (as cinco sao negadas), mas o CONSERTO muda: para as
+ * quatro primeiras nao se cria linha nova, corrige-se o `id` da que existe.
+ *
+ * Efeito colateral bom: antes desta conferencia, conta com `id != auth_id`
+ * autenticava e morria com HTTP 500 em toda ESCRITA, porque `created_by`
+ * apontava para um id inexistente. Agora ela falha no acesso, cedo e com
+ * motivo escrito, em vez de falhar depois e generico.
+ *
+ * Nenhuma conta de uso real foi afetada — isso continua valendo, e foi
+ * reconferido em 14/11/2026.
  */
 @Injectable()
 export class ContasAtivasService {
