@@ -1,0 +1,109 @@
+name: CI
+
+# Até 14/11/2026 NADA rodava automaticamente neste repositório: os 1.213
+# testes de `apps/api`, o `tsc --noEmit` dos dois apps e o `next build` só
+# existiam na máquina de quem lembrasse de rodá-los. Os três workflows
+# antigos (expurgo-fotos, manter-acordado, rag-sync) são tarefas agendadas
+# contra a API em produção, não verificação de código.
+#
+# O custo disso apareceu no mesmo dia: eu acrescentei um `eslint.config.mjs`
+# em apps/web e QUEBREI o `next build` — o Next adota qualquer config com esse
+# nome e passou a lintar tudo com uma config que só conhecia acessibilidade.
+# Ficou quebrado por quatro commits, porque depois de criar a config eu parei
+# de rodar o build. É exatamente o que este arquivo existe para impedir.
+#
+# SEM FILTRO `paths`, de propósito. A catraca de acessibilidade tinha um, e o
+# commit que consertava o `pnpm install` DELA mexia só na raiz — não disparou,
+# e o conserto ficou sem prova. Gatilho que ignora o arquivo de que o job
+# depende diz "nada mudou" quando mudou o que mais importa. Aqui tudo roda
+# sempre; a conta é de poucos minutos.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API — tipos e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Nenhum teste usa puppeteer (conferido: zero .spec.ts o importa), e sem
+      # isto o install baixa um Chromium inteiro a cada execução.
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # corepack respeita o `packageManager` da raiz (pnpm@11.2.2).
+      - run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22 e não 20: o pnpm 11.2.2 exige node >=22.13. O `engines` da raiz
+          # pede >=20, mas isso é sobre o app, não sobre o gerenciador — com o
+          # 20 o passo morre em `node:sqlite` dentro do próprio setup-node,
+          # porque `cache: pnpm` já chama o pnpm para achar o store.
+          node-version: '22'
+          cache: pnpm
+
+      - name: Instalar dependências da API
+        run: pnpm install --frozen-lockfile --filter @nutri-performance/api...
+
+      - name: Tipos
+        working-directory: apps/api
+        run: pnpm exec tsc --noEmit -p tsconfig.json
+
+      # Os testes NÃO leem .env: não há setupFiles nem dotenv no jest.config.
+      # Verificado rodando a suíte com o .env removido antes de escrever isto.
+      - name: Testes
+        working-directory: apps/api
+        run: pnpm exec jest --ci --maxWorkers=2
+
+  web:
+    name: Front — tipos, acessibilidade e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Instalar dependências do front
+        run: pnpm install --frozen-lockfile --filter @nutri-performance/web...
+
+      - name: Tipos
+        working-directory: apps/web
+        run: pnpm exec tsc --noEmit
+
+      # Antes do build porque é rápida: se alguém acrescentou um campo sem
+      # rótulo, o retorno chega em segundos em vez de minutos.
+      - name: Catraca de acessibilidade
+        working-directory: apps/web
+        run: pnpm a11y
+
+      - name: Build
+        working-directory: apps/web
+        env:
+          # Valores de MENTIRA, e o build precisa deles: sem
+          # NEXT_PUBLIC_SUPABASE_URL/ANON_KEY o `createBrowserClient` lança
+          # durante a prerenderização e o build morre em
+          # `/(dashboard)/interactions/new`. Nada aqui é segredo nem alcança
+          # produção — o artefato é descartado ao fim do job, e quem publica é
+          # a Vercel, com as variáveis dela.
+          NEXT_PUBLIC_SUPABASE_URL: 'https://exemplo-ci.supabase.co'
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'chave-de-mentira-para-o-build-do-ci'
+          NEXT_PUBLIC_API_URL: 'http://localhost:3001'
+        run: pnpm exec next build

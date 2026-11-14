@@ -70,7 +70,7 @@ let bruto;
 try {
   bruto = execFileSync(
     process.execPath,
-    [bin, '--no-config-lookup', '-c', join(RAIZ, 'eslint.config.mjs'),
+    [bin, '--no-config-lookup', '-c', join(RAIZ, 'eslint.a11y.config.mjs'),
       'app/**/*.tsx', 'components/**/*.tsx', '-f', 'json'],
     { cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   );

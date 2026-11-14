@@ -4,6 +4,17 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 /**
  * Configuração só de ACESSIBILIDADE.
  *
+ * O nome do arquivo NÃO é `eslint.config.mjs` de propósito. Com esse nome, o
+ * `next build` adota esta config como a config do projeto e passa a lintar
+ * tudo com ela — e como ela não carrega os plugins `@next/next` nem
+ * `react-hooks`, os comentários `eslint-disable` espalhados pelo código viram
+ * "Definition for rule not found" e o BUILD QUEBRA. Foi o que aconteceu entre
+ * 2afac17 e 14/11/2026: a catraca entrou verde e o build parou, porque eu
+ * tinha deixado de rodar `next build` depois de acrescentar a config.
+ *
+ * Com o nome atual o Next usa a config dele, e a catraca aponta para esta via
+ * `-c` explícito.
+ *
  * Não é o lint geral do projeto — não há um, e esta config não pretende ser.
  * Ela existe para a catraca de `scripts/catraca-a11y.mjs`, que compara o
  * resultado com a lista de ocorrências já conhecidas e falha apenas nas novas.
