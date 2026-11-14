@@ -22,6 +22,7 @@ import {
   Activity, Pill, FlaskConical, Target,
   ShieldAlert, User, Calendar, GitMerge, Plus, Dumbbell,
   TrendingUp, Loader2, AlertCircle, X, Stethoscope,
+  UtensilsCrossed, CalendarDays, Microscope, ClipboardList, ExternalLink,
 } from 'lucide-react';
 
 const GENDER_LABEL: Record<string, string> = { male: 'Masculino', female: 'Feminino', other: 'Outro', not_informed: '—' };
@@ -45,6 +46,40 @@ function EthicsDisclaimer() {
         Não substitui avaliação clínica, diagnóstico ou prescrição. CFN · CONFEF · LGPD.
       </AlertDescription>
     </Alert>
+  );
+}
+
+const fmtDataHora = (iso?: string) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+};
+
+/**
+ * Cabecalho das abas de dominio.
+ *
+ * O link para o modulo leva o paciente junto (`?patient=`) onde a tela de
+ * destino sabe ler — planos, recordatorios e exames sabem; a agenda ainda nao,
+ * e por isso o link dela vai sem. Sem esse parametro a pessoa sai da ficha e
+ * precisa reencontrar o paciente, que e exatamente o vaivem que estas abas
+ * existem para acabar.
+ */
+function CabecalhoDeAba(
+  { titulo, descricao, href, rotuloLink }:
+  { titulo: string; descricao: string; href: string; rotuloLink: string },
+) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3 mb-1">
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold">{titulo}</h2>
+        <p className="text-[11px] text-gray-500">{descricao}</p>
+      </div>
+      <Link href={href}>
+        <Button variant="outline" size="sm" className="h-8 text-xs flex items-center gap-1.5">
+          {rotuloLink} <ExternalLink className="h-3.5 w-3.5" />
+        </Button>
+      </Link>
+    </div>
   );
 }
 
@@ -186,12 +221,23 @@ export default function PatientPage() {
   const goalsQ = useQuery({ queryKey: ['goals', patientId], queryFn: () => api.goals.list(patientId), enabled: !!patientId });
   const interQ = useQuery({ queryKey: ['inter', patientId], queryFn: () => api.interactions.listByPatient(patientId), enabled: !!patientId });
 
+  // Os quatro dominios que faltavam na ficha. Cada um ja tinha listagem
+  // por paciente na API; o que faltava era a ficha perguntar.
+  const planosQ = useQuery({ queryKey: ['planos', patientId], queryFn: () => api.mealPlans.list(patientId), enabled: !!patientId });
+  const consultasQ = useQuery({ queryKey: ['consultasPaciente', patientId], queryFn: () => api.appointments.list({ patientId }), enabled: !!patientId });
+  const examesQ = useQuery({ queryKey: ['exames', patientId], queryFn: () => api.laboratory.list(patientId), enabled: !!patientId });
+  const recordQ = useQuery({ queryKey: ['recordatorios', patientId], queryFn: () => api.recordatorios.list(patientId), enabled: !!patientId });
+
   const p: any = patientQ.data ?? {};
   const nutri: any[] = Array.isArray(nutriQ.data) ? nutriQ.data : [];
   const phys: any[] = Array.isArray(physQ.data) ? physQ.data : [];
   const supps: any[] = Array.isArray(suppQ.data) ? suppQ.data : [];
   const goals: any[] = Array.isArray(goalsQ.data) ? goalsQ.data : [];
   const inters: any[] = Array.isArray(interQ.data) ? interQ.data : [];
+  const planos: any[] = Array.isArray(planosQ.data) ? planosQ.data : [];
+  const consultas: any[] = Array.isArray(consultasQ.data) ? consultasQ.data : [];
+  const exames: any[] = Array.isArray(examesQ.data) ? examesQ.data : [];
+  const recordatorios: any[] = Array.isArray(recordQ.data) ? recordQ.data : [];
   const assessments = [
     ...nutri.map((a) => ({ ...a, _type: 'Nutricional' })),
     ...phys.map((a) => ({ ...a, _type: 'Física' })),
@@ -335,8 +381,14 @@ export default function PatientPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex-wrap h-auto gap-1">
             {[
+              // Ordem do atendimento, nao do sistema: consulta marcada,
+              // avaliacao, plano, recordatorio, exames — e depois as analises.
               { value: 'overview', label: 'Visão Geral', icon: Activity },
+              { value: 'consultas', label: 'Consultas', icon: CalendarDays },
               { value: 'assessments', label: 'Avaliações', icon: FlaskConical },
+              { value: 'planos', label: 'Planos', icon: UtensilsCrossed },
+              { value: 'recordatorios', label: 'Recordatórios', icon: ClipboardList },
+              { value: 'exames', label: 'Exames', icon: Microscope },
               { value: 'supplements', label: 'Suplementação', icon: Pill },
               { value: 'interactions', label: 'Interações', icon: GitMerge },
               { value: 'goals', label: 'Metas', icon: Target },
@@ -354,9 +406,15 @@ export default function PatientPage() {
             <AnamnesePreConsulta patientId={patientId} />
             <DiarioAlimentar patientId={patientId} />
             <FotosDeEvolucao patientId={patientId} />
+            {/* Conta o que a ficha agora de fato mostra; contador que ignora
+                metade dos dominios da a impressao de prontuario vazio. */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
+                { label: 'Consultas', value: consultas.length, color: 'text-sky-600', bg: 'bg-sky-50' },
                 { label: 'Avaliações', value: assessments.length, color: 'text-purple-600', bg: 'bg-purple-50' },
+                { label: 'Planos', value: planos.length, color: 'text-teal-600', bg: 'bg-teal-50' },
+                { label: 'Recordatórios', value: recordatorios.length, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                { label: 'Exames', value: exames.length, color: 'text-rose-600', bg: 'bg-rose-50' },
                 { label: 'Suplementos', value: supps.length, color: 'text-blue-600', bg: 'bg-blue-50' },
                 { label: 'Metas', value: goals.length, color: 'text-green-600', bg: 'bg-green-50' },
                 { label: 'Interações', value: inters.length, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -443,6 +501,94 @@ export default function PatientPage() {
           </TabsContent>
 
           {/* SUPPLEMENTS */}
+          {/* CONSULTAS */}
+          <TabsContent value="consultas" className="space-y-3">
+            <CabecalhoDeAba
+              titulo="Consultas deste paciente"
+              descricao="Passadas e futuras, mais recentes primeiro."
+              href="/agenda"
+              rotuloLink="Abrir agenda"
+            />
+            {consultasQ.isLoading ? <Empty text="Carregando..." /> :
+              consultas.length === 0 ? <Empty text="Nenhuma consulta registrada para este paciente." /> :
+              [...consultas]
+                .sort((a, b) => new Date(b.inicio ?? 0).getTime() - new Date(a.inicio ?? 0).getTime())
+                .map((c, i) => (
+                  <Card key={c.id ?? i}><CardContent className="py-3 px-5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <CalendarDays className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="font-semibold text-sm">{fmtDataHora(c.inicio)}</span>
+                    {c.tipo && <span className="text-xs text-gray-500">{c.tipo === 'online' ? 'Online' : 'Presencial'}</span>}
+                    <Badge variant="outline" className="ml-auto text-[11px]">{c.status ?? '—'}</Badge>
+                  </CardContent></Card>
+                ))}
+          </TabsContent>
+
+          {/* PLANOS ALIMENTARES */}
+          <TabsContent value="planos" className="space-y-3">
+            <CabecalhoDeAba
+              titulo="Planos alimentares"
+              descricao="Cada plano abre na tela de edição, com a prescrição e o relatório de adequação."
+              href={`/meal-plans?patient=${patientId}`}
+              rotuloLink="Abrir planos"
+            />
+            {planosQ.isLoading ? <Empty text="Carregando..." /> :
+              planos.length === 0 ? <Empty text="Nenhum plano alimentar para este paciente." /> :
+              planos.map((pl, i) => (
+                <Card key={pl.id ?? i}><CardContent className="py-3 px-5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <UtensilsCrossed className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <Link href={`/meal-plans/${pl.id}`} className="font-semibold text-sm hover:underline">
+                    {pl.nome || 'Plano sem nome'}
+                  </Link>
+                  {pl.isDraft && <Badge variant="outline" className="text-[11px]">rascunho</Badge>}
+                  {num(pl.metaKcal) != null && <span className="text-xs text-gray-500">{pl.metaKcal} kcal</span>}
+                  <span className="ml-auto text-xs text-gray-500">{fmtDate(pl.createdAt)}</span>
+                </CardContent></Card>
+              ))}
+          </TabsContent>
+
+          {/* RECORDATORIOS 24H */}
+          <TabsContent value="recordatorios" className="space-y-3">
+            <CabecalhoDeAba
+              titulo="Recordatórios de 24 horas"
+              descricao="O que o paciente relatou ter comido, por dia de referência."
+              href={`/recordatorios?patient=${patientId}`}
+              rotuloLink="Abrir recordatórios"
+            />
+            {recordQ.isLoading ? <Empty text="Carregando..." /> :
+              recordatorios.length === 0 ? <Empty text="Nenhum recordatório para este paciente." /> :
+              recordatorios.map((r, i) => (
+                <Card key={r.id ?? i}><CardContent className="py-3 px-5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <ClipboardList className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <Link href={`/recordatorios/${r.id}`} className="font-semibold text-sm hover:underline">
+                    {fmtDate(r.dataReferencia)}
+                  </Link>
+                  {r.tipoDeDia && <span className="text-xs text-gray-500">{r.tipoDeDia}</span>}
+                  {r.observacao && <span className="text-xs text-gray-500 truncate max-w-[18rem]">{r.observacao}</span>}
+                </CardContent></Card>
+              ))}
+          </TabsContent>
+
+          {/* EXAMES LABORATORIAIS */}
+          <TabsContent value="exames" className="space-y-3">
+            <CabecalhoDeAba
+              titulo="Exames laboratoriais"
+              descricao="Coletas registradas, da mais recente para a mais antiga."
+              href={`/laboratory?patient=${patientId}`}
+              rotuloLink="Abrir exames"
+            />
+            {examesQ.isLoading ? <Empty text="Carregando..." /> :
+              exames.length === 0 ? <Empty text="Nenhum exame registrado para este paciente." /> :
+              [...exames]
+                .sort((a, b) => new Date(b.collectionDate ?? 0).getTime() - new Date(a.collectionDate ?? 0).getTime())
+                .map((e, i) => (
+                  <Card key={e.id ?? i}><CardContent className="py-3 px-5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Microscope className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="font-semibold text-sm">{fmtDate(e.collectionDate)}</span>
+                    {e.laboratoryName && <span className="text-xs text-gray-500">{e.laboratoryName}</span>}
+                  </CardContent></Card>
+                ))}
+          </TabsContent>
+
           <TabsContent value="supplements" className="space-y-3">
             <EthicsDisclaimer />
             <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20">
