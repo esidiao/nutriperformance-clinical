@@ -1,11 +1,23 @@
 packages:
   - 'apps/*'
+# Quais dependencias podem rodar script de instalacao.
+#
+# As tres entradas que diziam `set this to true or false` eram o texto que o
+# pnpm escreve sozinho, esperando uma decisao que nunca veio. Localmente isso
+# so avisa; no CI vira ERR_PNPM_IGNORED_BUILDS e derruba o `pnpm install`
+# (14/11/2026, primeira execucao da catraca de acessibilidade).
 allowBuilds:
   '@nestjs/core': true
-  bcrypt: set this to true or false
-  core-js: set this to true or false
+  # O postinstall do core-js so imprime um pedido de doacao. Nao compila nada,
+  # nao gera arquivo: nada quebra sem ele. Vem por jspdf -> canvg.
+  core-js: false
   puppeteer: true
-  sharp: set this to true or false
+  # sharp PRECISA do script: e ele que resolve o binario da plataforma. Sem
+  # isso o `next build` quebra no ambiente onde o binario nao veio pronto.
+  sharp: true
+  # `bcrypt` saiu daqui em 14/11/2026 porque nao existe mais na arvore (foi
+  # removido da API em 2026-08-29; a senha e do Supabase Auth). Entrada para
+  # pacote ausente e so ruido que o proximo leitor tenta entender.
 
 # Correções de vulnerabilidades high/critical em dependências transitivas.
 # (No pnpm 11 os overrides moraram aqui — em package.json eles são ignorados
