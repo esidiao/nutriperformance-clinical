@@ -84,8 +84,16 @@ jobs:
           SIMULAR="${{ github.event.inputs.simular }}"
           if [ "${{ github.event_name }}" = "schedule" ]; then SIMULAR="false"; fi
 
-          resposta=$(curl -s -w '
-%{http_code}' --max-time 180 -X POST             -H "x-cron-secret: ${CRON_SECRET}"             "${API_URL}/progress-photos/expurgo?simular=${SIMULAR}")
+          # ATENCAO: o `\n` abaixo precisa ser as duas letras, nao uma quebra
+          # de linha de verdade. Ele ja foi uma: a linha seguinte comecava na
+          # coluna 0, o que fecha o bloco `run: |` e torna o YAML invalido.
+          # O GitHub entao nao conseguia nem interpretar o arquivo — o run
+          # aparecia com ZERO jobs, nome igual ao caminho do arquivo e falha
+          # imediata, em todo push. Nenhum dos dois expurgos rodou nesse
+          # periodo, e a retencao de 12 meses existia so no codigo.
+          resposta=$(curl -s -w '\n%{http_code}' --max-time 180 -X POST \
+            -H "x-cron-secret: ${CRON_SECRET}" \
+            "${API_URL}/progress-photos/expurgo?simular=${SIMULAR}")
           codigo=$(printf '%s' "$resposta" | tail -n1)
           corpo=$(printf '%s' "$resposta" | sed '$d')
           echo "HTTP ${codigo}"

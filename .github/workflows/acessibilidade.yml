@@ -57,9 +57,14 @@ jobs:
       - name: Preparar pnpm
         run: corepack enable
 
+      # 22 e nao 20. O `engines` da raiz pede node >=20, mas isso e sobre o
+      # app; quem manda aqui e o pnpm 11.2.2 do campo `packageManager`, que
+      # exige node >=22.13. Com o 20 o passo morria em `node:sqlite` —
+      # ERR_UNKNOWN_BUILTIN_MODULE — ainda dentro do setup-node, porque
+      # `cache: pnpm` ja chama o pnpm para descobrir o diretorio do store.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: pnpm
 
       # So as dependencias de apps/web. Instalar o workspace inteiro traria o
