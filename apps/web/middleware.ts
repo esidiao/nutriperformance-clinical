@@ -1,6 +1,59 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+
+// ============================================================================
+// Verificação do token, pela MESMA técnica da API
+// ----------------------------------------------------------------------------
+// `supabase.auth.getSession()` lê a sessão do cookie e NÃO valida a assinatura
+// do JWT — é por isso que a própria Supabase recomenda não confiar nele no
+// servidor. Enquanto o papel saía dali, duas coisas passavam:
+//
+//   1. cookie forjado com qualquer conteúdo, porque ninguém conferia a
+//      assinatura;
+//   2. `role` lido de `user_metadata` como alternativa — e `user_metadata` é
+//      gravável pelo PRÓPRIO dono do token (`updateUser({ data })`). Bastava a
+//      pessoa se promover a admin em si mesma.
+//
+// A segunda é a mesma escalada de privilégio que o `JwtAuthGuard` da API
+// fechou em 12/09/2026; a casca do front ficou para trás.
+//
+// O dado em si nunca esteve exposto: ele vem da API, que verifica por JWKS e,
+// desde 30/10/2026, também confere `is_active`. O que passava era a CASCA da
+// página — um controle que não controlava.
+//
+// Verificar aqui, e não subir o `@supabase/ssr` de 0.3 para 0.5, é escolha:
+// a troca de versão mexe na interface de cookies (`get/set/remove` para
+// `getAll/setAll`) e já derrubou o login inteiro deste projeto uma vez, com o
+// sintoma de "ninguém entra". Isto reaproveita uma técnica já em produção na
+// API, sem tocar no fluxo de sessão.
+// ============================================================================
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+
+// `jose` mantém o JWKS em cache e o renova sozinho; roda no runtime edge.
+const JWKS = SUPABASE_URL
+  ? createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`))
+  : null;
+
+/**
+ * Devolve os claims VERIFICADOS, ou `null`.
+ *
+ * Falha fechado em tudo: sem JWKS configurado, assinatura inválida, token
+ * expirado ou erro de rede, devolve `null` e a pessoa vai para o login. O
+ * preço de falhar fechado aqui é um login a mais; o de falhar aberto é aceitar
+ * cookie forjado.
+ */
+async function verificarToken(token: string | undefined): Promise<JWTPayload | null> {
+  if (!token || !JWKS) return null;
+  try {
+    const { payload } = await jwtVerify(token, JWKS, { audience: 'authenticated' });
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 // Rotas PÚBLICAS. Tudo que não estiver aqui exige sessão.
 //
@@ -131,7 +184,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // Build a server-side Supabase client that reads/writes cookies
-  let session: { user?: { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> } } | null = null;
+  // Do que vem do cookie, só o token interessa: identidade e papel saem dos
+  // claims verificados, nunca do objeto que `getSession()` monta.
+  let session: { access_token?: string } | null = null;
 
   try {
     // NOTE: @supabase/ssr@0.3.x exposes the get/set/remove cookie interface.
@@ -159,7 +214,11 @@ export async function middleware(request: NextRequest) {
     session = null;
   }
 
-  if (!session) {
+  // O cookie diz que há sessão; só a assinatura prova. Daqui para baixo, nada
+  // mais lê `session` — o que vale são os claims verificados.
+  const claims = await verificarToken(session?.access_token);
+
+  if (!claims) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
     // Only pass `next` if it's a safe relative path to prevent open-redirect abuse.
@@ -171,9 +230,11 @@ export async function middleware(request: NextRequest) {
 
   // Admin routes: enforce role check server-side
   if (isAdminOnly(pathname)) {
-    const user = (session as any).user;
-    // app_metadata primeiro — mesma ordem do JwtAuthGuard na API.
-    const role = user?.app_metadata?.role ?? user?.user_metadata?.role;
+    // SÓ `app_metadata`, e sem alternativa. `user_metadata` é gravável pelo
+    // dono do token: aceitá-lo como segunda opção era dar a qualquer conta o
+    // caminho de se promover a admin em si mesma.
+    const meta = (claims.app_metadata as Record<string, unknown> | undefined) ?? {};
+    const role = meta.role as string | undefined;
     if (role !== 'admin') {
       const dashUrl = request.nextUrl.clone();
       dashUrl.pathname = '/dashboard';

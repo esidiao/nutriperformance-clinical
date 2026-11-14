@@ -171,6 +171,9 @@ importers:
       framer-motion:
         specifier: ^12.40.0
         version: 12.40.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      jose:
+        specifier: 5.9.6
+        version: 5.9.6
       jspdf:
         specifier: ^4.2.1
         version: 4.2.1
@@ -3590,6 +3593,9 @@ packages:
 
   jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+
+  jose@5.9.6:
+    resolution: {integrity: sha512-AMlnetc9+CV9asI19zHmrgS/WYsWUwCn2R7RzlbJWD7F9eWYUTGyBmU9o6PxngtLGOiDGPRu+Uc4fhKzbpteZQ==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -9206,6 +9212,8 @@ snapshots:
   jiti@1.21.7: {}
 
   jose@5.10.0: {}
+
+  jose@5.9.6: {}
 
   js-tokens@4.0.0: {}
 
