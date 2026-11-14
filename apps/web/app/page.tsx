@@ -136,7 +136,7 @@ export default function LandingPage() {
             <span className="h-3 w-3 rounded-full bg-red-400" />
             <span className="h-3 w-3 rounded-full bg-yellow-400" />
             <span className="h-3 w-3 rounded-full bg-green-400" />
-            <span className="ml-3 rounded bg-white px-3 py-1 text-xs text-gray-400">nutriperformance-clinical.vercel.app/dashboard</span>
+            <span className="ml-3 rounded bg-white px-3 py-1 text-xs text-gray-500">nutriperformance-clinical.vercel.app/dashboard</span>
           </div>
           <div className="flex">
             {/* sidebar fake */}
@@ -178,7 +178,7 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-        <p className="mt-3 text-center text-xs text-gray-400">Imagem ilustrativa da interface.</p>
+        <p className="mt-3 text-center text-xs text-gray-500">Imagem ilustrativa da interface.</p>
       </section>
 
       {/* RECURSOS */}
@@ -340,7 +340,7 @@ export default function LandingPage() {
       <section className="bg-brand-600">
         <div className="mx-auto max-w-4xl px-4 py-16 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-white">Pronto para elevar sua prática clínica?</h2>
-          <p className="mx-auto mt-3 max-w-xl text-brand-100">
+          <p className="mx-auto mt-3 max-w-xl text-brand-50">
             Crie sua conta profissional e comece a usar avaliações, suplementação com IA e prescrições em PDF hoje mesmo.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -372,14 +372,14 @@ export default function LandingPage() {
             </div>
             <div className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm">
               <div className="flex flex-col gap-2">
-                <span className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Plataforma</span>
+                <span className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Plataforma</span>
                 <Link href="/login" className="text-gray-600 hover:text-brand-600">Entrar</Link>
                 <Link href="/login?mode=register" className="text-gray-600 hover:text-brand-600">Criar conta</Link>
                 <a href="#recursos" className="text-gray-600 hover:text-brand-600">Recursos</a>
                 <a href="#planos" className="text-gray-600 hover:text-brand-600">Planos</a>
               </div>
               <div className="flex flex-col gap-2">
-                <span className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Legal</span>
+                <span className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Legal</span>
                 <Link href="/legal/privacy" className="text-gray-600 hover:text-brand-600">Privacidade</Link>
                 <Link href="/legal/terms" className="text-gray-600 hover:text-brand-600">Termos de Uso</Link>
                 <Link href="/legal/cookies" className="text-gray-600 hover:text-brand-600">Cookies</Link>
@@ -387,7 +387,7 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-gray-100 pt-6 text-xs text-gray-400 sm:flex-row">
+          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-gray-100 pt-6 text-xs text-gray-500 sm:flex-row">
             <span>© 2026 NutriPerformance Clinical. Todos os direitos reservados.</span>
             <span>Encarregado de Dados (DPO): dpo@nutriperformance.com.br</span>
           </div>

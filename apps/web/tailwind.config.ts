@@ -1,6 +1,30 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
+  /**
+   * `class`, e a ausência disto era um defeito de tema inteiro.
+   *
+   * Sem `darkMode`, o Tailwind usa `'media'`: cada um dos 465 utilitários
+   * `dark:` do projeto seguia o `prefers-color-scheme` do SISTEMA. Mas o
+   * `ThemeProvider` usa `attribute="class"` com `enableSystem={false}` — ou
+   * seja, o app decidiu de propósito IGNORAR a preferência do sistema e
+   * escrever `class="light"` ou `class="dark"` no `<html>`.
+   *
+   * As duas metades do tema discordavam por construção:
+   *   - as variáveis CSS (`--primary`, `--background`, ...) seguiam a CLASSE,
+   *     que é a escolha da pessoa;
+   *   - todo utilitário `dark:` seguia o SISTEMA, ignorando essa escolha.
+   *
+   * Em máquina com sistema no escuro e app no claro — que é o padrão, porque
+   * `defaultTheme="light"` — saía fundo escuro de `dark:bg-*` combinado com
+   * texto de tema claro. Medido em 14/11/2026 na página inicial: o aviso de
+   * cookies ficava com `bg-gray-900` por baixo de `text-primary` do tema
+   * claro, 3,40:1, enquanto `<html>` dizia `class="light"`.
+   *
+   * Não era só contraste: era o tema escuro vazando sobre o claro em 35
+   * arquivos, para qualquer pessoa cujo sistema esteja no escuro.
+   */
+  darkMode: 'class',
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
