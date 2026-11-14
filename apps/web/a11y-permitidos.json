@@ -1,0 +1,29 @@
+{
+  "_leia": "Ocorrencias de acessibilidade ja existentes e conferidas UMA A UMA em 14/11/2026. A catraca (scripts/catraca-a11y.mjs) falha so no que for NOVO. Ao acrescentar uma linha em `permitido`, escreva o porque em `_motivos` — entrada sem motivo e divida, nao permissao. Nao rode --atualizar para calar um achado novo; o --atualizar serve para APERTAR o numero depois de corrigir.",
+
+  "_motivos": {
+    "app/(dashboard)/interactions/new/page.tsx :: jsx-a11y/label-has-associated-control": "`{i === 0 && <Label>Nome do suplemento</Label>}` e CABECALHO DE COLUNA: so renderiza na primeira linha da lista. htmlFor resolveria a linha 1 e deixaria as linhas 2..n sem nome, com o lint passando. Cada campo carrega o proprio aria-label, que vale em todas as linhas.",
+
+    "app/(dashboard)/patients/new/page.tsx :: jsx-a11y/label-has-associated-control": "Tres rotulos de GRUPO: `Medicamentos em uso`, `Condicoes clinicas` e `Restricoes alimentares`. Cada um encabeca varios controles — htmlFor aponta para UM so, e nos dois primeiros daria ao campo de 'adicionar' o nome da lista inteira. Resolvidos com role=group + aria-labelledby, e cada campo tem nome proprio.",
+
+    "app/(dashboard)/settings/page.tsx :: jsx-a11y/label-has-associated-control": "`Conselho profissional` nomeia TRES campos (sigla, numero e UF). htmlFor nomearia um e deixaria dois sem nome. role=group + aria-labelledby, com aria-label em cada campo.",
+
+    "app/(dashboard)/supplementation/suggest/page.tsx :: jsx-a11y/label-has-associated-control": "`Objetivos clinicos` encabeca um grupo de botoes que alternam. role=group + aria-labelledby, e cada botao expoe aria-pressed.",
+
+    "components/ui/label.tsx :: jsx-a11y/label-has-associated-control": "E a DEFINICAO do componente base — um `<label>` generico que recebe tudo por props. A regra nao tem como ver o controle, que so existe em quem usa. Falso positivo permanente.",
+
+    "components/ui/card.tsx :: jsx-a11y/heading-has-content": "Mesma coisa: `CardTitle` e um `<h3 {...props} />`. O conteudo vem de quem usa, e a regra olha so a definicao.",
+
+    "app/(dashboard)/meal-plans/page.tsx :: jsx-a11y/no-autofocus": "O autoFocus esta no campo de um painel que ACABA de ser revelado pelo clique em 'criar plano'. Sem ele a pessoa clica no botao e precisa procurar onde digitar. O campo tem aria-label, e o painel some com Escape. Excecao deliberada, nao esquecimento."
+  },
+
+  "permitido": {
+    "app/(dashboard)/interactions/new/page.tsx :: jsx-a11y/label-has-associated-control": 1,
+    "app/(dashboard)/meal-plans/page.tsx :: jsx-a11y/no-autofocus": 1,
+    "app/(dashboard)/patients/new/page.tsx :: jsx-a11y/label-has-associated-control": 3,
+    "app/(dashboard)/settings/page.tsx :: jsx-a11y/label-has-associated-control": 1,
+    "app/(dashboard)/supplementation/suggest/page.tsx :: jsx-a11y/label-has-associated-control": 1,
+    "components/ui/card.tsx :: jsx-a11y/heading-has-content": 1,
+    "components/ui/label.tsx :: jsx-a11y/label-has-associated-control": 1
+  }
+}
