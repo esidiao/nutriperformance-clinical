@@ -42,3 +42,7 @@ apps/api/temp/
 # Scripts Railway/Vercel com tokens
 railway-*.mjs
 vercel-deploy.mjs
+
+# relatorio do scripts/provar-consultas-de-gestao.mjs (saida de execucao, nao fonte)
+apps/api/scripts/ultima-prova.txt
+prova-gestao.txt

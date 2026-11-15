@@ -45,7 +45,35 @@
  * host e o banco, para voce conferir CONTRA QUAL banco a prova rodou.
  */
 import pg from 'pg';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+
+// ── Relatorio em arquivo ────────────────────────────────────────────────────
+// O script grava a propria saida. Antes eu dependia de `*>` do PowerShell e de
+// apagar o arquivo antes para saber se o que lia era novo; isso falhou tres
+// vezes seguidas (redirecionamento sem arquivo, arquivo apagado por mim, saida
+// em UTF-16 com a pilha do PowerShell no meio). Caminho fixo, UTF-8, e a data
+// no topo dizendo quando rodou — assim nao preciso apagar para confiar.
+const RELATORIO = new URL('./ultima-prova.txt', import.meta.url);
+const linhas = [`# prova das consultas de gestao — ${new Date().toISOString()}`];
+const log = (...a) => {
+  const t = a.join(' ');
+  linhas.push(t);
+  console.log(t);
+};
+const erro = (...a) => {
+  const t = a.join(' ');
+  linhas.push(t);
+  console.error(t);
+};
+function gravar() {
+  try {
+    writeFileSync(RELATORIO, linhas.join('\n') + '\n', 'utf8');
+    console.log(`\nrelatorio: ${new URL(RELATORIO).pathname.slice(1)}`);
+  } catch (e) {
+    console.error(`nao consegui gravar o relatorio: ${e.message}`);
+  }
+}
+process.on('exit', gravar);
 
 // ── Conexao ─────────────────────────────────────────────────────────────────
 /** Le um .env simples: `CHAVE=valor`, com ou sem aspas, ignorando comentario. */
@@ -84,9 +112,9 @@ function conexao() {
       /* nao e URL */
     }
     if (!host) {
-      console.error('PGURL esta definida mas nao e uma URL de conexao valida.');
-      console.error('  Limpe com:  Remove-Item Env:PGURL');
-      console.error('  Depois rode de novo: sem PGURL ele usa o apps/api/.env.');
+      erro('PGURL esta definida mas nao e uma URL de conexao valida.');
+      erro('  Limpe com:  Remove-Item Env:PGURL');
+      erro('  Depois rode de novo: sem PGURL ele usa o apps/api/.env.');
       process.exit(2);
     }
     return { url: process.env.PGURL, origem: 'PGURL' };
@@ -107,7 +135,7 @@ function conexao() {
   }
   const faltando = ['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME'].filter((k) => !env[k]);
   if (faltando.length) {
-    console.error(
+    erro(
       `nao achei a conexao: defina PGURL, ou apps/api/.env com ${faltando.join(', ')}`,
     );
     process.exit(2);
@@ -155,7 +183,7 @@ while ((i = fonte.indexOf(marca, i)) !== -1) {
 }
 
 if (consultas.length === 0) {
-  console.error('nenhuma consulta extraida — o padrao `this.db.query(` mudou no servico?');
+  erro('nenhuma consulta extraida — o padrao `this.db.query(` mudou no servico?');
   process.exit(1);
 }
 
@@ -195,24 +223,24 @@ if (!conn.host) {
     /* string de conexao em formato libpq; segue sem identificar */
   }
 }
-console.log(`banco: ${onde}  (origem da conexao: ${conn.origem}, TLS: ${ehLocal ? 'nao' : 'sim'})`);
+log(`banco: ${onde}  (origem da conexao: ${conn.origem}, TLS: ${ehLocal ? 'nao' : 'sim'})`);
 if (ehLocal) {
-  console.log(
+  log(
     'ATENCAO: banco LOCAL. Isto prova a SINTAXE do SQL contra este Postgres,\n' +
       '         nao prova que o schema de producao e igual a este.',
   );
 }
-console.log(`consultas extraidas do servico: ${consultas.length}`);
-console.log(`workspace: ${WS}`);
-console.log(`janela: ${DIAS} dias\n`);
+log(`consultas extraidas do servico: ${consultas.length}`);
+log(`workspace: ${WS}`);
+log(`janela: ${DIAS} dias\n`);
 
 try {
   await c.connect();
 } catch (e) {
   // Pilha crua aqui nao ajuda ninguem: o que importa e o host e o motivo.
-  console.error(`nao conectei em ${onde}: ${e.message}`);
+  erro(`nao conectei em ${onde}: ${e.message}`);
   if (e.code === 'ENOTFOUND') {
-    console.error('  host nao existe — confira DB_HOST no apps/api/.env, ou PGURL se estiver definida');
+    erro('  host nao existe — confira DB_HOST no apps/api/.env, ou PGURL se estiver definida');
   }
   process.exit(2);
 }
@@ -228,7 +256,7 @@ try {
     // reprovando pelo motivo errado.
     const inicio = sql.trim().toUpperCase();
     if (!inicio.startsWith('SELECT') && !inicio.startsWith('WITH ')) {
-      console.log(`--- ${nome}: RECUSADO, nao comeca com SELECT/WITH`);
+      log(`--- ${nome}: RECUSADO, nao comeca com SELECT/WITH`);
       falhas++;
       continue;
     }
@@ -240,31 +268,31 @@ try {
     const t = Date.now();
     try {
       const r = await c.query(sql, params);
-      console.log(`--- ${nome}: OK (${Date.now() - t} ms, ${r.rowCount} linha(s), ${params.length} parametro(s))`);
-      console.log(JSON.stringify(r.rows, null, 1));
+      log(`--- ${nome}: OK (${Date.now() - t} ms, ${r.rowCount} linha(s), ${params.length} parametro(s))`);
+      log(JSON.stringify(r.rows, null, 1));
 
       // Um aviso util, nao uma falha: consulta que devolve so zeros e nulos
       // roda certo e nao prova nada sobre o calculo.
       const vazia =
         r.rowCount === 1 &&
         Object.values(r.rows[0]).every((v) => v === null || v === 0 || v === '0');
-      if (vazia) console.log('    (atencao: tudo zero/nulo — o SQL roda, mas este workspace nao exercita o calculo)');
+      if (vazia) log('    (atencao: tudo zero/nulo — o SQL roda, mas este workspace nao exercita o calculo)');
     } catch (e) {
       // 42P01 = relation does not exist. Isso nao reprova o SQL: reprova o
       // banco escolhido, que nao tem o schema. Somar junto faria a saida dizer
       // "7 de 7 falharam" num banco vazio, e eu leria como SQL quebrado.
       if (e.code === '42P01') {
         semSchema++;
-        console.log(`--- ${nome}: SEM SCHEMA NESTE BANCO (nao reprova o SQL)`);
-        console.log(`    ${e.message}`);
+        log(`--- ${nome}: SEM SCHEMA NESTE BANCO (nao reprova o SQL)`);
+        log(`    ${e.message}`);
       } else {
         falhas++;
-        console.log(`--- ${nome}: FALHOU`);
-        console.log(`    ${e.message}`);
-        if (e.position) console.log(`    posicao ${e.position} do SQL`);
+        log(`--- ${nome}: FALHOU`);
+        log(`    ${e.message}`);
+        if (e.position) log(`    posicao ${e.position} do SQL`);
       }
     }
-    console.log('');
+    log('');
   }
 
   // Volume por tabela, para saber se o workspace escolhido e representativo.
@@ -278,15 +306,15 @@ try {
             (SELECT count(*)::int FROM clinical_alerts WHERE workspace_id = $1) AS alertas`,
     [WS],
   );
-  console.log('volume neste workspace:');
-  console.log(JSON.stringify(rows[0], null, 1));
+  log('volume neste workspace:');
+  log(JSON.stringify(rows[0], null, 1));
 } finally {
   await c.end();
 }
 
-console.log(`\nconsultas com falha: ${falhas} de ${consultas.length}`);
+log(`\nconsultas com falha: ${falhas} de ${consultas.length}`);
 if (semSchema) {
-  console.log(
+  log(
     `${semSchema} consulta(s) nao rodaram porque ESTE banco nao tem as tabelas.\n` +
       'Isso nao prova nem reprova o SQL: escolha um banco com o schema aplicado.',
   );
