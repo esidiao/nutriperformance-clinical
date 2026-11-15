@@ -52,7 +52,7 @@ export function ListaCompras({ planoId }: { planoId: string }) {
 
   if (error) {
     return (
-      <Card><CardContent className="py-6 text-sm text-destructive">
+      <Card><CardContent className="py-6 text-sm text-danger">
         {(error as any)?.message ?? 'Não foi possível montar a lista.'}
       </CardContent></Card>
     );

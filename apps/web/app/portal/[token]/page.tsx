@@ -286,7 +286,7 @@ export default function PortalPaciente() {
                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
             </div>
 
-            {erro && <p className="text-xs text-destructive">{erro}</p>}
+            {erro && <p className="text-xs text-danger">{erro}</p>}
             {enviado && (
               <p className="text-xs text-primary flex items-center gap-1">
                 <Check className="h-3.5 w-3.5" /> Registrado.

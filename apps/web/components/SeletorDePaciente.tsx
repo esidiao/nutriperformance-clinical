@@ -52,7 +52,7 @@ export function SeletorDePaciente({
   return (
     <div className={className}>
       <Label htmlFor={id}>
-        {label}{obrigatorio && <span className="text-destructive"> *</span>}
+        {label}{obrigatorio && <span className="text-danger"> *</span>}
       </Label>
 
       {isLoading ? (
@@ -60,7 +60,7 @@ export function SeletorDePaciente({
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando pacientes…
         </div>
       ) : isError ? (
-        <p className="h-10 flex items-center text-sm text-destructive">
+        <p className="h-10 flex items-center text-sm text-danger">
           Não foi possível carregar os pacientes.
         </p>
       ) : pacientes.length === 0 ? (

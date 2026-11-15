@@ -110,7 +110,7 @@ export function ListaSubstituicoes({ planoId }: { planoId: string }) {
     );
   }
   if (q.isError || !q.data) {
-    return <p className="p-4 text-sm text-destructive">Não foi possível montar a lista.</p>;
+    return <p className="p-4 text-sm text-danger">Não foi possível montar a lista.</p>;
   }
 
   const dados: any = q.data;

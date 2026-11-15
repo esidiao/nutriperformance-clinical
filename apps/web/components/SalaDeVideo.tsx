@@ -46,7 +46,7 @@ export function SalaDeVideo({ consulta }: { consulta: any }) {
               placeholder="https://meet.google.com/..."
               className="w-full h-9 px-2 rounded-md border border-input bg-background text-xs"
             />
-            {erro && <p className="text-[11px] text-destructive">{erro}</p>}
+            {erro && <p className="text-[11px] text-danger">{erro}</p>}
             <div className="flex gap-1.5">
               <Button size="sm" disabled={!link.trim() || definir.isPending}
                       onClick={() => definir.mutate(link.trim())}>

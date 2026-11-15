@@ -332,7 +332,7 @@ export default function SupplementationPage() {
         </Card>
       )}
 
-      {erro && <p className="text-sm text-destructive">{erro}</p>}
+      {erro && <p className="text-sm text-danger">{erro}</p>}
 
       {/* Filtro por paciente — sem isto a lista do workspace não diz de quem é
           cada linha, que foi o problema apontado na tela de Metas. */}
@@ -371,7 +371,7 @@ export default function SupplementationPage() {
           </div>
         )}
         {isError && (
-          <p className="py-10 text-center text-sm text-destructive">
+          <p className="py-10 text-center text-sm text-danger">
             Não foi possível carregar os suplementos.
           </p>
         )}

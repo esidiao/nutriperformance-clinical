@@ -69,10 +69,10 @@ function Indicador({
         <div className="flex items-center gap-1.5 text-muted-foreground">
           {/* O alerta vem por ícone + rótulo, não só pela cor: quem não
               distingue vermelho precisa enxergar "vencido" do mesmo jeito. */}
-          <Icone className={`h-3.5 w-3.5 ${alerta ? 'text-destructive' : ''}`} />
+          <Icone className={`h-3.5 w-3.5 ${alerta ? 'text-danger' : ''}`} />
           <span className="text-[11px] uppercase tracking-wide">{rotulo}</span>
         </div>
-        <p className={`mt-1 text-2xl font-semibold tabular-nums ${alerta && valor > 0 ? 'text-destructive' : ''}`}>
+        <p className={`mt-1 text-2xl font-semibold tabular-nums ${alerta && valor > 0 ? 'text-danger' : ''}`}>
           {brl(valor)}
         </p>
         <p className="text-[11px] text-muted-foreground">
@@ -156,7 +156,7 @@ function NovoLancamento({ onFechar }: { onFechar: () => void }) {
           </p>
         )}
 
-        {erro && <p className="text-xs text-destructive">{erro}</p>}
+        {erro && <p className="text-xs text-danger">{erro}</p>}
 
         <div className="flex gap-2">
           <Button
@@ -233,7 +233,7 @@ function Receber({ lancamento, onFechar }: { lancamento: any; onFechar: () => vo
         </p>
       )}
 
-      {erro && <p className="text-xs text-destructive">{erro}</p>}
+      {erro && <p className="text-xs text-danger">{erro}</p>}
 
       <div className="flex gap-2">
         <Button size="sm" disabled={!centavos || pagar.isPending}
@@ -279,7 +279,7 @@ function Lancamento({ c, nomePaciente }: { c: any; nomePaciente: string }) {
             <p className="text-sm font-medium truncate">{nomePaciente}</p>
             <p className="text-xs text-muted-foreground truncate">{c.descricao}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-              {vencido && <AlertTriangle className="h-3 w-3 text-destructive" />}
+              {vencido && <AlertTriangle className="h-3 w-3 text-danger" />}
               {vencido ? 'Vencido em ' : 'Vence em '}{dataBR(c.vencimento)}
               {' · '}
               {/* Estado sempre por rótulo. Cor sozinha não informa. */}
@@ -291,7 +291,7 @@ function Lancamento({ c, nomePaciente }: { c: any; nomePaciente: string }) {
           </div>
 
           <div className="text-right shrink-0">
-            <p className={`text-sm font-semibold tabular-nums ${vencido ? 'text-destructive' : ''}`}>
+            <p className={`text-sm font-semibold tabular-nums ${vencido ? 'text-danger' : ''}`}>
               {brl(c.valorCentavos)}
             </p>
             {c.status === 'pago' && c.valorPagoCentavos !== c.valorCentavos && (
@@ -336,7 +336,7 @@ function Lancamento({ c, nomePaciente }: { c: any; nomePaciente: string }) {
           </p>
         )}
 
-        {erro && <p className="text-xs text-destructive mt-2">{erro}</p>}
+        {erro && <p className="text-xs text-danger mt-2">{erro}</p>}
 
         {aberto && <Receber lancamento={c} onFechar={() => setAberto(false)} />}
       </CardContent>

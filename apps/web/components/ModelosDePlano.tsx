@@ -82,7 +82,7 @@ export function ModelosDePlano({ patientId }: { patientId: string }) {
           ))}
         </ul>
 
-        {erro && <p className="text-xs text-destructive">{erro}</p>}
+        {erro && <p className="text-xs text-danger">{erro}</p>}
 
         {/* O plano gerado nasce rascunho — dizer isso evita que alguém aplique
             um modelo e entregue sem revisar. */}
@@ -162,7 +162,7 @@ export function SalvarComoModelo({ planoId, nomeAtual }: { planoId: string; nome
           </span>
         </div>
 
-        {erro && <p className="text-xs text-destructive">{erro}</p>}
+        {erro && <p className="text-xs text-danger">{erro}</p>}
 
         <div className="flex gap-2">
           <Button size="sm" disabled={!nome.trim() || salvar.isPending}

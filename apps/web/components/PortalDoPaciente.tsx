@@ -103,7 +103,7 @@ export function PortalDoPaciente({ patientId }: { patientId: string }) {
           </div>
         )}
 
-        {erro && <p className="text-xs text-destructive">{erro}</p>}
+        {erro && <p className="text-xs text-danger">{erro}</p>}
 
         {linksQ.isLoading ? (
           <div className="py-4 flex justify-center">

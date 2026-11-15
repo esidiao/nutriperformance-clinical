@@ -115,7 +115,7 @@ export function AnamnesePreConsulta({ patientId }: { patientId: string }) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm flex items-center gap-1.5">
-                        {expirado && <AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
+                        {expirado && <AlertTriangle className="h-3.5 w-3.5 text-danger" />}
                         {/* Estado por rótulo, nunca só por cor. */}
                         {expirado ? 'Expirado sem resposta' : ROTULO[f.status] ?? f.status}
                       </p>

@@ -207,7 +207,7 @@ export default function ResponderAnamnese() {
                     setErros((e) => { const n = { ...e }; delete n[p.id]; return n; });
                   }}
                 />
-                {erros[p.id] && <p className="text-xs text-destructive">{erros[p.id]}</p>}
+                {erros[p.id] && <p className="text-xs text-danger">{erros[p.id]}</p>}
               </div>
             ))}
           </section>
@@ -226,7 +226,7 @@ export default function ResponderAnamnese() {
         </div>
 
         {enviar.isError && !Object.keys(erros).length && (
-          <p className="text-sm text-destructive">
+          <p className="text-sm text-danger">
             {(enviar.error as any)?.message ?? 'Não foi possível enviar. Tente novamente.'}
           </p>
         )}

@@ -76,7 +76,7 @@ function AuditLogContent() {
   const stats = [
     { label: 'Eventos no período', value: data?.total ?? 0, color: 'text-foreground' },
     { label: 'Nesta página', value: items.length, color: 'text-primary' },
-    { label: 'Falhas registradas', value: items.filter((l) => !l.success).length, color: 'text-destructive' },
+    { label: 'Falhas registradas', value: items.filter((l) => !l.success).length, color: 'text-danger' },
     { label: 'Página', value: `${page} / ${totalPages}`, color: 'text-muted-foreground' },
   ];
 
@@ -175,7 +175,7 @@ function AuditLogContent() {
                             <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full font-medium ${cfg?.color ?? 'bg-muted text-muted-foreground'}`}>
                               <Icon className="h-3 w-3" />
                               {cfg?.label ?? log.action}
-                              {!log.success && <span className="text-destructive font-semibold">· falhou</span>}
+                              {!log.success && <span className="text-danger font-semibold">· falhou</span>}
                             </span>
                           </td>
                           <td className="px-4 py-3">

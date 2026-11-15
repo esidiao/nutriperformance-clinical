@@ -33,21 +33,20 @@ import { brl } from '@/lib/moeda';
 // ============================================================================
 
 /**
- * Vermelho de alerta, medido nos DOIS temas.
+ * Vermelho de alerta: um nome local para o token, em qualquer tamanho.
  *
- * Não é `text-destructive`. O token resolve para #EF4343 no claro (3,78:1
- * sobre branco — passa só em texto grande) e para #962C2C no ESCURO, que é um
- * vermelho escuro sobre fundo escuro: 2,28:1, reprovado até para número de
- * 24px. Medido no navegador, com o tema trocado pelo botão do app.
+ * Aqui havia um par explícito (`text-red-700 dark:text-red-400`) porque
+ * `text-destructive` reprovava contraste: #EF4343 dava 3,78:1 sobre branco e
+ * #962C2C dava 2,28:1 no escuro — vermelho escuro sobre fundo escuro.
  *
- * Este par dá 5,9:1 no claro e 6,4:1 no escuro, e serve em qualquer tamanho.
- *
- * O token continua quebrado no escuro em 24 arquivos deste app — isso virou
- * achado da auditoria. Corrigi-lo é mudança global, que exige medir todas as
- * telas nos dois temas; já quebrei o link do banner de cookies exatamente
- * assim ao escurecer `--primary` sem medir sobre fundo escuro.
+ * O token foi consertado (globals.css: `--danger`, medido contra os três
+ * fundos de cada tema, pior caso 4,54:1), então o par explícito deixou de ter
+ * razão de existir: duas fontes de verdade para a mesma cor divergem.
  */
-const VERMELHO = 'text-red-700 dark:text-red-400';
+// Par explicito criado aqui porque `text-destructive` reprovava contraste nos
+// dois temas. Agora existe token para isso (globals.css: --danger), medido
+// contra os tres fundos de cada tema — uma fonte de verdade em vez de duas.
+const VERMELHO = 'text-danger';
 
 const JANELAS = [
   { dias: 30, rotulo: '30 dias' },
@@ -89,14 +88,10 @@ function SemBase({ motivo }: { motivo: string }) {
 /**
  * Vermelho para texto PEQUENO.
  *
- * `text-destructive` resolve para #EF4343 no tema claro, que dá 3,78:1 sobre
- * branco: passa em texto grande (mínimo 3:1) e REPROVA em texto normal
- * (mínimo 4,5:1). Os números de 24px usam o token; os avisos de 12px usam este
- * par, medido em 5,9:1 no claro e 6,5:1 no escuro.
- *
- * Não mexi no token global: trocá-lo exigiria medir todas as telas nos dois
- * temas, e já quebrei um link do banner de cookies exatamente assim ao
- * escurecer `--primary`.
+ * Existia porque o token antigo só passava em texto grande (3:1) e reprovava
+ * em texto normal (4,5:1), então o aviso de 12px precisava de cor própria.
+ * O token novo é medido para 4,5:1 em qualquer tamanho, e este componente
+ * sobrou só para o tamanho — a cor é a mesma.
  */
 function VermelhoPequeno({ children }: { children: React.ReactNode }) {
   return <span className={`text-xs ${VERMELHO}`}>{children}</span>;
@@ -160,7 +155,7 @@ function CartaoFalho({ titulo, mensagem }: { titulo: string; mensagem: string })
     <Card className="border-destructive/40">
       <CardContent className="py-4 px-5">
         <Rotulo>{titulo}</Rotulo>
-        {/* `text-red-700`, não `text-destructive`: 14px é texto normal e exige
+        {/* `text-red-700`, não `text-danger`: 14px é texto normal e exige
             4,5:1, que o token não alcança sobre branco. Ver `VermelhoPequeno`. */}
         <p className={`mt-2 flex items-start gap-2 text-sm ${VERMELHO}`}>
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" aria-hidden="true" />

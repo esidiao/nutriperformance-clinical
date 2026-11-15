@@ -203,7 +203,7 @@ export default function GoalsPage() {
         </CardContent>
       </Card>
 
-      {erro && <p className="text-sm text-destructive">{erro}</p>}
+      {erro && <p className="text-sm text-danger">{erro}</p>}
 
       {showForm && (
         <Card className="border-blue-200">
@@ -231,7 +231,7 @@ export default function GoalsPage() {
               </select>
             </div>
             <div className="md:col-span-2">
-              <Label htmlFor="meta-desc">Descrição <span className="text-destructive">*</span></Label>
+              <Label htmlFor="meta-desc">Descrição <span className="text-danger">*</span></Label>
               <Input
                 id="meta-desc"
                 value={nova.description}
@@ -303,7 +303,7 @@ export default function GoalsPage() {
         )}
 
         {isError && (
-          <p className="py-10 text-center text-sm text-destructive">
+          <p className="py-10 text-center text-sm text-danger">
             Não foi possível carregar as metas.
           </p>
         )}

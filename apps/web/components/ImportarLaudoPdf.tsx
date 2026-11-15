@@ -121,7 +121,7 @@ export function ImportarLaudoPdf({
             </span>
           </label>
 
-          {erro && <p className="text-xs text-destructive">{erro}</p>}
+          {erro && <p className="text-xs text-danger">{erro}</p>}
         </CardContent>
       </Card>
     );
@@ -157,7 +157,7 @@ export function ImportarLaudoPdf({
         </p>
 
         {suspeitos > 0 && (
-          <p className="text-xs text-destructive flex items-start gap-1.5">
+          <p className="text-xs text-danger flex items-start gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             {suspeitos === 1
               ? '1 valor está fora da faixa possível — provável erro de leitura.'
@@ -195,7 +195,7 @@ export function ImportarLaudoPdf({
                       </p>
                     )}
                     {v.suspeito && (
-                      <p className="text-[11px] text-destructive mt-0.5">{v.motivoSuspeita}</p>
+                      <p className="text-[11px] text-danger mt-0.5">{v.motivoSuspeita}</p>
                     )}
                   </div>
                 </div>
@@ -225,7 +225,7 @@ export function ImportarLaudoPdf({
           </ul>
         )}
 
-        {erro && <p className="text-xs text-destructive">{erro}</p>}
+        {erro && <p className="text-xs text-danger">{erro}</p>}
 
         <div className="flex items-center gap-2 border-t pt-3">
           <Button size="sm" disabled={aceitos.size === 0 || salvar.isPending}

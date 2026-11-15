@@ -112,7 +112,7 @@ export function FotosDeEvolucao({ patientId }: { patientId: string }) {
                  }} />
         </div>
 
-        {erro && <p className="text-xs text-destructive">{erro}</p>}
+        {erro && <p className="text-xs text-danger">{erro}</p>}
 
         {isLoading ? (
           <div className="py-8 flex justify-center">
@@ -177,7 +177,7 @@ export function FotosDeEvolucao({ patientId }: { patientId: string }) {
                           remover.mutate(f.id);
                         }
                       }}
-                      className="w-full inline-flex items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-destructive"
+                      className="w-full inline-flex items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-danger"
                     >
                       <Trash2 className="h-3 w-3" /> apagar
                     </button>

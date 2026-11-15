@@ -67,7 +67,7 @@ export function SupervisaoDoTrabalho({
             Este trabalho ainda não foi enviado para revisão. Ele só pode ser entregue
             ao paciente depois da aprovação de quem responde pelo atendimento.
           </p>
-          {erro && <p className="text-xs text-destructive">{erro}</p>}
+          {erro && <p className="text-xs text-danger">{erro}</p>}
           <Button size="sm" disabled={solicitar.isPending}
                   onClick={() => { setErro(null); solicitar.mutate(); }}>
             {solicitar.isPending
@@ -79,7 +79,7 @@ export function SupervisaoDoTrabalho({
     );
   }
 
-  const cor = pedido.status === 'ajustes_solicitados' ? 'text-destructive' : '';
+  const cor = pedido.status === 'ajustes_solicitados' ? 'text-danger' : '';
 
   return (
     <Card>
@@ -110,7 +110,7 @@ export function SupervisaoDoTrabalho({
 
         {pedido.status === 'ajustes_solicitados' && souEstudante && (
           <>
-            {erro && <p className="text-xs text-destructive">{erro}</p>}
+            {erro && <p className="text-xs text-danger">{erro}</p>}
             <Button size="sm" variant="outline" disabled={solicitar.isPending}
                     onClick={() => { setErro(null); solicitar.mutate(); }}>
               Enviar para nova revisão
@@ -188,7 +188,7 @@ export function FilaDeSupervisao() {
                     placeholder="Parecer — obrigatório ao pedir ajustes"
                     className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                   />
-                  {erro && <p className="text-xs text-destructive">{erro}</p>}
+                  {erro && <p className="text-xs text-danger">{erro}</p>}
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" disabled={decidir.isPending}
                             onClick={() => decidir.mutate({ id: p.id, status: 'aprovado' })}>

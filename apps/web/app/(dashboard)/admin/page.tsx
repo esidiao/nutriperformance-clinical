@@ -171,7 +171,7 @@ function AdminContent() {
 
         {staleCategories.length > 0 && (
           <Alert className="border-destructive/30 bg-destructive/10">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <AlertTriangle className="h-4 w-4 text-danger" />
             <AlertDescription className="text-sm">
               <strong>Base científica desatualizada:</strong>{' '}
               {staleCategories.map((s) => s.category).join(', ')} — mais de 90 dias sem atualização.
@@ -251,7 +251,7 @@ function AdminContent() {
                     </p>
                   </div>
                   {item.isStale
-                    ? <Badge variant="outline" className="text-xs border-destructive/40 text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{item.daysSinceUpdate}d</Badge>
+                    ? <Badge variant="outline" className="text-xs border-destructive/40 text-danger flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{item.daysSinceUpdate}d</Badge>
                     : <Badge variant="outline" className="text-xs border-primary/40 text-primary">OK · {item.daysSinceUpdate}d</Badge>
                   }
                 </div>
@@ -348,7 +348,7 @@ function AdminContent() {
                           <td className="px-4 py-3">
                             {w.is_active
                               ? <span className="flex items-center gap-1 text-xs text-primary"><CheckCircle className="h-3 w-3" aria-hidden="true" />Ativo</span>
-                              : <span className="flex items-center gap-1 text-xs text-destructive"><XCircle className="h-3 w-3" aria-hidden="true" />Suspenso</span>
+                              : <span className="flex items-center gap-1 text-xs text-danger"><XCircle className="h-3 w-3" aria-hidden="true" />Suspenso</span>
                             }
                           </td>
                           <td className="px-4 py-3 relative">
@@ -364,7 +364,7 @@ function AdminContent() {
                                   <button
                                     onClick={() => { setActionMenu(null); suspendMutation.mutate(w.id); }}
                                     disabled={isBusy}
-                                    className="w-full px-4 py-2.5 text-xs text-left hover:bg-muted text-destructive flex items-center gap-2 disabled:opacity-50">
+                                    className="w-full px-4 py-2.5 text-xs text-left hover:bg-muted text-danger flex items-center gap-2 disabled:opacity-50">
                                     <XCircle className="h-3 w-3" aria-hidden="true" /> Suspender
                                   </button>
                                 ) : (

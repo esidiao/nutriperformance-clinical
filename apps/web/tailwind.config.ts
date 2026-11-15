@@ -83,6 +83,10 @@ const config: Config = {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
+        // Cor de TEXTO de aviso/erro. Separada de `destructive` porque aquele
+        // par e solido (fundo + texto claro): usar o fundo como texto reprovava
+        // contraste nos DOIS temas. Ver globals.css.
+        danger: 'hsl(var(--danger))',
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',

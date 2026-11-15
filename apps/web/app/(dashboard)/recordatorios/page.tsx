@@ -150,7 +150,7 @@ export default function RecordatoriosPage() {
               </div>
             </div>
 
-            {erro && <p className="text-xs text-destructive">{erro}</p>}
+            {erro && <p className="text-xs text-danger">{erro}</p>}
 
             <Button onClick={() => criar.mutate()} disabled={!data || criar.isPending}>
               {criar.isPending
@@ -172,7 +172,7 @@ export default function RecordatoriosPage() {
           )}
 
           {listaQ.isError && (
-            <p className="py-6 text-center text-sm text-destructive">
+            <p className="py-6 text-center text-sm text-danger">
               Não foi possível carregar os recordatórios.
             </p>
           )}

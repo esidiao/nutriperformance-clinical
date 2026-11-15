@@ -90,7 +90,7 @@ export default function RecordatorioDetalhePage() {
     );
   }
   if (recallQ.isError || !recallQ.data) {
-    return <p className="p-6 text-sm text-destructive">Recordatório não encontrado.</p>;
+    return <p className="p-6 text-sm text-danger">Recordatório não encontrado.</p>;
   }
 
   const recall: any = recallQ.data;
@@ -197,7 +197,7 @@ export default function RecordatorioDetalhePage() {
               </div>
             </div>
 
-            {erro && <p className="text-xs text-destructive">{erro}</p>}
+            {erro && <p className="text-xs text-danger">{erro}</p>}
 
             <Button
               size="sm"
@@ -249,7 +249,7 @@ export default function RecordatorioDetalhePage() {
                             if (window.confirm(`Remover ${i.alimentoNome}?`)) remover.mutate(i.id);
                           }}
                           aria-label={`Remover ${i.alimentoNome}`}
-                          className="text-gray-300 hover:text-destructive p-0.5"
+                          className="text-gray-300 hover:text-danger p-0.5"
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
