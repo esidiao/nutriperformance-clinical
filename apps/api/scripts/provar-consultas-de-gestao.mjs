@@ -159,13 +159,29 @@ if (consultas.length === 0) {
   process.exit(1);
 }
 
+// SSL ligado fixo quebrava contra Postgres local ("The server does not support
+// SSL connections"). Supabase exige TLS; um banco local normalmente nao fala
+// TLS nenhum. Entao a decisao sai do host, nao de um palpite.
+const hostDaConexao = (() => {
+  if (conn.host) return conn.host;
+  try {
+    return new URL(conn.url).hostname;
+  } catch {
+    return '';
+  }
+})();
+const ehLocal = ['localhost', '127.0.0.1', '::1', ''].includes(hostDaConexao);
+
 const c = new pg.Client({
   connectionString: conn.url,
-  ssl: { rejectUnauthorized: false },
+  // rejectUnauthorized: false apenas porque o Supabase serve certificado de
+  // cadeia propria; nao e para desligar verificacao de um host qualquer.
+  ssl: ehLocal ? false : { rejectUnauthorized: false },
   statement_timeout: 30000,
 });
 
 let falhas = 0;
+let semSchema = 0;
 
 // Qual banco vai ser provado. Isto sai ANTES de conectar, de proposito: se a
 // conexao falhar, a mensagem mais util e justamente contra que host ele tentou.
@@ -179,7 +195,13 @@ if (!conn.host) {
     /* string de conexao em formato libpq; segue sem identificar */
   }
 }
-console.log(`banco: ${onde}  (origem da conexao: ${conn.origem})`);
+console.log(`banco: ${onde}  (origem da conexao: ${conn.origem}, TLS: ${ehLocal ? 'nao' : 'sim'})`);
+if (ehLocal) {
+  console.log(
+    'ATENCAO: banco LOCAL. Isto prova a SINTAXE do SQL contra este Postgres,\n' +
+      '         nao prova que o schema de producao e igual a este.',
+  );
+}
 console.log(`consultas extraidas do servico: ${consultas.length}`);
 console.log(`workspace: ${WS}`);
 console.log(`janela: ${DIAS} dias\n`);
@@ -228,10 +250,19 @@ try {
         Object.values(r.rows[0]).every((v) => v === null || v === 0 || v === '0');
       if (vazia) console.log('    (atencao: tudo zero/nulo — o SQL roda, mas este workspace nao exercita o calculo)');
     } catch (e) {
-      falhas++;
-      console.log(`--- ${nome}: FALHOU`);
-      console.log(`    ${e.message}`);
-      if (e.position) console.log(`    posicao ${e.position} do SQL`);
+      // 42P01 = relation does not exist. Isso nao reprova o SQL: reprova o
+      // banco escolhido, que nao tem o schema. Somar junto faria a saida dizer
+      // "7 de 7 falharam" num banco vazio, e eu leria como SQL quebrado.
+      if (e.code === '42P01') {
+        semSchema++;
+        console.log(`--- ${nome}: SEM SCHEMA NESTE BANCO (nao reprova o SQL)`);
+        console.log(`    ${e.message}`);
+      } else {
+        falhas++;
+        console.log(`--- ${nome}: FALHOU`);
+        console.log(`    ${e.message}`);
+        if (e.position) console.log(`    posicao ${e.position} do SQL`);
+      }
     }
     console.log('');
   }
@@ -254,4 +285,12 @@ try {
 }
 
 console.log(`\nconsultas com falha: ${falhas} de ${consultas.length}`);
+if (semSchema) {
+  console.log(
+    `${semSchema} consulta(s) nao rodaram porque ESTE banco nao tem as tabelas.\n` +
+      'Isso nao prova nem reprova o SQL: escolha um banco com o schema aplicado.',
+  );
+}
+// Banco sem schema nenhum nao prova nada, e sair 0 ali seria um verde falso.
+if (semSchema === consultas.length) process.exit(3);
 process.exit(falhas ? 1 : 0);
