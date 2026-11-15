@@ -35,7 +35,20 @@ O levantamento abaixo está como foi escrito. O que mudou depois, no mesmo dia:
 - **O `is_active` foi provado em produção.** `provar-conta-desativada.mjs`, 8 de 8
   conferências: desativar nega, suspender workspace nega na hora, e os dois voltam.
 
-**Segue aberto:** U1, U2, S2, S3, C1, C2, C3, e a seção 5 (inteligência de gestão).
+- **A casca do front não verificava o token (S2).** `getSession()` lê o cookie e não
+  confere assinatura, e o papel ainda tinha `user_metadata` como alternativa — que o dono
+  do token escreve. Provado explorável com cookie editado (HTTP 200 em `/admin`) e
+  corrigido em `5b45b3d`.
+- **A ficha do paciente mostrava metade do prontuário (U1).** Consultas, planos,
+  recordatórios e exames entraram como abas, na ordem do atendimento, em `9d711a3`.
+- **`script-src 'unsafe-inline'` saiu da CSP (S3).** Nonce por requisição mais
+  `'strict-dynamic'`, em `middleware.ts`, com o nonce descendo até o script do
+  `next-themes`. Preço: as 38 rotas que eram estáticas viraram dinâmicas, porque nonce é
+  por requisição e HTML de build não tem nonce.
+
+**Segue aberto:** U2 (um único gráfico no sistema inteiro), C1, C2, C3, a seção 5
+(inteligência de gestão) e o achado novo da **prescrição que não é guardada em lugar
+nenhum** — documento clínico assinado com CRN que não deixa rastro no prontuário.
 **C2 bloqueia C1** — a decisão de guarda vem antes do código de exclusão.
 
 ## Método, e o que ele não alcança
@@ -157,9 +170,19 @@ Correção, em ordem de valor:
 
 Trocar por `getUser()` exige subir `@supabase/ssr` de `^0.3.0` (que também é o motivo do comentário sobre a interface `get/set/remove` nas linhas 136-139).
 
-### S3 — `script-src 'self' 'unsafe-inline'` em produção · **médio**
+### S3 — `script-src 'self' 'unsafe-inline'` em produção · **médio** · **CORRIGIDO**
 
 `middleware.ts:82`. Com `unsafe-inline`, a CSP deixa de ser defesa contra XSS — vira quase só documentação. O Next 15 suporta CSP por *nonce* via middleware. É o degrau natural depois que o resto da CSP já está bem montado.
+
+**Como ficou:** `script-src 'self' 'nonce-<16 bytes aleatórios>' 'strict-dynamic'`, sem `unsafe-inline` e sem `unsafe-eval`. O nonce vai no header da resposta (para o navegador) e no header da requisição (de onde o Next o extrai e o escreve em cada script que emite). `'strict-dynamic'` é necessário porque o webpack cria tags `<script>` em tempo de execução para carregar chunks.
+
+**O que foi conferido no navegador, contra o build de produção:** 28 a 31 scripts por página, todos com nonce e **nenhum sem**; React hidratou (fibers anexados); nonce diferente em três requisições seguidas; roteamento pelo cliente de `/dashboard` para `/patients` sem recarga, com chunk injetado em execução e nenhum bloqueado; `/dashboard` sem sessão continua redirecionando para `/login?next=`. O caso espelhado: manipulador `onclick` injetado foi **bloqueado** (`script-src-attr`), com a violação registrada no console.
+
+**O que NÃO foi conferido:** os gráficos (recharts), porque a API local não estava no ar e o dashboard não recebeu dados — o caminho é SVG por React, sem injeção de script, mas não foi visto funcionando sob a CSP nova.
+
+**`style-src` MANTÉM `'unsafe-inline'`, de propósito.** `next/font` injeta `<style>` e os componentes usam atributo `style=`; nonce em estilo quebraria a tipografia do app. Estilo inline é alavanca muito menor que script.
+
+**Preço, e não dá para contornar:** nonce é por requisição, e página pré-renderizada tem HTML fixo do build. Eram **38 das 45 rotas** estáticas, com 9 scripts inline sem nonce gravados no HTML — todas morreriam. Ler `headers()` no layout raiz torna as 45 dinâmicas. Custa pouco aqui porque as páginas são cascas de componente de cliente: os dados vêm da API pelo react-query, então o render do servidor não toca banco.
 
 ### S4 — Cinco dependências de runtime que ninguém importa · **médio**
 

@@ -113,25 +113,54 @@ export async function middleware(request: NextRequest) {
   // Normalize repeated slashes and dot-segments
   pathname = pathname.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
 
-  // ── Security headers on every response ──────────────────────────────────────
-  const response = NextResponse.next();
-
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  response.headers.set(
-    'Strict-Transport-Security',
-    'max-age=63072000; includeSubDomains; preload',
-  );
+  // ============================================================================
+  // Nonce por requisição no lugar de `script-src 'unsafe-inline'`
+  // ----------------------------------------------------------------------------
+  // `'unsafe-inline'` em script-src anula a CSP como defesa contra XSS: qualquer
+  // `<script>` que entrasse no HTML executaria. Era a última permissão larga que
+  // sobrava aqui.
+  //
+  // O nonce é um valor aleatório por requisição que vai em DOIS lugares:
+  //
+  //   1. no header da RESPOSTA, onde o navegador o lê e passa a exigir
+  //      `nonce="..."` em cada script;
+  //   2. no header da REQUISIÇÃO, de onde o Next 15 o extrai
+  //      (`getScriptNonceFromHeader`) e o escreve em cada script que ele mesmo
+  //      emite — bootstrap, chunks e payload RSC.
+  //
+  // Sem o passo 2 o app morre inteiro: o HTML sai sem nonce e o navegador
+  // bloqueia a própria hidratação do Next, com a página em branco.
+  //
+  // `'strict-dynamic'` existe porque o webpack cria tags <script> em tempo de
+  // execução para carregar chunks; ele autoriza o que um script já confiável
+  // carrega. Com ele presente, `'self'` e lista de hosts deixam de valer para
+  // script — fica só o nonce. `'self'` continua escrito para navegador antigo
+  // que não entende `'strict-dynamic'`.
+  //
+  // CONSEQUÊNCIA QUE NÃO DÁ PARA CONTORNAR: nonce é por requisição, e página
+  // pré-renderizada tem HTML fixo do build. Antes disto, 38 das 45 rotas eram
+  // estáticas, com 9 scripts inline sem nonce gravados no HTML — todas
+  // morreriam. Ler `x-nonce` no layout raiz (`app/layout.tsx`) torna TODAS as
+  // rotas dinâmicas, que é o preço disto. Custa pouco neste app porque as
+  // páginas são cascas de componente de cliente: os dados vêm da API pelo
+  // react-query, então o render do servidor não toca banco.
+  //
+  // `style-src` MANTÉM `'unsafe-inline'`, de propósito: `next/font` injeta
+  // <style> e os componentes usam atributo `style=`. Estilo inline é alavanca
+  // muito menor que script, e trocá-lo aqui quebraria a tipografia do app.
+  // ============================================================================
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(''));
 
   // 'unsafe-eval' is required by Next.js HMR in development but must NOT be
   // included in production builds where it would allow arbitrary code execution.
   const isDev = process.env.NODE_ENV === 'development';
-  const scriptSrc = isDev
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-    : "script-src 'self' 'unsafe-inline'";
+  const scriptSrc = [
+    "script-src 'self'",
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'",
+    ...(isDev ? ["'unsafe-eval'"] : []),
+  ].join(' ');
 
   // A allowlist do connect-src precisa conter a API. Em produção é o serviço do
   // Render; em desenvolvimento a API sobe em localhost:3001, que a CSP bloqueava
@@ -155,19 +184,37 @@ export async function middleware(request: NextRequest) {
     ...(apiOrigin && apiOrigin !== 'https://nutriperformance-clinical.onrender.com' ? [apiOrigin] : []),
   ].join(' ');
 
+  const csp = [
+    "default-src 'self'",
+    scriptSrc,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https://dgvrflipjxaclpmudtwt.supabase.co",
+    connectSrc,
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ');
+
+  // ── Security headers on every response ──────────────────────────────────────
+  // A requisição segue com o nonce para o renderizador: `Content-Security-Policy`
+  // é o header que o Next lê para achá-lo, e `x-nonce` é o que o layout raiz lê
+  // para repassá-lo a componente que emite script próprio (o do next-themes).
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+
+  response.headers.set('Content-Security-Policy', csp);
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   response.headers.set(
-    'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      scriptSrc,
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://dgvrflipjxaclpmudtwt.supabase.co",
-      connectSrc,
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join('; '),
+    'Strict-Transport-Security',
+    'max-age=63072000; includeSubDomains; preload',
   );
 
   // ── Route protection ─────────────────────────────────────────────────────────

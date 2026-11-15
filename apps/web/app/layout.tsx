@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from 'sonner';
@@ -33,11 +34,23 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * Ler `headers()` aqui é o que tira TODAS as rotas da geração estática, e isso
+ * é deliberado: o nonce da CSP é por requisição, então HTML gravado no build
+ * sairia com nonce velho ou sem nonce nenhum e o navegador bloquearia a
+ * hidratação. O motivo completo está em `middleware.ts`.
+ *
+ * Se alguém reverter para `function RootLayout` sem `headers()`, as rotas voltam
+ * a ser estáticas e o app quebra em produção — não aqui, onde o `next dev`
+ * renderiza tudo por requisição de qualquer jeito.
+ */
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${font.variable} font-sans`}>
-        <ThemeProvider>
+        <ThemeProvider nonce={nonce}>
           <QueryProvider>
             {children}
             <Toaster
