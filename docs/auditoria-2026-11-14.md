@@ -49,11 +49,12 @@ O levantamento abaixo está como foi escrito. O que mudou depois, no mesmo dia:
 - **A seção 5 saiu do papel.** `/gestao` com nove indicadores de gestão, todos de tabela
   que já existia. Falta rodar as consultas contra o banco:
   `apps/api/scripts/provar-consultas-de-gestao.mjs`.
-- **Achado novo (A4): `--destructive` reprova no tema escuro**, 2,28:1 — vermelho escuro
-  sobre fundo escuro, em 24 arquivos do front. Não corrigido de propósito: é mudança
-  global que exige medir as 24 telas nos dois temas.
+- **A4 — CORRIGIDO em 15/11** (`523e195`). O achado era maior do que eu anunciei: o
+  token reprovava nos **dois** temas (claro 3,37–3,78:1; escuro 2,10–2,43:1), e o par
+  sólido do botão também reprovava no claro (3,78:1). Papéis separados em dois tokens,
+  medidos no navegador: texto 4,96:1 (claro) e 4,97:1 (escuro); botão 4,52:1 e 7,47:1.
 
-**Segue aberto:** U2 (um único gráfico no sistema inteiro), A4, C1, C2, C3 e o achado da
+**Segue aberto:** U2 (um único gráfico no sistema inteiro), C1, C2, C3 e o achado da
 **prescrição que não é guardada em lugar nenhum** — documento clínico assinado com CRN que
 não deixa rastro no prontuário.
 **C2 bloqueia C1** — a decisão de guarda vem antes do código de exclusão.
@@ -126,22 +127,35 @@ Para quem usa leitor de tela, o campo é anunciado sem nome. Para quem usa o mou
 
 O que está **certo** e não é comum: `lang="pt-BR"` presente, `<h1>` único e coerente, `autocomplete="email"` e `autocomplete="current-password"` corretos no login, e nenhum controle sem nome acessível na página pública.
 
-### A4 — `--destructive` é inutilizável como cor de texto no tema escuro · **médio** · achado em 15/11
+### A4 — um token servindo dois papéis deixava o vermelho ilegível · **médio** · achado e **CORRIGIDO** em 15/11 (`523e195`)
 
 Encontrado ao medir a tela nova de indicadores, no navegador, com o tema trocado pelo botão do app.
 
-| tema | cor que o token resolve | sobre o fundo | razão | passa? |
-|---|---|---|---|---|
-| claro | `#EF4343` | branco | **3,78:1** | só texto grande (≥ 3:1) |
-| escuro | `#962C2C` | `#131820` | **2,28:1** | **não, em tamanho nenhum** |
+`text-destructive` tinha **51 usos como cor de texto em 24 arquivos** e **2 como fundo**. O valor foi escolhido para ser fundo de botão, e como texto reprovava — medido contra os três fundos de cada tema:
+
+| papel | tema | background | card | muted | exigido |
+|---|---|---|---|---|---|
+| texto (antes) | claro | 3,69:1 | 3,78:1 | **3,37:1** | 4,5:1 |
+| texto (antes) | escuro | 2,43:1 | 2,28:1 | **2,10:1** | 4,5:1 |
+| texto (depois) | claro | — | **4,96:1** medido | — | 4,5:1 |
+| texto (depois) | escuro | — | **4,97:1** medido | — | 4,5:1 |
+
+**Eu reportei isto primeiro como "reprova no tema escuro".** Reprova nos dois: eu medi o escuro e não medi o claro, então o achado era o dobro do anunciado. Régua aplicada a metade do caso dá conclusão errada com número na mão.
+
+E o **par sólido também reprovava**, no claro: rótulo branco sobre `0 84% 60%` dava 3,78:1, e o rótulo é 14px/500 — exige 4,5. Foi para `0 84% 50%` = 4,52:1. Sem conferir esse segundo papel eu teria consertado metade e declarado o todo.
 
 No escuro o token é um vermelho **escuro sobre fundo escuro**. Reprova até para número de 24px em peso 600, que é o uso mais generoso possível.
 
 `text-destructive` aparece em **24 arquivos** do front. Todo aviso de erro, valor vencido e contagem crítica desenhado com ele está ilegível para quem usa o tema escuro — e o tema escuro é o padrão de muita gente.
 
-**Não corrigi o token**, de propósito. Mudar `--destructive` exige medir as 24 telas nos dois temas: escurecer uma variável global para resolver o claro foi exatamente o que quebrou o link do banner de cookies quando ajustei `--primary` (A1). A tela de indicadores usa um par explícito, `text-red-700 dark:text-red-400`, medido em 5,9:1 no claro e 6,4:1 no escuro.
+**O conserto não foi clarear o token.** Clarear resolveria o texto e quebraria o botão, que precisa de fundo escuro para o rótulo claro. A causa era um token servindo dois papéis, então os papéis se separaram:
 
-O conserto certo é definir o par nos dois temas no `globals.css` e medir cada tela. É trabalho de uma faixa própria, não de um remendo.
+- `--danger` — cor de **texto** de aviso e erro, medida contra os três fundos de cada tema (pior caso 4,54:1). Usada pelos 51 lugares.
+- `--destructive` — par **sólido** de fundo + rótulo, para botão e badge. Seguiu existindo; mudou só a luminosidade no claro.
+
+**Como foi medido.** No navegador, numa tela que renderiza o aviso de verdade (erro de login no servidor local), com o tema trocado pelo mecanismo do app. A primeira passagem aprovou 9 elementos e **não provava nada**: nenhum elemento daquela tela usava a cor — conferência que não podia falhar. Refeita na tela certa: 22 elementos, 0 reprovações, mínimo 4,97:1.
+
+O par explícito que a tela de indicadores usava (`text-red-700 dark:text-red-400`) foi removido: com o token medido, duas fontes de verdade para a mesma cor divergem.
 
 ---
 
