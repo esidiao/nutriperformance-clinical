@@ -296,6 +296,20 @@ try {
   }
 
   // Volume por tabela, para saber se o workspace escolhido e representativo.
+  // Em try proprio: num banco com schema parcial esta consulta estoura por
+  // tabela ausente, e sem a protecao ela matava o processo ANTES do resumo —
+  // o relatorio terminava sem dizer quantas consultas falharam. Informacao
+  // acessoria nao pode derrubar a conclusao.
+  try {
+    await volume();
+  } catch (e) {
+    log(`volume por tabela: nao deu para medir (${e.message})`);
+  }
+} finally {
+  await c.end();
+}
+
+async function volume() {
   const { rows } = await c.query(
     `SELECT (SELECT count(*)::int FROM patients WHERE workspace_id = $1) AS pacientes,
             (SELECT count(*)::int FROM appointments WHERE workspace_id = $1) AS consultas,
@@ -308,8 +322,6 @@ try {
   );
   log('volume neste workspace:');
   log(JSON.stringify(rows[0], null, 1));
-} finally {
-  await c.end();
 }
 
 log(`\nconsultas com falha: ${falhas} de ${consultas.length}`);
