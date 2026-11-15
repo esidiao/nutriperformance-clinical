@@ -7,7 +7,7 @@ import {
   Loader2, AlertTriangle, Users, UserMinus, CalendarX2, Clock, NotebookPen,
   Target, Wallet, Bell, Info,
 } from 'lucide-react';
-import { api, falhou, type IndicadoresDeGestao } from '@/lib/api-client';
+import { api, falhou, ApiError, type IndicadoresDeGestao } from '@/lib/api-client';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { brl } from '@/lib/moeda';
@@ -252,8 +252,13 @@ export default function GestaoPage() {
             <CardContent className="py-6">
               <p className={`flex items-start gap-2 text-sm ${VERMELHO}`}>
                 <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
-                Não foi possível carregar os indicadores. A API pode estar hibernando — tente de
-                novo em alguns segundos.
+                {/* 404 aqui nao e "tente de novo": e a API no ar sendo mais
+                    antiga que esta tela, porque front e API sobem separados e
+                    a mao. Dizer "pode estar hibernando" manda recarregar para
+                    sempre, com a causa escondida. */}
+                {q.error instanceof ApiError && q.error.status === 404
+                  ? 'Esta tela precisa de um recurso que a API no ar ainda não tem. Recarregar não resolve: a API precisa ser implantada.'
+                  : 'Não foi possível carregar os indicadores. A API pode estar hibernando — tente de novo em alguns segundos.'}
               </p>
             </CardContent>
           </Card>
