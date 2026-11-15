@@ -71,7 +71,26 @@ function lerEnv(caminho) {
 }
 
 function conexao() {
-  if (process.env.PGURL) return { url: process.env.PGURL, origem: 'PGURL' };
+  if (process.env.PGURL) {
+    // PGURL tem preferencia, mas so se for uma URL de verdade. Sem esta
+    // conferencia, um PGURL velho e invalido — que sobrevive na janela do
+    // terminal depois de um comando errado — vence em silencio o `.env` que
+    // funciona, e o erro sai como host inexistente. Aconteceu: o host virou
+    // `base`, de um texto de exemplo colado inteiro.
+    let host = '';
+    try {
+      host = new URL(process.env.PGURL).hostname;
+    } catch {
+      /* nao e URL */
+    }
+    if (!host) {
+      console.error('PGURL esta definida mas nao e uma URL de conexao valida.');
+      console.error('  Limpe com:  Remove-Item Env:PGURL');
+      console.error('  Depois rode de novo: sem PGURL ele usa o apps/api/.env.');
+      process.exit(2);
+    }
+    return { url: process.env.PGURL, origem: 'PGURL' };
+  }
 
   // Variavel de ambiente sobrepoe o arquivo: permite apontar para outro banco
   // sem editar o `.env`, e deixa a montagem da URL testavel com valor falso.
