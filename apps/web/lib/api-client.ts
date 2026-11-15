@@ -114,6 +114,76 @@ export function warmUp(): void {
     .catch(() => undefined);
 }
 
+// ─── Indicadores de gestão ──────────────────────────────────────────────────
+//
+// Espelha `apps/api/src/modules/management/management.service.ts`. Os `| null`
+// não são frouxidão de tipo: são a resposta da API quando não existe
+// denominador, e o tipo obriga a tela a decidir o que escrever nesse caso.
+
+/** Bloco que a API não conseguiu calcular. Não vem com zeros. */
+export interface IndicadorFalho {
+  erro: true;
+  mensagem: string;
+}
+
+export type Bloco<T> = T | IndicadorFalho;
+
+export const falhou = <T>(b: Bloco<T>): b is IndicadorFalho =>
+  typeof b === 'object' && b !== null && 'erro' in b;
+
+export interface IndicadoresDeGestao {
+  periodo: { dias: number; diasAbandono: number; de: string; ate: string };
+  pacientes: Bloco<{
+    total: number;
+    ativos: number;
+    novosNoPeriodo: number;
+    emAbandono: number;
+    nuncaAtendidos: number;
+  }>;
+  consultas: Bloco<{
+    realizadas: number;
+    faltas: number;
+    canceladas: number;
+    semDesfecho: number;
+    taxaFaltaPct: number | null;
+  }>;
+  primeiroPlano: Bloco<{
+    comPlano: number;
+    semPlano: number;
+    medianaDias: number | null;
+  }>;
+  diario: Bloco<{
+    registrosNoPeriodo: number;
+    pacientesComRegistro: number;
+    pacientesComLinkAtivo: number;
+    usoDoLinkPct: number | null;
+    adesaoAoPlanoPct: null;
+  }>;
+  metas: Bloco<{
+    total: number;
+    atingidas: number;
+    abertas: number;
+    vencidas: number;
+    taxaAtingimentoPct: number | null;
+  }>;
+  financeiro: Bloco<{
+    recebidoNoPeriodoCentavos: number;
+    aVencerCentavos: number;
+    vencidoCentavos: number;
+    cobrancasVencidas: number;
+    inadimplenciaPct: number | null;
+    ticketMedioCentavos: number | null;
+  }>;
+  alertas: Bloco<{
+    categorias: Array<{
+      categoria: string;
+      total: number;
+      pendentes: number;
+      medianaHorasResolucao: number | null;
+    }>;
+  }>;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
@@ -532,6 +602,23 @@ export const api = {
       pendingAlerts: Array<{ id: string; severity: string; title: string; description: string; patientCode: string | null; createdAt: string }>;
       recentActivity: Array<{ operation: string; module: string | null; amount: number; description: string; createdAt: string }>;
     }>('/dashboard/stats'),
+  },
+
+  // Indicadores de gestão
+  //
+  // Cada bloco é `{ ...dados }` OU `{ erro: true, mensagem }`: a API isola a
+  // falha de uma consulta para não derrubar o painel. A tela tem de testar
+  // `'erro' in bloco` antes de ler número — e os números que vêm como `number
+  // | null` são nulos de propósito quando não há base para calcular. Tratar
+  // null como 0 aqui desfaria toda a disciplina do backend.
+  management: {
+    indicators: (params?: { dias?: number; diasAbandono?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.dias) qs.set('dias', String(params.dias));
+      if (params?.diasAbandono) qs.set('diasAbandono', String(params.diasAbandono));
+      const sufixo = qs.toString() ? `?${qs.toString()}` : '';
+      return api.get<IndicadoresDeGestao>(`/management/indicators${sufixo}`);
+    },
   },
 
   // Reports

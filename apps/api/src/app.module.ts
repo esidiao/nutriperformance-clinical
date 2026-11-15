@@ -63,6 +63,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { ScientificBaseModule } from './modules/scientific-base/scientific-base.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ManagementModule } from './modules/management/management.module';
 import { FoodsModule } from './modules/foods/foods.module';
 import { ProductsModule } from './modules/products/products.module';
 import { SupplementsCatalogModule } from './modules/supplements-catalog/supplements-catalog.module';
@@ -184,6 +185,7 @@ import { podeSincronizar, motivoDeNaoSincronizar } from './common/banco-local';
     ScientificBaseModule,
     AdminModule,
     DashboardModule,
+    ManagementModule,
     FoodsModule,
     ProductsModule,
     SupplementsCatalogModule,

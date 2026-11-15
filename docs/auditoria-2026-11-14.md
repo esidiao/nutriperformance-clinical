@@ -46,9 +46,16 @@ O levantamento abaixo está como foi escrito. O que mudou depois, no mesmo dia:
   `next-themes`. Preço: as 38 rotas que eram estáticas viraram dinâmicas, porque nonce é
   por requisição e HTML de build não tem nonce.
 
-**Segue aberto:** U2 (um único gráfico no sistema inteiro), C1, C2, C3, a seção 5
-(inteligência de gestão) e o achado novo da **prescrição que não é guardada em lugar
-nenhum** — documento clínico assinado com CRN que não deixa rastro no prontuário.
+- **A seção 5 saiu do papel.** `/gestao` com nove indicadores de gestão, todos de tabela
+  que já existia. Falta rodar as consultas contra o banco:
+  `apps/api/scripts/provar-consultas-de-gestao.mjs`.
+- **Achado novo (A4): `--destructive` reprova no tema escuro**, 2,28:1 — vermelho escuro
+  sobre fundo escuro, em 24 arquivos do front. Não corrigido de propósito: é mudança
+  global que exige medir as 24 telas nos dois temas.
+
+**Segue aberto:** U2 (um único gráfico no sistema inteiro), A4, C1, C2, C3 e o achado da
+**prescrição que não é guardada em lugar nenhum** — documento clínico assinado com CRN que
+não deixa rastro no prontuário.
 **C2 bloqueia C1** — a decisão de guarda vem antes do código de exclusão.
 
 ## Método, e o que ele não alcança
@@ -118,6 +125,23 @@ Para quem usa leitor de tela, o campo é anunciado sem nome. Para quem usa o mou
 - **Não há *skip link*.** Com 24 itens de menu, quem usa teclado atravessa o menu inteiro em cada página para chegar ao conteúdo.
 
 O que está **certo** e não é comum: `lang="pt-BR"` presente, `<h1>` único e coerente, `autocomplete="email"` e `autocomplete="current-password"` corretos no login, e nenhum controle sem nome acessível na página pública.
+
+### A4 — `--destructive` é inutilizável como cor de texto no tema escuro · **médio** · achado em 15/11
+
+Encontrado ao medir a tela nova de indicadores, no navegador, com o tema trocado pelo botão do app.
+
+| tema | cor que o token resolve | sobre o fundo | razão | passa? |
+|---|---|---|---|---|
+| claro | `#EF4343` | branco | **3,78:1** | só texto grande (≥ 3:1) |
+| escuro | `#962C2C` | `#131820` | **2,28:1** | **não, em tamanho nenhum** |
+
+No escuro o token é um vermelho **escuro sobre fundo escuro**. Reprova até para número de 24px em peso 600, que é o uso mais generoso possível.
+
+`text-destructive` aparece em **24 arquivos** do front. Todo aviso de erro, valor vencido e contagem crítica desenhado com ele está ilegível para quem usa o tema escuro — e o tema escuro é o padrão de muita gente.
+
+**Não corrigi o token**, de propósito. Mudar `--destructive` exige medir as 24 telas nos dois temas: escurecer uma variável global para resolver o claro foi exatamente o que quebrou o link do banner de cookies quando ajustei `--primary` (A1). A tela de indicadores usa um par explícito, `text-red-700 dark:text-red-400`, medido em 5,9:1 no claro e 6,4:1 no escuro.
+
+O conserto certo é definir o par nos dois temas no `globals.css` e medir cada tela. É trabalho de uma faixa própria, não de um remendo.
 
 ---
 
@@ -260,6 +284,33 @@ São **números de estoque e de consumo de plataforma**. Falta o que diz se a cl
 | Quais alertas clínicos mais aparecem? | `clinical_alerts` | não |
 
 **O dado já está no banco em todos os casos.** Falta a consulta e a tela. É o item de melhor relação valor/esforço do plano inteiro, e é também o que diferencia de concorrente.
+
+### Implementado em 15/11 — `/gestao`
+
+`ManagementModule` na API (`GET /management/indicators?dias=&diasAbandono=`) e a tela `/gestao`, no grupo Gestão do menu. Nenhuma coluna nova, nenhuma gravação: sete consultas de agregação sobre tabela que já existia.
+
+| pergunta | como ficou | base |
+|---|---|---|
+| Quantos abandonaram? | ativo, já atendido, **sem consulta futura** e sem comparecer há mais de N dias (N regulável) | `patients`, `appointments` |
+| Quantos nunca foram atendidos? | contagem separada do abandono — é outro problema | `patients`, `appointments` |
+| Qual a taxa de falta? | `faltas / (faltas + realizadas)`; **cancelada fora do denominador** | `appointments.status` |
+| Registro está em dia? | consultas já passadas e sem desfecho | `appointments` |
+| Cadastro até o 1º plano | **mediana** (não média), só plano publicado, mais a contagem de quem não tem plano | `patients`, `meal_plans` |
+| Diário: está sendo usado? | pacientes com registro ÷ pacientes com link ativo | `food_diary_entries`, `food_diary_links` |
+| Pacientes estão evoluindo? | metas atingidas, abertas e **vencidas** | `patient_goals` |
+| Receita e inadimplência | recebido no período, a vencer, vencido, ticket médio, e inadimplência sobre **o que já venceu** | `charges` |
+| Quais alertas mais aparecem? | por categoria, com pendentes e mediana de horas até resolver | `clinical_alerts` |
+
+**A regra do MRR foi aplicada inteira.** Denominador zero devolve `null`, nunca `0`, e a tela escreve um travessão com o motivo ao lado — "nenhuma consulta com desfecho nos últimos 90 dias", "nenhuma meta cadastrada". Escrever "0,0% de falta" numa clínica sem consulta no período seria o painel mentindo com o dado certo na mão.
+
+**Duas coisas deliberadamente NÃO medidas:**
+
+- **Adesão ao plano** (o que foi comido contra o que foi prescrito). Exigiria casar alimento do diário — texto livre e foto — com item do plano. Casar por nome é o erro que já custou caro neste portfólio: prefixo sem limite engole palavra. O cartão existe na tela, mostra travessão e explica por quê; o que está medido ao lado é **engajamento**.
+- **Evolução a partir da antropometria.** Dizer "quantos melhoraram" exigiria saber para que lado é melhorar, e isso muda por paciente: perder peso e ganhar massa movem a mesma coluna em direções opostas. `patient_goals` já guarda essa direção, então a evolução agregada sai das metas.
+
+**Cada indicador é isolado:** se uma das sete consultas falhar, aquele cartão diz que falhou — em vermelho, com a nota de que os outros seguem válidos — e o erro vai para o log da API. Nunca aparece como zero.
+
+**O que falta provar:** o SQL rodando contra o banco. Os 35 testes novos mockam `DataSource.query`, então provam formato e aritmética, não sintaxe. `apps/api/scripts/provar-consultas-de-gestao.mjs` executa as consultas **extraídas do próprio serviço** (não uma cópia, que divergiria), somente leitura, com `PGURL`.
 
 Nota de honestidade do código que vale preservar: o MRR foi **removido** do painel com o comentário de que calcular receita sobre preço que ninguém cobra seria "número inventado num painel de gestão — pior que número nenhum", e `mrrBrl` devolve `null` e não `0`. Essa disciplina é o que torna o painel confiável; os indicadores novos devem seguir a mesma regra.
 
