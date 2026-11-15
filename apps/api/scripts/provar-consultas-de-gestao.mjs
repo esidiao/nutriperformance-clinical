@@ -2,7 +2,17 @@
  * Executa, contra um banco REAL e so para LER, as sete consultas do painel de
  * indicadores de gestao.
  *
- *   PGURL=postgresql://... node scripts/provar-consultas-de-gestao.mjs [workspace_id]
+ *   node scripts/provar-consultas-de-gestao.mjs [workspace_id]
+ *
+ * Sem argumento nenhum ele usa as credenciais de `apps/api/.env` (DB_HOST,
+ * DB_USER, DB_PASS, DB_NAME, DB_PORT) — as mesmas que a API usa. `PGURL`, se
+ * estiver no ambiente, tem preferencia.
+ *
+ * A primeira versao exigia `PGURL` e so. Isso virou defeito na pratica: a
+ * instrucao de uso trazia um texto de exemplo entre `<...>`, foi colado
+ * literalmente, e o erro saiu como `getaddrinfo ENOTFOUND base` — host `base`,
+ * de "connection string do banco". Comando que exige preencher a mao e comando
+ * que vai ser preenchido errado.
  *
  * ============================== POR QUE EXISTE ==============================
  *
@@ -31,16 +41,74 @@
  * Somente leitura, e a trava e dupla: `SET default_transaction_read_only = on`
  * na sessao, e uma recusa de rodar qualquer consulta extraida que nao comece
  * com SELECT ou WITH. Nao imprime dado de paciente — as consultas devolvem
- * contagem, soma e mediana. Nao le `.env`: a conexao vem de `PGURL`, igual ao
- * `aplicar-sql.mjs`.
+ * contagem, soma e mediana. Nao imprime a senha nem a string de conexao: so o
+ * host e o banco, para voce conferir CONTRA QUAL banco a prova rodou.
  */
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
 
-if (!process.env.PGURL) {
-  console.error('uso: PGURL=postgresql://... node scripts/provar-consultas-de-gestao.mjs [workspace_id]');
-  process.exit(2);
+// ── Conexao ─────────────────────────────────────────────────────────────────
+/** Le um .env simples: `CHAVE=valor`, com ou sem aspas, ignorando comentario. */
+function lerEnv(caminho) {
+  const fora = {};
+  let texto;
+  try {
+    texto = readFileSync(caminho, 'utf8');
+  } catch {
+    return fora;
+  }
+  for (const linha of texto.split('\n')) {
+    const corte = linha.indexOf('=');
+    if (corte === -1) continue;
+    const chave = linha.slice(0, corte).trim();
+    if (!chave || chave.startsWith('#')) continue;
+    let valor = linha.slice(corte + 1).trim();
+    const q = valor[0];
+    if ((q === '"' || q === "'") && valor.endsWith(q)) valor = valor.slice(1, -1);
+    fora[chave] = valor;
+  }
+  return fora;
 }
+
+function conexao() {
+  if (process.env.PGURL) return { url: process.env.PGURL, origem: 'PGURL' };
+
+  // Variavel de ambiente sobrepoe o arquivo: permite apontar para outro banco
+  // sem editar o `.env`, e deixa a montagem da URL testavel com valor falso.
+  const arquivo = lerEnv(new URL('../.env', import.meta.url));
+  const env = {};
+  const doAmbiente = [];
+  for (const k of ['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_PORT']) {
+    if (process.env[k]) {
+      env[k] = process.env[k];
+      doAmbiente.push(k);
+    } else {
+      env[k] = arquivo[k];
+    }
+  }
+  const faltando = ['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME'].filter((k) => !env[k]);
+  if (faltando.length) {
+    console.error(
+      `nao achei a conexao: defina PGURL, ou apps/api/.env com ${faltando.join(', ')}`,
+    );
+    process.exit(2);
+  }
+  // encodeURIComponent na senha: `@`, `:` e `/` numa senha quebram a URL em
+  // silencio e o erro sai como host inexistente, nao como senha invalida.
+  const u = encodeURIComponent(env.DB_USER);
+  const p = encodeURIComponent(env.DB_PASS);
+  const porta = env.DB_PORT || '5432';
+  return {
+    url: `postgresql://${u}:${p}@${env.DB_HOST}:${porta}/${env.DB_NAME}`,
+    origem: doAmbiente.length
+      ? `apps/api/.env, com ${doAmbiente.join(', ')} vindo do ambiente`
+      : 'apps/api/.env',
+    host: env.DB_HOST,
+    banco: env.DB_NAME,
+  };
+}
+
+const conn = conexao();
 
 const WS = process.argv[2] || '00000000-0000-0000-0000-000000000001';
 const DIAS = 90;
@@ -73,20 +141,43 @@ if (consultas.length === 0) {
 }
 
 const c = new pg.Client({
-  connectionString: process.env.PGURL,
+  connectionString: conn.url,
   ssl: { rejectUnauthorized: false },
   statement_timeout: 30000,
 });
 
 let falhas = 0;
 
+// Qual banco vai ser provado. Isto sai ANTES de conectar, de proposito: se a
+// conexao falhar, a mensagem mais util e justamente contra que host ele tentou.
+// Host e banco apenas — nunca usuario nem senha.
+let onde = conn.host && conn.banco ? `${conn.host}/${conn.banco}` : '(nao identificado)';
+if (!conn.host) {
+  try {
+    const u = new URL(conn.url);
+    onde = `${u.hostname}${u.pathname}`;
+  } catch {
+    /* string de conexao em formato libpq; segue sem identificar */
+  }
+}
+console.log(`banco: ${onde}  (origem da conexao: ${conn.origem})`);
+console.log(`consultas extraidas do servico: ${consultas.length}`);
+console.log(`workspace: ${WS}`);
+console.log(`janela: ${DIAS} dias\n`);
+
 try {
   await c.connect();
-  await c.query('SET default_transaction_read_only = on');
+} catch (e) {
+  // Pilha crua aqui nao ajuda ninguem: o que importa e o host e o motivo.
+  console.error(`nao conectei em ${onde}: ${e.message}`);
+  if (e.code === 'ENOTFOUND') {
+    console.error('  host nao existe — confira DB_HOST no apps/api/.env, ou PGURL se estiver definida');
+  }
+  process.exit(2);
+}
 
-  console.log(`consultas extraidas do servico: ${consultas.length}`);
-  console.log(`workspace: ${WS}`);
-  console.log(`janela: ${DIAS} dias\n`);
+try {
+  await c.query('SET default_transaction_read_only = on');
 
   for (const { nome, sql } of consultas) {
     // Trava 2: nada que nao seja leitura roda, mesmo que alguem edite o
